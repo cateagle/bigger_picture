@@ -484,4 +484,4 @@ def main(image_dir):
 
 
 if __name__ == "__main__":
-    main("/mnt/WaddenSea WaddenSeaTestData/TestImages/ROV-StE2/products/GLDS0118_110509821_min_35_fps_1/small_subset_illum_change")
+    main("GLDS0118_110509821_min_35_fps_1/small_subset_illum_change")
