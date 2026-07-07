@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 from src.constants import Role
@@ -8,8 +10,7 @@ class SignupRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
-    uuid: str
+    uuid: UUID
     username: str
     role: Role
     expert_level: int

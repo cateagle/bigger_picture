@@ -1,23 +1,22 @@
 import sqlite3
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from src import config
+from src.api.deps import get_current_user
 from src.constants import Role
 from src.models.auth import SignupRequest, UserResponse
 from src.schema.users import User, create_self_referencing_user
 
 router = APIRouter()
 
-
-def get_current_user(request: Request) -> User | None:
-    return request.state.user
+__all__ = ["router", "get_current_user"]
 
 
 def _to_response(user: User) -> UserResponse:
     return UserResponse(
-        id=user.id,
-        uuid=config.encode_uuid(user.uuid),
+        uuid=UUID(bytes=user.uuid),
         username=user.username,
         role=Role(user.role),
         expert_level=user.expert_level,

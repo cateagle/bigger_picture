@@ -32,7 +32,7 @@ def test_me_resolves_signed_up_identity(client):
     me_response = client.get("/api/v1/auth/me")
     assert me_response.status_code == 200
     assert me_response.json()["username"] == "dana"
-    assert me_response.json()["id"] == signup_response.json()["id"]
+    assert me_response.json()["uuid"] == signup_response.json()["uuid"]
 
 
 def test_me_with_garbage_cookie_is_401(client):

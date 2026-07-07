@@ -7,10 +7,18 @@ from src.schema.users import create_self_referencing_user
 
 
 @pytest.fixture
-def app(tmp_path):
+def app(tmp_path, monkeypatch):
     db_path = str(tmp_path / "test.db")
-    assets_dir = str(tmp_path / "assets")
-    return create_app(database_path=db_path, assets_dir=assets_dir)
+    # Drive the app's StaticFiles mount and `resolve_asset_path` off the same
+    # global so there's a single source of truth for the assets directory.
+    monkeypatch.setattr(config, "ASSETS_DIR", str(tmp_path / "assets"))
+    return create_app(database_path=db_path)
+
+
+@pytest.fixture
+def assets_dir(tmp_path):
+    """The assets directory the app is built against (see the `app` fixture)."""
+    return str(tmp_path / "assets")
 
 
 @pytest.fixture
