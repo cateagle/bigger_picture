@@ -4,7 +4,7 @@ A browser-playable citizen-science game that crowdsources ground-truth annotatio
 
 Instead of paying experts to manually annotate overlapping image pairs, we turn the annotation process into a short, low-friction game. Anyone can play a round in their browser, and each round produces a small piece of labeled data (an overlap decision, a set of matched points, or a verification vote). Aggregated across many players, these micro-contributions add up to a full annotated dataset.
 
-This repository is split into a `frontend` (this is where active development currently happens) and a `backend` (API + persistence, not built yet). The two are wired together with Docker Compose so the whole stack can be run locally with one command.
+This repository is split into a `frontend` (React/TypeScript SPA) and a `backend` (FastAPI + SQLite API and persistence). The two are wired together with Docker Compose so the whole stack can be run locally with one command.
 
 ## Background
 
@@ -60,45 +60,49 @@ Not fully designed yet, but the intended direction:
 bigger_picture/
 ├── docker-compose.yml     # orchestrates the stack for local deployment
 ├── frontend/              # React + TypeScript SPA — the game itself
-├── backend/               # not yet created — API, scoring, dataset/image storage
+├── backend/               # FastAPI + SQLite API, auth, and persistence
 ├── compute_homographies.py  # original single-user annotation prototype (OpenCV)
 └── README.md
 ```
 
-- **Frontend**: a single-page React app. Renders the three game modes, collects player input, and talks to the backend over HTTP (API shape TBD once the backend exists). This is the current focus of development.
-- **Backend** (planned, not implemented): serves image pairs to annotate/verify, receives round results, tracks scoring/consensus, and persists the growing annotation dataset. Likely responsibilities include picking which image pair to serve next (prioritizing pairs that need more overlap votes, more annotations, or more verification), and eventually running the homography/fundamental-matrix fitting that `compute_homographies.py` does locally today.
-- **Local deployment**: `docker-compose.yml` wires the services together so the whole stack (as it grows) can be started with `docker compose up`. Only the frontend is defined so far; the backend service will be added once its stack is decided.
+- **Frontend**: a single-page React app. Renders the three game modes and collects player input. Stage 2 (Annotating) talks to the real backend for its label list, auth, and dataset summary endpoints; Stage 1 (Finding Overlap) and Stage 3 (Verification) are playable end-to-end but still run against mocked data in the frontend since the backend has no candidate-pair or review-queue endpoints yet.
+- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset summary, and label list endpoints today. Still to come: endpoints for serving overlap candidate pairs, submitting annotations, and serving/deciding verification items, plus scoring/consensus and picking which image pair to serve next. See [`backend/README.md`](./backend/README.md) for details.
+- **Local deployment**: `docker-compose.yml` runs both the `frontend` and `backend` services so the whole stack can be started with `docker compose up`.
 
 ## Frontend
 
 - **Stack**: [Vite](https://vite.dev/) + [React](https://react.dev/) + TypeScript.
 - **Location**: [`frontend/`](./frontend).
-- Currently an empty scaffold (default landing page only) — the three game screens have not been built yet.
+- All three game screens (Finding Overlap, Annotating, Verification) are implemented and playable from the home screen's stage picker.
 
 ### Running the frontend
 
 With Docker Compose (recommended, matches how the whole project will eventually run):
 
 ```sh
-docker compose up frontend
+docker compose up
 ```
 
-The dev server is then available at http://localhost:5173, with hot reload against your local `frontend/` checkout.
+This starts both the frontend (http://localhost:5173, hot reload against your local `frontend/` checkout) and the backend (http://localhost:8000).
 
 Without Docker, directly with Node (22+ recommended):
 
 ```sh
 cd frontend
+cp .env.example .env   # VITE_API_BASE_URL - defaults to http://localhost:8000
 npm install
 npm run dev
 ```
 
+The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) for auth, dataset summary, and label list requests to succeed; the frontend's mocked Stage 1/3 endpoints work with no backend running.
+
 ## Status
 
 - ✅ Concept and three-stage game design documented (this README).
-- ✅ Repository split into `frontend`/`backend`, Docker Compose scaffold for local deployment.
-- ✅ Empty React/TypeScript frontend scaffold.
-- ⬜ Frontend: build the three game screens, routing between them, and API client.
-- ⬜ Backend: not started (framework/stack not yet decided).
+- ✅ Repository split into `frontend`/`backend`, Docker Compose deployment for both services.
+- ✅ Frontend: all three game screens built, with routing between them from the home screen.
+- ✅ Frontend API client wired to the real backend (auth, dataset summary, labels), with a `VITE_API_BASE_URL` env var for the backend location.
+- ✅ Backend: FastAPI + SQLite, with auth, dataset, and admin endpoints.
+- ⬜ Backend: candidate-pair, annotation-submission, and verification-queue endpoints (Stage 1 and Stage 3 are still mocked in the frontend pending these).
 - ⬜ Dataset ingestion pipeline for the marine images themselves.
 - ⬜ Gamification mechanics (scoring, consensus, leaderboards) — design only, not implemented.
