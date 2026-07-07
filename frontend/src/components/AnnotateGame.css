@@ -7,6 +7,21 @@
   gap: 16px;
 }
 
+.back-link {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 12px;
+  color: var(--text);
+  cursor: pointer;
+  display: block;
+}
+
+.back-link:hover {
+  color: var(--text-h);
+}
+
 .annotate-header h1 {
   margin: 0 0 4px;
 }

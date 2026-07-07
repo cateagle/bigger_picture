@@ -44,7 +44,7 @@ function Marker({ point, color, label }: { point: NormalizedPoint; color: string
   )
 }
 
-export default function AnnotateGame() {
+export default function AnnotateGame({ onBack }: { onBack: () => void }) {
   const [pair, setPair] = useState<ImagePair | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -105,6 +105,9 @@ export default function AnnotateGame() {
   return (
     <div className="annotate-game">
       <header className="annotate-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          ← Back to games
+        </button>
         <h1>Stage 2 — Annotating</h1>
         <p>
           Click a point in the left image, then click the same physical spot in the right image.
