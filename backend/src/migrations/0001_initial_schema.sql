@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS image_statuses (
     created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     title       TEXT    NOT NULL UNIQUE CHECK(LENGTH(title) < 128),
     metadata    TEXT, -- json
-    description TEXT    CHECK(description IS NULL OR LENGTH(description) < 1024),
+    description TEXT    CHECK(description IS NULL OR LENGTH(description) < 1024)
 );
 
 CREATE TABLE IF NOT EXISTS pair_statuses (
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS pair_statuses (
     created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     title       TEXT    NOT NULL UNIQUE CHECK(LENGTH(title) < 128),
     metadata    TEXT, -- json
-    description TEXT    CHECK(description IS NULL OR LENGTH(description) < 1024),
+    description TEXT    CHECK(description IS NULL OR LENGTH(description) < 1024)
 );
 
 CREATE TABLE IF NOT EXISTS images (
