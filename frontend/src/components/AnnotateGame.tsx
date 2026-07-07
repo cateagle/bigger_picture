@@ -103,8 +103,8 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="annotate-game">
-      <header className="annotate-header">
+    <div className="game-screen">
+      <header className="game-header">
         <button type="button" className="back-link" onClick={onBack}>
           ← Back to games
         </button>
@@ -115,8 +115,8 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
         </p>
       </header>
 
-      {loading && <p className="annotate-status">Loading image pair…</p>}
-      {error && <p className="annotate-status annotate-status-error">{error}</p>}
+      {loading && <p className="game-status">Loading image pair…</p>}
+      {error && <p className="game-status game-status-error">{error}</p>}
 
       {pair && !loading && (
         <>
@@ -126,7 +126,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
                 src={pair.imageA}
                 alt="Image A"
                 onClick={handleClickA}
-                className={pendingA ? 'awaiting-match' : ''}
+                className={`clickable${pendingA ? ' awaiting-match' : ''}`}
               />
               {correspondences.map((c, i) => (
                 <Marker key={`a-${i}`} point={c.pointA} color={markerColor(i)} label={i + 1} />
@@ -141,7 +141,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
               )}
             </div>
             <div className="image-pane">
-              <img src={pair.imageB} alt="Image B" onClick={handleClickB} />
+              <img src={pair.imageB} alt="Image B" onClick={handleClickB} className="clickable" />
               {correspondences.map((c, i) => (
                 <Marker key={`b-${i}`} point={c.pointB} color={markerColor(i)} label={i + 1} />
               ))}
@@ -154,8 +154,8 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
               : 'Click a point in the left image to start a new match.'}
           </p>
 
-          <footer className="annotate-footer">
-            <span className="annotate-count">
+          <footer className="game-footer">
+            <span className="game-count">
               {correspondences.length} point{correspondences.length === 1 ? '' : 's'} matched
             </span>
             <button

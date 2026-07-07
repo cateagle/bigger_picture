@@ -16,7 +16,7 @@ const GAMES: GameCard[] = [
     stage: 1,
     title: 'Finding Overlap',
     description: 'Look at two marine images and decide whether they show the same physical scene.',
-    active: false,
+    active: true,
   },
   {
     id: 'annotate',

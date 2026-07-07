@@ -1,67 +1,5 @@
-.annotate-game {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 24px 48px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.back-link {
-  font: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0 0 12px;
-  color: var(--text);
-  cursor: pointer;
-  display: block;
-}
-
-.back-link:hover {
-  color: var(--text-h);
-}
-
-.annotate-header h1 {
-  margin: 0 0 4px;
-}
-
-.annotate-header p {
-  margin: 0;
-}
-
-.annotate-status {
-  text-align: center;
-}
-
-.annotate-status-error {
-  color: #e34948;
-}
-
-.image-pane-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.image-pane {
-  position: relative;
-  flex: 1 1 360px;
-  min-width: 280px;
-  line-height: 0;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid var(--pane-border);
-}
-
-.image-pane img {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
+.image-pane img.clickable {
   cursor: crosshair;
-  user-select: none;
 }
 
 .image-pane img.awaiting-match {
@@ -110,19 +48,5 @@
 .annotate-hint {
   text-align: center;
   margin: 0;
-}
-
-.annotate-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.annotate-count {
-  color: var(--text-h);
-  font-weight: 500;
-  margin-right: 8px;
 }
 

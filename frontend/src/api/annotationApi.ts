@@ -1,4 +1,5 @@
 import { apiFetch } from './client'
+import { delay } from './mockDelay'
 import type { Correspondence, ImagePair, Label } from './types'
 
 /** Real endpoint: GET /api/v1/annotate/labels. */
@@ -26,10 +27,6 @@ const MOCK_PAIRS: ImagePair[] = [
 ]
 
 let nextPairIndex = 0
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 export async function fetchImagePair(): Promise<ImagePair> {
   await delay(400)
