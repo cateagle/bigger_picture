@@ -30,7 +30,7 @@ const GAMES: GameCard[] = [
     stage: 3,
     title: 'Verification',
     description: "Review another player's annotation and flag it if it doesn't look right.",
-    active: false,
+    active: true,
   },
 ]
 

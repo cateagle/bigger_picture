@@ -2,26 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { fetchImagePair, submitAnnotation } from '../api/annotationApi'
 import type { Correspondence, ImagePair, NormalizedPoint } from '../api/types'
+import { Marker } from './Marker'
+import { markerColor } from './markerColor'
 import './AnnotateGame.css'
 
 const MIN_CORRESPONDENCES = 4
-
-// Fixed categorical order (never re-sorted/cycled by rank) so a given
-// correspondence keeps its color for its whole lifetime on screen.
-const MARKER_COLORS = [
-  '#2a78d6', // blue
-  '#1baf7a', // aqua
-  '#eda100', // yellow
-  '#008300', // green
-  '#4a3aa7', // violet
-  '#e34948', // red
-  '#e87ba4', // magenta
-  '#eb6834', // orange
-]
-
-function markerColor(index: number): string {
-  return MARKER_COLORS[index % MARKER_COLORS.length]
-}
 
 function pointFromClick(e: ReactMouseEvent<HTMLImageElement>): NormalizedPoint {
   const rect = e.currentTarget.getBoundingClientRect()
@@ -31,17 +16,6 @@ function pointFromClick(e: ReactMouseEvent<HTMLImageElement>): NormalizedPoint {
     x: Math.min(1, Math.max(0, x)),
     y: Math.min(1, Math.max(0, y)),
   }
-}
-
-function Marker({ point, color, label }: { point: NormalizedPoint; color: string; label: number }) {
-  return (
-    <div
-      className="marker"
-      style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%`, backgroundColor: color }}
-    >
-      {label}
-    </div>
-  )
 }
 
 export default function AnnotateGame({ onBack }: { onBack: () => void }) {
@@ -148,7 +122,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          <p className="annotate-hint">
+          <p className="game-hint">
             {pendingA
               ? 'Now click the matching point in the right image.'
               : 'Click a point in the left image to start a new match.'}

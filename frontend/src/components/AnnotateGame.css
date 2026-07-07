@@ -7,25 +7,6 @@
   outline-offset: -2px;
 }
 
-.marker {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  margin-left: -12px;
-  margin-top: -12px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
-}
-
 .marker-pending {
   background-color: transparent;
   border: 2px dashed #eda100;
@@ -45,8 +26,4 @@
   }
 }
 
-.annotate-hint {
-  text-align: center;
-  margin: 0;
-}
 

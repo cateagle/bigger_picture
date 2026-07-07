@@ -55,3 +55,11 @@ export interface Correspondence {
   pointA: NormalizedPoint
   pointB: NormalizedPoint
 }
+
+/** A Stage 2 annotation awaiting Stage 3 review. */
+export interface PendingVerification {
+  annotationId: string
+  imageA: string
+  imageB: string
+  correspondences: Correspondence[]
+}
