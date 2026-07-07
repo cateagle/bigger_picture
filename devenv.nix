@@ -13,6 +13,7 @@
     version = "3.12";
     enable = true;
     venv.enable = true;
+    directory = "./backend";
     manylinux.enable = true;         # for python package dependencies
     uv = {
       enable = true;
