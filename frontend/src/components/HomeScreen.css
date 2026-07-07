@@ -65,19 +65,5 @@
 }
 
 .game-card button {
-  font: inherit;
   margin-top: 8px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: 1px solid #2a78d6;
-  background: #2a78d6;
-  color: #fff;
-  cursor: pointer;
-}
-
-.game-card button:disabled {
-  border-color: var(--pane-border);
-  background: transparent;
-  color: var(--text);
-  cursor: not-allowed;
 }

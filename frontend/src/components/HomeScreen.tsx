@@ -51,7 +51,7 @@ export default function HomeScreen({ onPlay }: { onPlay: (id: GameId) => void })
             <span className="game-card-stage">Stage {game.stage}</span>
             <h2>{game.title}</h2>
             <p>{game.description}</p>
-            <button type="button" disabled={!game.active} onClick={() => onPlay(game.id)}>
+            <button type="button" className="btn btn-primary" disabled={!game.active} onClick={() => onPlay(game.id)}>
               {game.active ? 'Play' : 'Coming soon'}
             </button>
           </article>

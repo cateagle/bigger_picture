@@ -37,3 +37,31 @@ h2 {
   font-weight: 500;
   color: var(--text-h);
 }
+
+.btn {
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--pane-border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #2a78d6;
+  border-color: #2a78d6;
+  color: #fff;
+}
+
+.btn-primary:disabled {
+  background: var(--pane-border);
+  border-color: var(--pane-border);
+  color: var(--text);
+  opacity: 1;
+}

@@ -126,29 +126,3 @@
   margin-right: 8px;
 }
 
-.annotate-footer button {
-  font: inherit;
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: 1px solid var(--pane-border);
-  background: var(--bg);
-  color: var(--text-h);
-  cursor: pointer;
-}
-
-.annotate-footer button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.annotate-footer button.primary {
-  background: #2a78d6;
-  border-color: #2a78d6;
-  color: #fff;
-}
-
-.annotate-footer button.primary:disabled {
-  background: var(--pane-border);
-  border-color: var(--pane-border);
-  color: var(--text);
-}

@@ -158,15 +158,25 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
             <span className="annotate-count">
               {correspondences.length} point{correspondences.length === 1 ? '' : 's'} matched
             </span>
-            <button type="button" onClick={handleUndo} disabled={submitting || (correspondences.length === 0 && !pendingA)}>
+            <button
+              type="button"
+              className="btn"
+              onClick={handleUndo}
+              disabled={submitting || (correspondences.length === 0 && !pendingA)}
+            >
               Undo
             </button>
-            <button type="button" onClick={handleClear} disabled={submitting || (correspondences.length === 0 && !pendingA)}>
+            <button
+              type="button"
+              className="btn"
+              onClick={handleClear}
+              disabled={submitting || (correspondences.length === 0 && !pendingA)}
+            >
               Clear
             </button>
             <button
               type="button"
-              className="primary"
+              className="btn btn-primary"
               onClick={handleSubmit}
               disabled={submitting || correspondences.length < MIN_CORRESPONDENCES}
             >
