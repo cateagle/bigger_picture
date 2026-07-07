@@ -13,6 +13,8 @@ const MOCK_PAIRS: ImagePair[] = [
   { pairId: 'pair-1', imageA: '/mock-images/pair-1/a.jpg', imageB: '/mock-images/pair-1/b.jpg' },
   { pairId: 'pair-2', imageA: '/mock-images/pair-2/a.jpg', imageB: '/mock-images/pair-2/b.jpg' },
   { pairId: 'pair-3', imageA: '/mock-images/pair-3/a.jpg', imageB: '/mock-images/pair-3/b.jpg' },
+  { pairId: 'pair-4', imageA: '/mock-images/pair-4/a.jpg', imageB: '/mock-images/pair-4/b.jpg' },
+  { pairId: 'pair-5', imageA: '/mock-images/pair-5/a.jpg', imageB: '/mock-images/pair-5/b.jpg' },
 ]
 
 let nextPairIndex = 0
