@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS cameras (
     created_at  INTEGER NOT NULL, -- unix millis
     created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     title       TEXT    NOT NULL UNIQUE CHECK(LENGTH(title) < 128),
-    metadata    TEXT,
+    metadata    TEXT, -- json
     description TEXT    CHECK(description IS NULL OR LENGTH(description) < 1024)
 );
 
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS point_annotations (
     y1          INTEGER NOT NULL CHECK(y1 >=0),
     x2          INTEGER NOT NULL CHECK(x2 >=0),
     y2          INTEGER NOT NULL CHECK(y2 >=0),
-    expert_level INTEGER NOT NULL,
+    expert_level INTEGER NOT NULL, -- copied from expert level of user
     confidence  REAL
 );
 
