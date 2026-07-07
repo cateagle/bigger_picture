@@ -12,6 +12,11 @@ COOKIE_NAME = os.environ.get("COOKIE_NAME", "session_uuid")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
 COOKIE_MAX_AGE_SECONDS = int(os.environ.get("COOKIE_MAX_AGE_SECONDS", str(60 * 60 * 24 * 365)))
 
+# Origin of the frontend dev/prod server, for CORS. The session cookie is
+# httponly + sent via `credentials: 'include'`, so allow_origins must be an
+# explicit origin (not "*") for allow_credentials to work.
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
+
 
 def encode_uuid(uuid_bytes: bytes) -> str:
     return uuid_bytes.hex()

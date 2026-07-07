@@ -3,6 +3,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
 from src import config
@@ -36,6 +37,16 @@ def create_app(*, database_path: str | None = None, assets_dir: str | None = Non
 
     app = FastAPI(lifespan=lifespan)
     app.add_middleware(AuthMiddleware)
+    # Added after AuthMiddleware so it ends up outermost (Starlette wraps in
+    # reverse add order) and can short-circuit CORS preflight OPTIONS
+    # requests before they ever reach the auth check.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[config.FRONTEND_ORIGIN],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.mount("/assets", StaticFiles(directory=a_dir), name="assets")
     app.include_router(api_router, prefix="/api")
     return app

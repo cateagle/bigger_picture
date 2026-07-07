@@ -77,6 +77,7 @@ This prints the new admin's uuid. Save it - it is the only credential and there 
 | COOKIE_NAME            | session_uuid        | Auth cookie name                             |
 | COOKIE_SECURE          | false               | Set `true` behind TLS in any real deployment |
 | COOKIE_MAX_AGE_SECONDS | 31536000 (1 year)   | Cookie lifetime                              |
+| FRONTEND_ORIGIN        | http://localhost:5173 | Frontend origin allowed via CORS (must be exact - allow_credentials rules out `*`) |
 
 ## Migrations
 

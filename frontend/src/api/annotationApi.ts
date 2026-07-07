@@ -1,12 +1,20 @@
-import type { Correspondence, ImagePair } from './types'
+import { apiFetch } from './client'
+import type { Correspondence, ImagePair, Label } from './types'
+
+/** Real endpoint: GET /api/v1/annotate/labels. */
+export function fetchLabels(): Promise<Label[]> {
+  return apiFetch<{ labels: Label[] }>('/api/v1/annotate/labels').then((res) => res.labels)
+}
 
 /**
- * Mock stand-in for the Stage 2 (Annotating) backend endpoints. No backend
- * exists yet (see README) - this simulates network latency and serves a
- * fixed rotation of pre-generated overlapping image pairs from
+ * Mock stand-in for the two endpoints the annotation game itself needs -
+ * fetching a pair to work on and submitting a finished annotation. The
+ * backend has no `/api/v1/annotate/pair` or submission endpoint yet (only
+ * `/labels` exists, wired above), so this simulates network latency and
+ * serves a fixed rotation of pre-generated overlapping image pairs from
  * `public/mock-images`, so the game screen can be built and played against
  * a realistic async contract. Swap the bodies of these two functions for
- * real `fetch()` calls once the backend exists; callers don't need to change.
+ * real `fetch()` calls once the backend exposes them; callers don't need to change.
  */
 
 const MOCK_PAIRS: ImagePair[] = [
