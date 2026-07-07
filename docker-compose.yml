@@ -1,4 +1,14 @@
 services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/assets:/app/assets
+
   frontend:
     build:
       context: ./frontend
