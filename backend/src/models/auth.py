@@ -1,0 +1,16 @@
+from pydantic import BaseModel, Field
+
+from src.constants import Role
+
+
+class SignupRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+
+
+class UserResponse(BaseModel):
+    id: int
+    uuid: str
+    username: str
+    role: Role
+    expert_level: int
+    created_at: int
