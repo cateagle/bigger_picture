@@ -2,14 +2,51 @@ import sqlite3
 import time
 from pathlib import Path
 
+from src import config
+
 MIGRATIONS_DIR = Path(__file__).resolve().parent
 
 
-def run_migrations(database_path: str, migrations_dir: Path = MIGRATIONS_DIR) -> list[str]:
+def _apply_startup_pragmas(conn: sqlite3.Connection, busy_timeout_ms: int) -> None:
+    """Apply the database-level pragmas that only need to be set once - they
+    persist in the file header and survive reconnects - plus a defensive
+    busy_timeout for this connection in case another process is migrating
+    or holding a lock on the same database concurrently.
+
+    Must run before anything else on this connection: no transaction may be
+    active yet, since both journal_mode and VACUUM fail inside an explicit
+    transaction.
+    """
+    conn.execute(f"PRAGMA busy_timeout = {busy_timeout_ms}")
+    conn.execute("PRAGMA journal_mode = WAL")
+
+    # auto_vacuum: 0=NONE, 1=FULL, 2=INCREMENTAL. INCREMENTAL would require a
+    # periodic `PRAGMA incremental_vacuum` call to actually reclaim space,
+    # and this codebase has no scheduler to run one, so FULL ("set and
+    # forget") is used instead.
+    (current_auto_vacuum,) = conn.execute("PRAGMA auto_vacuum").fetchone()
+    if current_auto_vacuum != 1:
+        conn.execute("PRAGMA auto_vacuum = FULL")
+        # Changing auto_vacuum on a non-empty database only takes effect
+        # after a VACUUM; cheap/harmless to also run on a fresh, empty
+        # database. Must run outside any BEGIN/COMMIT. Runs at most once -
+        # subsequent startups see auto_vacuum already FULL and skip this.
+        conn.execute("VACUUM")
+
+
+def run_migrations(
+    database_path: str,
+    migrations_dir: Path = MIGRATIONS_DIR,
+    busy_timeout_ms: int = config.SQLITE_BUSY_TIMEOUT_MS,
+) -> list[str]:
     """Apply any pending .sql migration files (sorted by filename) to the given
     SQLite database, tracking what's already been applied in a bookkeeping
     table. Each file is applied atomically. Returns the list of filenames that
     were newly applied.
+
+    Also ensures the database is in WAL journal mode with FULL auto_vacuum
+    enabled (see `_apply_startup_pragmas`) and sets a busy_timeout on this
+    connection.
 
     Migration files must not contain their own BEGIN/COMMIT/PRAGMA
     foreign_keys statements - the runner supplies the transaction wrapper.
@@ -17,6 +54,8 @@ def run_migrations(database_path: str, migrations_dir: Path = MIGRATIONS_DIR) ->
     Path(database_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(database_path)
     try:
+        _apply_startup_pragmas(conn, busy_timeout_ms)
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -58,8 +97,6 @@ def run_migrations(database_path: str, migrations_dir: Path = MIGRATIONS_DIR) ->
 
 if __name__ == "__main__":
     import argparse
-
-    from src import config
 
     parser = argparse.ArgumentParser(description="Apply pending SQL migrations")
     parser.add_argument("--database-path", default=config.DATABASE_PATH)

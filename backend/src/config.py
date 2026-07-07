@@ -6,6 +6,8 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 DATABASE_PATH = os.environ.get("DATABASE_PATH", str(BACKEND_DIR / "data" / "app.db"))
 ASSETS_DIR = os.environ.get("ASSETS_DIR", str(BACKEND_DIR / "assets"))
 
+SQLITE_BUSY_TIMEOUT_MS = int(os.environ.get("SQLITE_BUSY_TIMEOUT_MS", "5000"))
+
 COOKIE_NAME = os.environ.get("COOKIE_NAME", "session_uuid")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
 COOKIE_MAX_AGE_SECONDS = int(os.environ.get("COOKIE_MAX_AGE_SECONDS", str(60 * 60 * 24 * 365)))

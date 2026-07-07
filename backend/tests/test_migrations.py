@@ -51,3 +51,28 @@ def test_username_unique_case_insensitive(tmp_path):
             )
     finally:
         conn.close()
+
+
+def test_enables_wal_mode_and_full_autovacuum(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    run_migrations(db_path)
+
+    conn = sqlite3.connect(db_path)
+    try:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert conn.execute("PRAGMA auto_vacuum").fetchone()[0] == 1  # FULL
+    finally:
+        conn.close()
+
+
+def test_rerunning_migrations_keeps_wal_and_autovacuum(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    run_migrations(db_path)
+    run_migrations(db_path)
+
+    conn = sqlite3.connect(db_path)
+    try:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert conn.execute("PRAGMA auto_vacuum").fetchone()[0] == 1
+    finally:
+        conn.close()
