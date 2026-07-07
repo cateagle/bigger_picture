@@ -1,0 +1,139 @@
+.annotate-game {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.annotate-header h1 {
+  margin: 0 0 4px;
+}
+
+.annotate-header p {
+  margin: 0;
+}
+
+.annotate-status {
+  text-align: center;
+}
+
+.annotate-status-error {
+  color: #e34948;
+}
+
+.image-pane-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.image-pane {
+  position: relative;
+  flex: 1 1 360px;
+  min-width: 280px;
+  line-height: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--pane-border);
+}
+
+.image-pane img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.image-pane img.awaiting-match {
+  outline: 2px solid #eda100;
+  outline-offset: -2px;
+}
+
+.marker {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+.marker-pending {
+  background-color: transparent;
+  border: 2px dashed #eda100;
+  color: #eda100;
+  text-shadow: none;
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.7;
+  }
+}
+
+.annotate-hint {
+  text-align: center;
+  margin: 0;
+}
+
+.annotate-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.annotate-count {
+  color: var(--text-h);
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.annotate-footer button {
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--pane-border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.annotate-footer button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.annotate-footer button.primary {
+  background: #2a78d6;
+  border-color: #2a78d6;
+  color: #fff;
+}
+
+.annotate-footer button.primary:disabled {
+  background: var(--pane-border);
+  border-color: var(--pane-border);
+  color: var(--text);
+}
