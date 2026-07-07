@@ -1,9 +1,9 @@
 import time
 import uuid as uuid_module
 
-from sqlalchemy import ForeignKey, Integer, LargeBinary, String, select
+from sqlalchemy import ForeignKey, Integer, LargeBinary, String, func, select
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import Mapped, Session, mapped_column, sessionmaker
 
 from src.schema.base import Base
 
@@ -80,3 +80,15 @@ def count_users(engine: Engine) -> int:
 def lookup_user_by_uuid(session_factory: sessionmaker, uuid_bytes: bytes) -> User | None:
     with session_factory() as session:
         return session.execute(select(User).where(User.uuid == uuid_bytes)).scalar_one_or_none()
+
+
+def lookup_user_by_username(session: Session, username: str) -> User | None:
+    """Resolve a user by username, case-insensitively.
+
+    Matches the case-insensitive uniqueness enforced on signup (the DB has a
+    unique index on ``LOWER(username)``), so a user can log in regardless of
+    the casing they type.
+    """
+    return session.execute(
+        select(User).where(func.lower(User.username) == username.lower())
+    ).scalar_one_or_none()
