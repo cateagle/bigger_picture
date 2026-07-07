@@ -22,6 +22,32 @@ def test_signup_duplicate_username_case_insensitive(client):
     assert response.status_code == 409
 
 
+def test_login_existing_user_sets_cookie_and_resolves_identity(client):
+    signup_response = client.post("/api/v1/auth/signup", json={"username": "frank"})
+    client.post("/api/v1/auth/logout")
+    assert client.get("/api/v1/auth/me").status_code == 401
+
+    login_response = client.post("/api/v1/auth/login", json={"username": "frank"})
+    assert login_response.status_code == 200
+    assert config.COOKIE_NAME in login_response.cookies
+    assert login_response.json()["uuid"] == signup_response.json()["uuid"]
+    assert client.get("/api/v1/auth/me").json()["username"] == "frank"
+
+
+def test_login_is_case_insensitive(client):
+    client.post("/api/v1/auth/signup", json={"username": "Grace"})
+    client.post("/api/v1/auth/logout")
+
+    login_response = client.post("/api/v1/auth/login", json={"username": "grace"})
+    assert login_response.status_code == 200
+    assert login_response.json()["username"] == "Grace"
+
+
+def test_login_unknown_username_is_404(client):
+    response = client.post("/api/v1/auth/login", json={"username": "nobody"})
+    assert response.status_code == 404
+
+
 def test_me_without_cookie_is_401(client):
     response = client.get("/api/v1/auth/me")
     assert response.status_code == 401

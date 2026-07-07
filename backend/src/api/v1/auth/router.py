@@ -2,12 +2,14 @@ import sqlite3
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy.orm import Session
 
 from src import config
 from src.api.deps import get_current_user
 from src.constants import Role
-from src.models.auth import SignupRequest, UserResponse
-from src.schema.users import User, create_self_referencing_user
+from src.db import get_db
+from src.models.auth import LoginRequest, SignupRequest, UserResponse
+from src.schema.users import User, create_self_referencing_user, lookup_user_by_username
 
 router = APIRouter()
 
@@ -43,6 +45,16 @@ def signup(payload: SignupRequest, request: Request, response: Response):
         user = create_self_referencing_user(engine, username=payload.username, role=Role.ANNOTATOR)
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="Username already taken")
+
+    _set_session_cookie(response, user)
+    return _to_response(user)
+
+
+@router.post("/login", response_model=UserResponse)
+def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    user = lookup_user_by_username(db, payload.username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Unknown username")
 
     _set_session_cookie(response, user)
     return _to_response(user)
