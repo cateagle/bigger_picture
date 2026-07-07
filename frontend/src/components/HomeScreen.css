@@ -7,6 +7,18 @@
   gap: 32px;
 }
 
+.home-account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-bottom: -16px;
+}
+
+.home-account-bar .back-link {
+  margin: 0;
+}
+
 .home-header {
   text-align: center;
   display: flex;

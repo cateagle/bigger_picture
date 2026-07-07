@@ -1,3 +1,4 @@
+import type { User } from '../api/types'
 import './HomeScreen.css'
 
 export type GameId = 'overlap' | 'annotate' | 'verify'
@@ -38,9 +39,26 @@ const GAMES: GameCard[] = [
   },
 ]
 
-export default function HomeScreen({ onPlay }: { onPlay: (id: GameId) => void }) {
+export default function HomeScreen({
+  onPlay,
+  user,
+  onLogout,
+}: {
+  onPlay: (id: GameId) => void
+  user: User
+  onLogout: () => void
+}) {
   return (
     <div className="home-screen">
+      <div className="home-account-bar">
+        <span>
+          Signed in as <strong>{user.username}</strong>
+        </span>
+        <button type="button" className="back-link" onClick={onLogout}>
+          Log out
+        </button>
+      </div>
+
       <header className="home-header">
         <p className="home-eyebrow">Journey of the Eel</p>
         <h1>Bigger Picture</h1>
