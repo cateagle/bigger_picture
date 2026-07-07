@@ -1,0 +1,48 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+import uvicorn
+from fastapi import FastAPI
+from starlette.staticfiles import StaticFiles
+
+from src import config
+from src.api.middleware.auth_middleware import AuthMiddleware
+from src.api.router import router as api_router
+from src.db import make_engine, make_session_factory
+from src.migrations.runner import run_migrations
+
+
+def create_app(*, database_path: str | None = None, assets_dir: str | None = None) -> FastAPI:
+    db_path = database_path or config.DATABASE_PATH
+    a_dir = assets_dir or config.ASSETS_DIR
+
+    # StaticFiles requires the directory to exist at mount time, so this
+    # can't be deferred to lifespan (which only runs once the app actually
+    # starts serving, e.g. under uvicorn or a TestClient context).
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(a_dir).mkdir(parents=True, exist_ok=True)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        run_migrations(db_path)
+
+        engine = make_engine(db_path)
+        app.state.engine = engine
+        app.state.session_factory = make_session_factory(engine)
+
+        yield
+
+        engine.dispose()
+
+    app = FastAPI(lifespan=lifespan)
+    app.add_middleware(AuthMiddleware)
+    app.mount("/assets", StaticFiles(directory=a_dir), name="assets")
+    app.include_router(api_router, prefix="/api")
+    return app
+
+
+app = create_app()
+
+
+if __name__ == "__main__":
+    uvicorn.run(create_app(), host="0.0.0.0", port=8000)
