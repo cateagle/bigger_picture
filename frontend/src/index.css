@@ -100,6 +100,11 @@ h2 {
   margin: 0;
 }
 
+.game-header .game-flavor {
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
 .game-status {
   text-align: center;
 }

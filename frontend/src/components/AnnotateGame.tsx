@@ -82,7 +82,10 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
         <button type="button" className="back-link" onClick={onBack}>
           ← Back to games
         </button>
-        <h1>Stage 2 — Annotating</h1>
+        <h1>Yellow Eel League — Annotating</h1>
+        <p className="game-flavor">
+          For years, a yellow eel learns every rock and reed of its river home by heart.
+        </p>
         <p>
           Click a point in the left image, then click the same physical spot in the right image.
           Repeat for at least {MIN_CORRESPONDENCES} points, then submit.

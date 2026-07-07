@@ -24,6 +24,15 @@
   max-width: 46em;
 }
 
+.home-eyebrow {
+  margin: 0 auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
 .game-card-row {
   display: flex;
   gap: 16px;
@@ -46,7 +55,7 @@
   opacity: 0.6;
 }
 
-.game-card-stage {
+.game-card-league {
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -62,6 +71,11 @@
 .game-card p {
   margin: 0;
   flex-grow: 1;
+}
+
+.game-card .game-card-flavor {
+  font-style: italic;
+  flex-grow: 0;
 }
 
 .game-card button {

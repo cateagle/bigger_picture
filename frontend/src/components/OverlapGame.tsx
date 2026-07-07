@@ -41,7 +41,10 @@ export default function OverlapGame({ onBack }: { onBack: () => void }) {
         <button type="button" className="back-link" onClick={onBack}>
           ← Back to games
         </button>
-        <h1>Stage 1 — Finding Overlap</h1>
+        <h1>Glass Eel League — Finding Overlap</h1>
+        <p className="game-flavor">
+          A glass eel drifts in from the open ocean, scanning the coastline for familiar water.
+        </p>
         <p>Look at both images below and decide whether they show the same physical scene.</p>
       </header>
 

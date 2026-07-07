@@ -4,8 +4,9 @@ export type GameId = 'overlap' | 'annotate' | 'verify'
 
 interface GameCard {
   id: GameId
-  stage: number
+  league: string
   title: string
+  flavor: string
   description: string
   active: boolean
 }
@@ -13,22 +14,25 @@ interface GameCard {
 const GAMES: GameCard[] = [
   {
     id: 'overlap',
-    stage: 1,
+    league: 'Glass Eel League',
     title: 'Finding Overlap',
+    flavor: 'A glass eel drifts in from the open ocean, scanning the coastline for familiar water.',
     description: 'Look at two marine images and decide whether they show the same physical scene.',
     active: true,
   },
   {
     id: 'annotate',
-    stage: 2,
+    league: 'Yellow Eel League',
     title: 'Annotating',
+    flavor: 'For years, a yellow eel learns every rock and reed of its river home by heart.',
     description: 'Click matching points between two overlapping images to build ground-truth correspondences.',
     active: true,
   },
   {
     id: 'verify',
-    stage: 3,
+    league: 'Silver Eel League',
     title: 'Verification',
+    flavor: 'Before the long migration back to sea, a silver eel double-checks its bearings.',
     description: "Review another player's annotation and flag it if it doesn't look right.",
     active: true,
   },
@@ -38,18 +42,21 @@ export default function HomeScreen({ onPlay }: { onPlay: (id: GameId) => void })
   return (
     <div className="home-screen">
       <header className="home-header">
+        <p className="home-eyebrow">Journey of the Eel</p>
         <h1>Bigger Picture</h1>
         <p>
-          Help build a ground-truth dataset of marine images by playing short rounds. Pick a stage below to get
-          started.
+          Every year, European eels leave the rivers where they grew up and swim thousands of kilometres back to
+          the Sargasso Sea to spawn — a route no one has ever fully mapped. Play through three leagues of the
+          eel's life to help scientists retrace it, one matched image at a time.
         </p>
       </header>
 
       <div className="game-card-row">
         {GAMES.map((game) => (
           <article className={`game-card${game.active ? '' : ' game-card-locked'}`} key={game.id}>
-            <span className="game-card-stage">Stage {game.stage}</span>
+            <span className="game-card-league">{game.league}</span>
             <h2>{game.title}</h2>
+            <p className="game-card-flavor">{game.flavor}</p>
             <p>{game.description}</p>
             <button type="button" className="btn btn-primary" disabled={!game.active} onClick={() => onPlay(game.id)}>
               {game.active ? 'Play' : 'Coming soon'}

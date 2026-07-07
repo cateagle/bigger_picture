@@ -43,7 +43,10 @@ export default function VerifyGame({ onBack }: { onBack: () => void }) {
         <button type="button" className="back-link" onClick={onBack}>
           ← Back to games
         </button>
-        <h1>Stage 3 — Verification</h1>
+        <h1>Silver Eel League — Verification</h1>
+        <p className="game-flavor">
+          Before the long migration back to sea, a silver eel double-checks its bearings.
+        </p>
         <p>
           Review the numbered points below - does each pair mark the same physical spot in both
           images? Flag it if any point looks wrong.
