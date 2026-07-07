@@ -1,3 +1,6 @@
 .venv
 .env
 .devenv
+backend/data/
+__pycache__/
+*.pyc
