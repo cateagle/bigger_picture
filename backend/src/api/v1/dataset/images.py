@@ -14,11 +14,13 @@ from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
 from src.services.assets import (
+    move_asset,
     read_image_dimensions,
     resolve_asset_path,
     write_base64_image,
+    write_temp_image,
 )
-from src.services.lookups import get_by_uuid
+from src.services.lookups import get_by_uuid, image_has_point_annotations
 from src.util import apply_partial_update, now_ms
 
 router = APIRouter()
@@ -125,6 +127,12 @@ def update_image(payload: ImageUpdateRequest, request: Request, db: Session = De
     if image is None:
         raise HTTPException(status_code=404, detail="Image not found")
 
+    # Snapshot the current on-disk state before any DB mutation, so file ops
+    # (deferred until after a successful commit) can reference the old location.
+    old_filepath = image.filepath
+    old_resolved = resolve_asset_path(old_filepath)
+    old_size = (image.size_x, image.size_y)
+
     updates = apply_partial_update(
         payload,
         nullable_columns={"metadata_json", "difficulty", "priority"},
@@ -144,18 +152,61 @@ def update_image(payload: ImageUpdateRequest, request: Request, db: Session = De
     if "dive_uuid" in payload.model_fields_set and payload.dive_uuid is not None:
         image.dive_id = _resolve_dive_id(db, payload.dive_uuid)
 
+    # Determine the target (final) on-disk path. `apply_partial_update` already
+    # applied `image.filepath` above when the key was present + non-null.
+    filepath_changing = (
+        "filepath" in payload.model_fields_set
+        and payload.filepath is not None
+        and payload.filepath != old_filepath
+    )
+    if "filepath" in payload.model_fields_set and payload.filepath is not None:
+        try:
+            new_resolved = resolve_asset_path(image.filepath)
+        except ValueError:
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Invalid filepath")
+    else:
+        new_resolved = old_resolved
+
+    temp_path: Path | None = None
     if "image" in payload.model_fields_set and payload.image is not None:
-        # Destination is the (possibly updated) filepath, else the current one.
-        dest_filepath = image.filepath
-        size_x, size_y, _path, _pre_existed = _ingest_image(dest_filepath, payload.image)
-        image.size_x = size_x
-        image.size_y = size_y
+        try:
+            temp_path = write_temp_image(payload.image)
+        except ValueError:
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Invalid image data")
+        try:
+            new_size = read_image_dimensions(temp_path)
+        except ValueError:
+            temp_path.unlink(missing_ok=True)
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Could not decode image")
+
+        if new_size != old_size and image_has_point_annotations(db, image.id):
+            # Reject before anything on disk has moved; disk stays untouched.
+            temp_path.unlink(missing_ok=True)
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot change image dimensions while point annotations exist",
+            )
+        image.size_x, image.size_y = new_size
 
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
         raise HTTPException(status_code=409, detail="Image already exists")
+
+    # DB committed. Now perform file ops: move the existing file first, then
+    # swap the new blob in at the final path.
+    if filepath_changing:
+        move_asset(old_resolved, new_resolved)
+    if temp_path is not None:
+        move_asset(temp_path, new_resolved)
+
     db.refresh(image)
     return _to_response(image, db)
 

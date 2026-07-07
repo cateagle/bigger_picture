@@ -1,9 +1,11 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from src.schema.image_pairs import ImagePair
 from src.schema.images import Image
+from src.schema.point_annotations import PointAnnotation
 
 
 def get_by_uuid(session: Session, model, uuid_bytes: bytes):
@@ -31,3 +33,18 @@ def resolve_sorted_image_pair(session: Session, image_a: UUID, image_b: UUID) ->
         return None
     lo, hi = sorted((id_a, id_b))
     return (lo, hi)
+
+
+def image_has_point_annotations(session: Session, image_id: int) -> bool:
+    """True if any point annotation exists on a pair involving `image_id`.
+
+    A point annotation is "for this image" when its pair's `image1_id` or
+    `image2_id` equals `image_id`. Uses a single EXISTS/JOIN query.
+    """
+    stmt = (
+        select(PointAnnotation.id)
+        .join(ImagePair, PointAnnotation.pair_id == ImagePair.id)
+        .where(or_(ImagePair.image1_id == image_id, ImagePair.image2_id == image_id))
+        .limit(1)
+    )
+    return session.execute(stmt).first() is not None

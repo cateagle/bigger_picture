@@ -1,4 +1,6 @@
 import base64
+import os
+import tempfile
 from pathlib import Path, PurePosixPath
 
 import cv2
@@ -43,6 +45,39 @@ def write_base64_image(dest: Path, b64: str) -> None:
     data = base64.b64decode(b64)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)
+
+
+def write_temp_image(b64: str) -> Path:
+    """Decode a base64 image and write it to a fresh temp file in `ASSETS_DIR`.
+
+    The temp file lives inside `config.ASSETS_DIR` (in a `.tmp` subdir) so it is
+    on the same filesystem as final asset destinations, enabling atomic
+    `os.replace` when the image is switched in. Raises `ValueError` on invalid
+    base64. The caller owns cleanup of the returned path.
+    """
+    data = base64.b64decode(b64, validate=True)
+    tmp_dir = Path(config.ASSETS_DIR) / ".tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=str(tmp_dir), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+    except Exception:
+        Path(name).unlink(missing_ok=True)
+        raise
+    return Path(name)
+
+
+def move_asset(src: Path, dest: Path) -> None:
+    """Move `src` to `dest`, creating `dest.parent` and overwriting `dest`.
+
+    Uses `os.replace`, which is atomic on the same filesystem. No-op if
+    `src == dest`.
+    """
+    if src == dest:
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    os.replace(src, dest)
 
 
 def read_image_dimensions(path: Path) -> tuple[int, int]:
