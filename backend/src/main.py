@@ -13,15 +13,14 @@ from src.db import make_engine, make_session_factory
 from src.migrations.runner import run_migrations
 
 
-def create_app(*, database_path: str | None = None, assets_dir: str | None = None) -> FastAPI:
+def create_app(*, database_path: str | None = None) -> FastAPI:
     db_path = database_path or config.DATABASE_PATH
-    a_dir = assets_dir or config.ASSETS_DIR
 
     # StaticFiles requires the directory to exist at mount time, so this
     # can't be deferred to lifespan (which only runs once the app actually
     # starts serving, e.g. under uvicorn or a TestClient context).
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(a_dir).mkdir(parents=True, exist_ok=True)
+    Path(config.ASSETS_DIR).mkdir(parents=True, exist_ok=True)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -47,7 +46,7 @@ def create_app(*, database_path: str | None = None, assets_dir: str | None = Non
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.mount("/assets", StaticFiles(directory=a_dir), name="assets")
+    app.mount("/assets", StaticFiles(directory=config.ASSETS_DIR), name="assets")
     app.include_router(api_router, prefix="/api")
     return app
 

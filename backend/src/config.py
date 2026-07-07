@@ -8,6 +8,9 @@ ASSETS_DIR = os.environ.get("ASSETS_DIR", str(BACKEND_DIR / "assets"))
 
 SQLITE_BUSY_TIMEOUT_MS = int(os.environ.get("SQLITE_BUSY_TIMEOUT_MS", "5000"))
 
+SELF_CORRECTION_TIME_LIMIT_MS = int(os.environ.get("SELF_CORRECTION_TIME_LIMIT_MS", str(60 * 60 * 1000)))
+MIN_REVIEW_EXPERT_LEVEL = int(os.environ.get("MIN_REVIEW_EXPERT_LEVEL", "1"))
+
 COOKIE_NAME = os.environ.get("COOKIE_NAME", "session_uuid")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
 COOKIE_MAX_AGE_SECONDS = int(os.environ.get("COOKIE_MAX_AGE_SECONDS", str(60 * 60 * 24 * 365)))

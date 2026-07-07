@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS candidate_pairs (
     status_id   INTEGER NOT NULL REFERENCES candidate_statuses(id) ON DELETE RESTRICT,
     reviewed_at INTEGER, -- unix millis
     reviewed_by INTEGER REFERENCES users(id) ON DELETE RESTRICT,
+    UNIQUE (image1_id, image2_id),
     CHECK (image1_id < image2_id) -- this prevents self pairing and bidirectional uniqueness
 );
 

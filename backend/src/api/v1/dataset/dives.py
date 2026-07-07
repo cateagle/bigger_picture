@@ -1,0 +1,107 @@
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from src.api.deps import require_current_user
+from src.api.v1.dataset._metadata import decode_metadata, encode_metadata
+from src.db import get_db
+from src.models.dataset import DiveCreateRequest, DiveResponse, DiveUpdateRequest
+from src.schema.cameras import Camera
+from src.schema.dives import Dive
+from src.schema.regions import Region
+from src.schema.users import User
+from src.services.lookups import get_by_uuid
+from src.util import apply_partial_update, now_ms
+
+router = APIRouter()
+
+
+def _to_response(dive: Dive, db: Session) -> DiveResponse:
+    region = db.get(Region, dive.region_id)
+    camera = db.get(Camera, dive.camera_id)
+    creator = db.get(User, dive.created_by)
+    return DiveResponse(
+        uuid=UUID(bytes=dive.uuid),
+        created_at=dive.created_at,
+        created_by=UUID(bytes=creator.uuid),
+        title=dive.title,
+        metadata=decode_metadata(dive.metadata_json),
+        description=dive.description,
+        region=UUID(bytes=region.uuid),
+        camera=UUID(bytes=camera.uuid),
+    )
+
+
+def _resolve_region_id(db: Session, region_uuid: UUID) -> int:
+    region = get_by_uuid(db, Region, region_uuid.bytes)
+    if region is None:
+        raise HTTPException(status_code=404, detail="Region not found")
+    return region.id
+
+
+def _resolve_camera_id(db: Session, camera_uuid: UUID) -> int:
+    camera = get_by_uuid(db, Camera, camera_uuid.bytes)
+    if camera is None:
+        raise HTTPException(status_code=404, detail="Camera not found")
+    return camera.id
+
+
+@router.post("/create", response_model=DiveResponse, status_code=201)
+def create_dive(payload: DiveCreateRequest, request: Request, db: Session = Depends(get_db)):
+    user = require_current_user(request)
+
+    region_id = _resolve_region_id(db, payload.region)
+    camera_id = _resolve_camera_id(db, payload.camera)
+
+    dive = Dive(
+        uuid=payload.uuid.bytes,
+        created_at=now_ms(),
+        created_by=user.id,
+        title=payload.title,
+        metadata_json=encode_metadata(payload.metadata),
+        description=payload.description,
+        region_id=region_id,
+        camera_id=camera_id,
+    )
+    db.add(dive)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Dive already exists")
+    db.refresh(dive)
+    return _to_response(dive, db)
+
+
+@router.post("/update", response_model=DiveResponse)
+def update_dive(payload: DiveUpdateRequest, request: Request, db: Session = Depends(get_db)):
+    require_current_user(request)
+
+    dive = get_by_uuid(db, Dive, payload.uuid.bytes)
+    if dive is None:
+        raise HTTPException(status_code=404, detail="Dive not found")
+
+    updates = apply_partial_update(
+        payload,
+        nullable_columns={"metadata_json", "description"},
+        field_map={"title": "title", "metadata": "metadata_json", "description": "description"},
+    )
+    if updates.get("metadata_json") is not None:
+        updates["metadata_json"] = encode_metadata(updates["metadata_json"])
+    for column, value in updates.items():
+        setattr(dive, column, value)
+
+    if "region" in payload.model_fields_set and payload.region is not None:
+        dive.region_id = _resolve_region_id(db, payload.region)
+    if "camera" in payload.model_fields_set and payload.camera is not None:
+        dive.camera_id = _resolve_camera_id(db, payload.camera)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Dive already exists")
+    db.refresh(dive)
+    return _to_response(dive, db)
