@@ -11,6 +11,12 @@ SQLITE_BUSY_TIMEOUT_MS = int(os.environ.get("SQLITE_BUSY_TIMEOUT_MS", "5000"))
 SELF_CORRECTION_TIME_LIMIT_MS = int(os.environ.get("SELF_CORRECTION_TIME_LIMIT_MS", str(60 * 60 * 1000)))
 MIN_REVIEW_EXPERT_LEVEL = int(os.environ.get("MIN_REVIEW_EXPERT_LEVEL", "1"))
 
+# Username of an admin to create automatically the first time the database is
+# initialized (empty users table). Leave blank to disable auto-seeding and
+# create the first admin manually via `python -m src.bootstrap_admin`.
+SEED_ADMIN_USERNAME = os.environ.get("SEED_ADMIN_USERNAME", "")
+SEED_ADMIN_EXPERT_LEVEL = int(os.environ.get("SEED_ADMIN_EXPERT_LEVEL", "0"))
+
 COOKIE_NAME = os.environ.get("COOKIE_NAME", "session_uuid")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
 COOKIE_MAX_AGE_SECONDS = int(os.environ.get("COOKIE_MAX_AGE_SECONDS", str(60 * 60 * 24 * 365)))
