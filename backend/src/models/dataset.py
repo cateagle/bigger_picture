@@ -371,7 +371,8 @@ class ImageResponse(BaseModel):
 
 
 class ImageListResponse(BaseModel):
-    images: list[ImageResponse] = Field(description="Images belonging to the given dive.")
+    images: list[ImageResponse] = Field(description="Images belonging to the given dive, for the requested page.")
+    total: int = Field(description="Total number of images belonging to the dive, across all pages.")
 
 
 class ImagePairRef(BaseModel):
@@ -400,6 +401,8 @@ class CandidatePairResponse(BaseModel):
     image_b: UUID = Field(
         description="Unique identifier of the other image in the pair. Order of image_a and image_b does not matter."
     )
+    image_a_filename: str = Field(description="Display filename of image_a.")
+    image_b_filename: str = Field(description="Display filename of image_b.")
     status: str | None = Field(
         description='Lifecycle status of the candidate pair (hidden, open, no_overlap, has_overlap, or deleted). Always "hidden" on creation.'
     )
@@ -407,8 +410,9 @@ class CandidatePairResponse(BaseModel):
 
 class CandidatePairListResponse(BaseModel):
     candidates: list[CandidatePairResponse] = Field(
-        description="Candidate pairs whose images both belong to the given dive."
+        description="Candidate pairs whose images both belong to the given dive, for the requested page."
     )
+    total: int = Field(description="Total number of matching candidate pairs, across all pages.")
 
 
 class ImagePairResponse(BaseModel):
@@ -426,6 +430,8 @@ class ImagePairResponse(BaseModel):
     image_b: UUID = Field(
         description="Unique identifier of the other image in the pair. Order of image_a and image_b does not matter."
     )
+    image_a_filename: str = Field(description="Display filename of image_a.")
+    image_b_filename: str = Field(description="Display filename of image_b.")
     difficulty: int | None = Field(
         description="Minimum expert_level a user must have to be offered this pair for annotation. Null means no gating."
     )
@@ -438,7 +444,10 @@ class ImagePairResponse(BaseModel):
 
 
 class ImagePairListResponse(BaseModel):
-    pairs: list[ImagePairResponse] = Field(description="Image pairs whose images both belong to the given dive.")
+    pairs: list[ImagePairResponse] = Field(
+        description="Image pairs whose images both belong to the given dive, for the requested page."
+    )
+    total: int = Field(description="Total number of matching image pairs, across all pages.")
 
 
 class DatasetImportCounts(BaseModel):

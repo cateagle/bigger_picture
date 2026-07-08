@@ -1,8 +1,8 @@
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -60,17 +60,29 @@ def _resolve_dive_id(db: Session, dive_uuid: UUID) -> int:
     response_model=ImageListResponse,
     summary="List Images In Dive",
     description="""
-Return the images belonging to the given dive, ordered by creation time. Requires the scientist role.
+Return a page of the images belonging to the given dive, ordered by creation time. Requires the scientist role.
 
 Fails with 404 if the dive does not exist.
 """,
 )
-def list_images(dive: UUID, db: Session = Depends(get_db)):
+def list_images(
+    dive: UUID,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
     dive_id = _resolve_dive_id(db, dive)
+    total = db.execute(
+        select(func.count()).select_from(Image).where(Image.dive_id == dive_id)
+    ).scalar_one()
     images = db.execute(
-        select(Image).where(Image.dive_id == dive_id).order_by(Image.created_at)
+        select(Image)
+        .where(Image.dive_id == dive_id)
+        .order_by(Image.created_at)
+        .limit(page_size)
+        .offset((page - 1) * page_size)
     ).scalars().all()
-    return ImageListResponse(images=[_to_response(image, db) for image in images])
+    return ImageListResponse(images=[_to_response(image, db) for image in images], total=total)
 
 
 @router.post(
