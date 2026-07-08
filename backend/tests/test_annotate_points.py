@@ -591,3 +591,145 @@ def test_next_no_matches_is_empty_list(client, dataset, annotator):
     resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/10")
     assert resp.status_code == 200, resp.text
     assert resp.json() == []
+
+
+# ------------------------- review next -------------------------
+
+
+def test_review_next_default_n_returns_one(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator expert_level 1
+    senior = seed_user(username="senior-rn", role="annotator", expert_level=3)
+    login_as(senior)
+
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["uuid"] == u
+    assert body[0]["status"] == "review_pending"
+
+
+def test_review_next_n_two_orders_by_priority_then_age(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u1 = _create_annotation(client, imgs)
+    u2 = _create_annotation(client, [imgs[1], imgs[2]])
+    _set_pair_fields(client, imgs[0], imgs[1], created_at=200)
+    _set_pair_fields(client, imgs[1], imgs[2], priority=5, created_at=100)
+
+    senior = seed_user(username="senior-rn2", role="annotator", expert_level=3)
+    login_as(senior)
+
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}/2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # priority=5 pair (u2) sorts first since non-null priority beats null.
+    assert [a["uuid"] for a in body] == [u2, u1]
+
+
+def test_review_next_excludes_annotation_created_by_caller(client, dataset, annotator):
+    imgs = dataset["images"]
+    _create_annotation(client, imgs)
+
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+
+def test_review_next_includes_annotation_created_by_other_user(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)
+    senior = seed_user(username="senior-rn3", role="annotator", expert_level=3)
+    login_as(senior)
+
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert [a["uuid"] for a in resp.json()] == [u]
+
+
+def test_review_next_excludes_non_pending_annotation(client, dataset, annotator, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)
+    login_as(dataset["scientist"])
+    assert client.post(f"/api/v1/annotate/points/review/{u}/approve").status_code == 200
+
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+
+def test_review_next_excludes_annotation_from_other_dive(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    local_u = _create_annotation(client, imgs)
+
+    login_as(dataset["scientist"])
+    other_dive = _make_dive(client, title="other-dive")
+    other_imgs = [_make_image(client, other_dive, f"other-img{i}.png") for i in range(2)]
+    _open_pair(client, other_imgs[0], other_imgs[1])
+    other_annotator = seed_user(username="other-ann-rn", role="annotator", expert_level=1)
+    login_as(other_annotator)
+    _create_annotation(client, other_imgs)
+
+    senior = seed_user(username="senior-rn4", role="annotator", expert_level=3)
+    login_as(senior)
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert [a["uuid"] for a in resp.json()] == [local_u]
+
+
+def test_review_next_unknown_dive_is_404(client, dataset, annotator):
+    resp = client.get(f"/api/v1/annotate/points/review/next/{_new_uuid()}")
+    assert resp.status_code == 404, resp.text
+
+
+def test_review_next_n_zero_is_422(client, dataset, annotator):
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}/0")
+    assert resp.status_code == 422, resp.text
+
+
+def test_review_next_no_matches_is_empty_list(client, dataset, annotator, seed_user, login_as):
+    senior = seed_user(username="senior-rn5", role="annotator", expert_level=3)
+    login_as(senior)
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+
+def test_review_next_low_expert_non_creator_gets_empty_list(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    _create_annotation(client, imgs)  # creator expert_level 1
+    low = seed_user(username="low-rn", role="annotator", expert_level=0)
+    login_as(low)
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+
+def test_review_next_equal_expert_non_creator_gets_empty_list(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    _create_annotation(client, imgs)  # creator expert_level 1
+    peer = seed_user(username="peer-rn", role="annotator", expert_level=1)
+    login_as(peer)
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+
+def test_review_next_higher_expert_non_creator_sees_it(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator expert_level 1
+    senior = seed_user(username="senior-rn6", role="annotator", expert_level=3)
+    login_as(senior)
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert [a["uuid"] for a in resp.json()] == [u]
+
+
+def test_review_next_scientist_sees_it_regardless_of_expert(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator expert_level 1
+    sci = seed_user(username="sci-rn", role="scientist", expert_level=0)
+    login_as(sci)
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    assert [a["uuid"] for a in resp.json()] == [u]
