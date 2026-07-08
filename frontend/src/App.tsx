@@ -6,12 +6,13 @@ import VerifyGame from './components/VerifyGame'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
 import RegionSelectScreen from './components/RegionSelectScreen'
+import TeamScreen from './components/TeamScreen'
 import type { GameId } from './components/HomeScreen'
 import { logout, me } from './api/authApi'
 import type { Region, User } from './api/types'
 
 function App() {
-  const [screen, setScreen] = useState<GameId | 'home' | 'admin'>('home')
+  const [screen, setScreen] = useState<GameId | 'home' | 'admin' | 'team'>('home')
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null)
 
@@ -41,12 +42,17 @@ function App() {
     return <AdminScreen user={user} onBack={() => setScreen('home')} />
   }
 
+  if (screen === 'team') {
+    return <TeamScreen onBack={() => setScreen('home')} />
+  }
+
   if (selectedRegion === null) {
     return (
       <RegionSelectScreen
         user={user}
         onSelect={setSelectedRegion}
         onOpenAdmin={() => setScreen('admin')}
+        onOpenTeam={() => setScreen('team')}
         onLogout={handleLogout}
       />
     )
@@ -71,6 +77,7 @@ function App() {
       region={selectedRegion}
       onChangeRegion={() => setSelectedRegion(null)}
       onOpenAdmin={() => setScreen('admin')}
+      onOpenTeam={() => setScreen('team')}
       onLogout={handleLogout}
     />
   )
