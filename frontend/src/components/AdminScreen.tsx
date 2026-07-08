@@ -5,6 +5,7 @@ import DatasetAdmin from './admin/DatasetAdmin'
 import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
+import ZipUploadAdmin from './admin/ZipUploadAdmin'
 import './AdminScreen.css'
 
 /**
@@ -20,7 +21,7 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
   return updateLabel(uuid, input as { scope?: string; title?: string; description?: string | null })
 }
 
-type Tab = 'regions' | 'labels' | 'users' | 'dataset'
+type Tab = 'regions' | 'labels' | 'users' | 'dataset' | 'import'
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
@@ -39,7 +40,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           ← Back to games
         </button>
         <h1>Admin</h1>
-        <p>Manage regions, labels, and the dataset{isAdmin ? ', and users' : ''}.</p>
+        <p>Manage regions, labels, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>
       </header>
 
       <div className="admin-tab-bar">
@@ -51,6 +52,9 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
         </button>
         <button type="button" className={`btn${tab === 'dataset' ? ' btn-primary' : ''}`} onClick={() => setTab('dataset')}>
           Dataset
+        </button>
+        <button type="button" className={`btn${tab === 'import' ? ' btn-primary' : ''}`} onClick={() => setTab('import')}>
+          Bulk Import
         </button>
         {isAdmin && (
           <button type="button" className={`btn${tab === 'users' ? ' btn-primary' : ''}`} onClick={() => setTab('users')}>
@@ -70,6 +74,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
         />
       )}
       {tab === 'dataset' && <DatasetAdmin />}
+      {tab === 'import' && <ZipUploadAdmin />}
       {tab === 'users' && isAdmin && <UsersAdmin currentUserUuid={user.uuid} />}
     </div>
   )

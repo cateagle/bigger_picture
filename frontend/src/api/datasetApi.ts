@@ -6,9 +6,30 @@ export interface PaginatedResult<T> {
   total: number
 }
 
+/** Mirrors `DatasetImportCounts` from `backend/src/models/dataset.py`. */
+export interface DatasetImportCounts {
+  labels: number
+  cameras: number
+  regions: number
+  dives: number
+  images: number
+  candidate_pairs: number
+  image_pairs: number
+}
+
 /** Scientist/admin only - counts of dives, images, and image pairs in the dataset. */
 export function fetchDatasetSummary(): Promise<DatasetSummary> {
   return apiFetch<DatasetSummary>('/api/v1/dataset/summary')
+}
+
+/** Scientist only - real endpoint: POST /api/v1/dataset/zip-upload (multipart/form-data, field "file"). */
+export function uploadDatasetZip(file: File): Promise<DatasetImportCounts> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiFetch<{ created: DatasetImportCounts }>('/api/v1/dataset/zip-upload', {
+    method: 'POST',
+    body: formData,
+  }).then((res) => res.created)
 }
 
 /** Scientist/admin only - real endpoint: GET /api/v1/dataset/images?dive={uuid}&page={page}&page_size={pageSize}. */

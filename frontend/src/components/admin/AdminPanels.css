@@ -64,3 +64,8 @@
   display: flex;
   gap: 8px;
 }
+
+.zip-upload-description {
+  font-size: 0.85rem;
+  margin: 0;
+}
