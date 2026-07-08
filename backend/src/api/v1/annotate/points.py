@@ -36,6 +36,7 @@ from src.schema.point_annotations import PointAnnotation
 from src.schema.users import User
 from src.services.experience import grant_exp
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
+from src.services.random_pool import sample_pool
 from src.util import now_ms
 
 router = APIRouter()
@@ -310,7 +311,7 @@ def _to_review_response(annotation: PointAnnotation, db: Session) -> PointAnnota
     description="""
 Return up to n point annotations from the given dive that are pending review and were not created by the caller, with full image details for rendering. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -322,7 +323,7 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
     description="""
 Return up to n point annotations from the given dive that are pending review and were not created by the caller, with full image details for rendering. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -361,9 +362,8 @@ def get_next_reviews(
         .join(Image2, ImagePair.image2_id == Image2.id)
         .where(*conditions)
         .order_by(ImagePair.priority.desc().nullslast(), PointAnnotation.created_at.asc())
-        .limit(n)
     )
-    annotations = db.execute(stmt).scalars().all()
+    annotations = sample_pool(db, stmt, n)
     return [_to_review_response(annotation, db) for annotation in annotations]
 
 
@@ -442,7 +442,7 @@ def _to_next_pair_response(pair: ImagePair, db: Session) -> NextPairResponse:
     description="""
 Return up to n open image pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-A pair is only returned if its difficulty is null or at most the caller's expert_level. Results are ordered by priority descending (nulls last), then by creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+A pair is only returned if its difficulty is null or at most the caller's expert_level. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible pairs, prioritized by priority descending (nulls last), then by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -454,7 +454,7 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
     description="""
 Return up to n open image pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-A pair is only returned if its difficulty is null or at most the caller's expert_level. Results are ordered by priority descending (nulls last), then by creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+A pair is only returned if its difficulty is null or at most the caller's expert_level. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible pairs, prioritized by priority descending (nulls last), then by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -491,7 +491,6 @@ def get_next_pairs(
             ImagePair.id.notin_(annotated_pair_ids),
         )
         .order_by(ImagePair.priority.desc().nullslast(), ImagePair.created_at.asc())
-        .limit(n)
     )
-    pairs = db.execute(stmt).scalars().all()
+    pairs = sample_pool(db, stmt, n)
     return [_to_next_pair_response(pair, db) for pair in pairs]
