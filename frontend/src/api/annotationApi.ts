@@ -1,11 +1,6 @@
 import { apiFetch } from './client'
 import { delay } from './mockDelay'
-import type { Correspondence, ImagePair, Label } from './types'
-
-/** Real endpoint: GET /api/v1/annotate/labels. */
-export function fetchLabels(): Promise<Label[]> {
-  return apiFetch<{ labels: Label[] }>('/api/v1/annotate/labels').then((res) => res.labels)
-}
+import type { Correspondence, ImagePair } from './types'
 
 /**
  * Mock stand-in for fetching a Stage 2 (Annotating) image pair to work on.

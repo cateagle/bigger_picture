@@ -44,23 +44,30 @@ export default function HomeScreen({
   user,
   region,
   onChangeRegion,
+  onOpenAdmin,
   onLogout,
 }: {
   onPlay: (id: GameId) => void
   user: User
   region: Region
   onChangeRegion: () => void
+  onOpenAdmin: () => void
   onLogout: () => void
 }) {
   return (
     <div className="home-screen">
-      <div className="home-account-bar">
+      <div className="account-bar">
         <span>
           Signed in as <strong>{user.username}</strong> · Region: <strong>{region.title}</strong>
         </span>
         <button type="button" className="back-link" onClick={onChangeRegion}>
           Change region
         </button>
+        {user.role !== 'annotator' && (
+          <button type="button" className="back-link" onClick={onOpenAdmin}>
+            Admin
+          </button>
+        )}
         <button type="button" className="back-link" onClick={onLogout}>
           Log out
         </button>

@@ -83,6 +83,19 @@ h2 {
   color: var(--text-h);
 }
 
+/* Shared "signed in as / admin / logout" bar (see HomeScreen, RegionSelectScreen). */
+
+.account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.account-bar .back-link {
+  margin: 0;
+}
+
 .game-screen {
   max-width: 1200px;
   margin: 0 auto;

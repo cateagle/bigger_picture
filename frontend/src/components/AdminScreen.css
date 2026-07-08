@@ -1,0 +1,5 @@
+.admin-tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}

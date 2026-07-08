@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Globe from 'react-globe.gl'
 import { fetchRegions } from '../api/regionApi'
-import type { Region, RegionMesh } from '../api/types'
+import type { Region, RegionMesh, User } from '../api/types'
 import './RegionSelectScreen.css'
 
 const CAP_COLOR = 'rgba(42, 120, 214, 0.55)'
@@ -71,7 +71,17 @@ function useContainerSize() {
   return { ref, size }
 }
 
-export default function RegionSelectScreen({ onSelect }: { onSelect: (region: Region) => void }) {
+export default function RegionSelectScreen({
+  user,
+  onSelect,
+  onOpenAdmin,
+  onLogout,
+}: {
+  user: User
+  onSelect: (region: Region) => void
+  onOpenAdmin: () => void
+  onLogout: () => void
+}) {
   const [regions, setRegions] = useState<Region[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [hovered, setHovered] = useState<Region | null>(null)
@@ -93,6 +103,20 @@ export default function RegionSelectScreen({ onSelect }: { onSelect: (region: Re
 
   return (
     <div className="region-select-screen">
+      <div className="account-bar">
+        <span>
+          Signed in as <strong>{user.username}</strong>
+        </span>
+        {user.role !== 'annotator' && (
+          <button type="button" className="back-link" onClick={onOpenAdmin}>
+            Admin
+          </button>
+        )}
+        <button type="button" className="back-link" onClick={onLogout}>
+          Log out
+        </button>
+      </div>
+
       <header className="region-select-header">
         <p className="region-select-eyebrow">Journey of the Eel</p>
         <h1>Choose a region</h1>

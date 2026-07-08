@@ -12,7 +12,7 @@ export interface User {
 
 /** Mirrors `UserSummary` from `backend/src/models/admin.py`. */
 export interface UserSummary {
-  id: number
+  uuid: string
   username: string
   role: Role
   expert_level: number
@@ -20,7 +20,7 @@ export interface UserSummary {
 
 /** Mirrors `LabelResponse` from `backend/src/models/annotate.py`. */
 export interface Label {
-  id: number
+  uuid: string
   scope: string
   title: string
   description: string | null
