@@ -4,9 +4,10 @@ from sqlalchemy.orm import Session
 
 from src.api.deps import require_current_user
 from src.constants import (
-    ANNOTATION_STATUS_INT,
+    ANNOTATION_APPROVED,
+    ANNOTATION_DELETED,
+    ANNOTATION_REVIEW_FAILED,
     CANDIDATE_STATUS_INT,
-    AnnotationStatus,
     CandidateStatus,
 )
 from src.db import get_db
@@ -23,10 +24,7 @@ from src.schema.point_annotations import PointAnnotation
 
 router = APIRouter()
 
-STATUS_REVIEW_FAILED = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_FAILED]
-STATUS_APPROVED = ANNOTATION_STATUS_INT[AnnotationStatus.APPROVED]
-STATUS_DELETED = ANNOTATION_STATUS_INT[AnnotationStatus.DELETED]
-REVIEWED_STATUSES = (STATUS_APPROVED, STATUS_REVIEW_FAILED)
+REVIEWED_STATUSES = (ANNOTATION_APPROVED, ANNOTATION_REVIEW_FAILED)
 CANDIDATE_HAS_OVERLAP = CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]
 
 
@@ -38,23 +36,23 @@ def _accuracy_stat(db: Session, model, user_id: int, window: int | None = None) 
     annotations (approved or review_failed), so unreviewed items never count
     against the player.
     """
-    approved = func.coalesce(func.sum(case((model.status_id == STATUS_APPROVED, 1), else_=0)), 0)
+    approved = func.coalesce(func.sum(case((model.status_id == ANNOTATION_APPROVED, 1), else_=0)), 0)
     reviewed = func.coalesce(func.sum(case((model.status_id.in_(REVIEWED_STATUSES), 1), else_=0)), 0)
 
     if window is None:
         stmt = select(approved, reviewed).where(
             model.created_by == user_id,
-            model.status_id != STATUS_DELETED,
+            model.status_id != ANNOTATION_DELETED,
         )
     else:
         recent = (
             select(model.status_id.label("status_id"))
-            .where(model.created_by == user_id, model.status_id != STATUS_DELETED)
+            .where(model.created_by == user_id, model.status_id != ANNOTATION_DELETED)
             .order_by(model.created_at.desc())
             .limit(window)
             .subquery()
         )
-        approved = func.coalesce(func.sum(case((recent.c.status_id == STATUS_APPROVED, 1), else_=0)), 0)
+        approved = func.coalesce(func.sum(case((recent.c.status_id == ANNOTATION_APPROVED, 1), else_=0)), 0)
         reviewed = func.coalesce(func.sum(case((recent.c.status_id.in_(REVIEWED_STATUSES), 1), else_=0)), 0)
         stmt = select(approved, reviewed)
 
@@ -66,7 +64,7 @@ def _accuracy_stat(db: Session, model, user_id: int, window: int | None = None) 
 def _overlap_stats(db: Session, user_id: int, window: int) -> OverlapStats:
     active = (
         CandidateAnnotation.created_by == user_id,
-        CandidateAnnotation.status_id != STATUS_DELETED,
+        CandidateAnnotation.status_id != ANNOTATION_DELETED,
     )
     pairs_marked = db.execute(
         select(func.count()).select_from(CandidateAnnotation).where(*active)
@@ -93,7 +91,7 @@ def _overlap_stats(db: Session, user_id: int, window: int) -> OverlapStats:
 def _annotate_stats(db: Session, user_id: int, window: int) -> AnnotateStats:
     active = (
         PointAnnotation.created_by == user_id,
-        PointAnnotation.status_id != STATUS_DELETED,
+        PointAnnotation.status_id != ANNOTATION_DELETED,
     )
     annotations = db.execute(
         select(func.count()).select_from(PointAnnotation).where(*active)
@@ -101,14 +99,14 @@ def _annotate_stats(db: Session, user_id: int, window: int) -> AnnotateStats:
     annotations_verified = db.execute(
         select(func.count())
         .select_from(PointAnnotation)
-        .where(*active, PointAnnotation.status_id == STATUS_APPROVED)
+        .where(*active, PointAnnotation.status_id == ANNOTATION_APPROVED)
     ).scalar_one()
     pairs_marked = db.execute(
         select(func.count(func.distinct(PointAnnotation.pair_id))).where(*active)
     ).scalar_one()
     pairs_verified = db.execute(
         select(func.count(func.distinct(PointAnnotation.pair_id))).where(
-            *active, PointAnnotation.status_id == STATUS_APPROVED
+            *active, PointAnnotation.status_id == ANNOTATION_APPROVED
         )
     ).scalar_one()
     return AnnotateStats(
@@ -128,8 +126,8 @@ def _verify_stats(db: Session, user_id: int) -> VerifyStats:
         row = db.execute(
             select(
                 func.count(),
-                func.coalesce(func.sum(case((model.status_id == STATUS_APPROVED, 1), else_=0)), 0),
-                func.coalesce(func.sum(case((model.status_id == STATUS_REVIEW_FAILED, 1), else_=0)), 0),
+                func.coalesce(func.sum(case((model.status_id == ANNOTATION_APPROVED, 1), else_=0)), 0),
+                func.coalesce(func.sum(case((model.status_id == ANNOTATION_REVIEW_FAILED, 1), else_=0)), 0),
             )
             .select_from(model)
             .where(model.reviewed_by == user_id)

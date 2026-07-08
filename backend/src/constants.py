@@ -44,6 +44,14 @@ INT_ANNOTATION_STATUS: dict[int, AnnotationStatus] = {
     4: AnnotationStatus.DELETED,
 }
 
+# Canonical int values for the annotation statuses, derived once here so the
+# annotate routers/services don't each re-index ANNOTATION_STATUS_INT.
+ANNOTATION_REVIEW_PENDING = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_PENDING]
+ANNOTATION_REVIEW_FAILED = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_FAILED]
+ANNOTATION_APPROVED = ANNOTATION_STATUS_INT[AnnotationStatus.APPROVED]
+ANNOTATION_OVERWRITTEN = ANNOTATION_STATUS_INT[AnnotationStatus.OVERWRITTEN]
+ANNOTATION_DELETED = ANNOTATION_STATUS_INT[AnnotationStatus.DELETED]
+
 
 class ImageStatus(StrEnum):
     HIDDEN = "hidden"
