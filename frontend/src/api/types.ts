@@ -37,12 +37,18 @@ export interface ImagePair {
   pairId: string
   imageA: string
   imageB: string
+  /** Real backend image uuids for `image_a`/`image_b` in `PointAnnotationCreateRequest`. */
+  imageAUuid: string
+  imageBUuid: string
 }
 
 export interface CandidatePair {
   candidateId: string
   imageA: string
   imageB: string
+  /** Real backend image uuids for `image_a`/`image_b` in `CandidateAnnotationCreateRequest`. */
+  imageAUuid: string
+  imageBUuid: string
 }
 
 /** A click location, normalized to the image's own [0, 1] x [0, 1] space. */
@@ -56,10 +62,16 @@ export interface Correspondence {
   pointB: NormalizedPoint
 }
 
+/** A single already-submitted correspondence awaiting Stage 3 review. */
+export interface VerificationPoint extends Correspondence {
+  /** Real backend `PointAnnotation.uuid`, the id `points/review/{uuid}/...` acts on. */
+  pointUuid: string
+}
+
 /** A Stage 2 annotation awaiting Stage 3 review. */
 export interface PendingVerification {
   annotationId: string
   imageA: string
   imageB: string
-  correspondences: Correspondence[]
+  correspondences: VerificationPoint[]
 }

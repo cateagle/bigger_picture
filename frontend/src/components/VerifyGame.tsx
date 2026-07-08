@@ -28,7 +28,7 @@ export default function VerifyGame({ onBack }: { onBack: () => void }) {
     if (!item || submitting) return
     setSubmitting(true)
     setError(null)
-    submitVerification(item.annotationId, approved)
+    submitVerification(item, approved)
       .then(() => {
         setReviewedCount((count) => count + 1)
         loadNext()

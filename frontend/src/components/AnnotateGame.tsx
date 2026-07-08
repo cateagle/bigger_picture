@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { fetchImagePair, submitAnnotation } from '../api/annotationApi'
 import type { Correspondence, ImagePair, NormalizedPoint } from '../api/types'
@@ -25,6 +25,8 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [correspondences, setCorrespondences] = useState<Correspondence[]>([])
   const [pendingA, setPendingA] = useState<NormalizedPoint | null>(null)
+  const imageARef = useRef<HTMLImageElement>(null)
+  const imageBRef = useRef<HTMLImageElement>(null)
 
   const loadNextPair = useCallback(() => {
     setLoading(true)
@@ -68,9 +70,18 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
 
   const handleSubmit = () => {
     if (!pair || correspondences.length < MIN_CORRESPONDENCES) return
+    const imageA = imageARef.current
+    const imageB = imageBRef.current
+    if (!imageA || !imageB) return
+
     setSubmitting(true)
     setError(null)
-    submitAnnotation(pair.pairId, correspondences)
+    submitAnnotation(pair, correspondences, {
+      widthA: imageA.naturalWidth,
+      heightA: imageA.naturalHeight,
+      widthB: imageB.naturalWidth,
+      heightB: imageB.naturalHeight,
+    })
       .then(() => loadNextPair())
       .catch(() => setError('Could not submit your annotation. Please try again.'))
       .finally(() => setSubmitting(false))
@@ -100,6 +111,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
           <div className="image-pane-row">
             <div className="image-pane">
               <img
+                ref={imageARef}
                 src={pair.imageA}
                 alt="Image A"
                 onClick={handleClickA}
@@ -118,7 +130,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
               )}
             </div>
             <div className="image-pane">
-              <img src={pair.imageB} alt="Image B" onClick={handleClickB} className="clickable" />
+              <img ref={imageBRef} src={pair.imageB} alt="Image B" onClick={handleClickB} className="clickable" />
               {correspondences.map((c, i) => (
                 <Marker key={`b-${i}`} point={c.pointB} color={markerColor(i)} label={i + 1} />
               ))}

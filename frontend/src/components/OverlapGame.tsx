@@ -26,7 +26,7 @@ export default function OverlapGame({ onBack }: { onBack: () => void }) {
     if (!pair || submitting) return
     setSubmitting(true)
     setError(null)
-    submitOverlapDecision(pair.candidateId, overlaps)
+    submitOverlapDecision(pair, overlaps)
       .then(() => {
         setReviewedCount((count) => count + 1)
         loadNextPair()
