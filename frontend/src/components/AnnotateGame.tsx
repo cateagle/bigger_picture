@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { fetchNextImagePair, submitAnnotation } from '../api/annotationApi'
 import { fetchDivesForRegion } from '../api/diveApi'
 import type { Correspondence, ImagePair, NormalizedPoint, Region } from '../api/types'
+import AnnotateHintsModal from './AnnotateHintsModal'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 import './AnnotateGame.css'
@@ -29,6 +30,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
   const [error, setError] = useState<string | null>(null)
   const [correspondences, setCorrespondences] = useState<Correspondence[]>([])
   const [pending, setPending] = useState<{ side: 'A' | 'B'; point: NormalizedPoint } | null>(null)
+  const [showHints, setShowHints] = useState(true)
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
 
@@ -112,6 +114,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
 
   return (
     <div className="game-screen">
+      {showHints && <AnnotateHintsModal onDismiss={() => setShowHints(false)} />}
       <header className="game-header">
         <button type="button" className="back-link" onClick={onBack}>
           ← Back to games

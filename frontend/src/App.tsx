@@ -3,6 +3,7 @@ import AdminScreen from './components/AdminScreen'
 import AnnotateGame from './components/AnnotateGame'
 import OverlapGame from './components/OverlapGame'
 import VerifyGame from './components/VerifyGame'
+import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
 import RegionSelectScreen from './components/RegionSelectScreen'
@@ -30,24 +31,17 @@ function App() {
     })
   }
 
+  let content
   if (user === undefined) {
-    return <p className="game-status">Loading…</p>
-  }
-
-  if (user === null) {
-    return <LoginScreen onLoggedIn={setUser} />
-  }
-
-  if (screen === 'admin') {
-    return <AdminScreen user={user} onBack={() => setScreen('home')} />
-  }
-
-  if (screen === 'team') {
-    return <TeamScreen onBack={() => setScreen('home')} />
-  }
-
-  if (selectedRegion === null) {
-    return (
+    content = <p className="game-status">Loading…</p>
+  } else if (user === null) {
+    content = <LoginScreen onLoggedIn={setUser} />
+  } else if (screen === 'admin') {
+    content = <AdminScreen user={user} onBack={() => setScreen('home')} />
+  } else if (screen === 'team') {
+    content = <TeamScreen onBack={() => setScreen('home')} />
+  } else if (selectedRegion === null) {
+    content = (
       <RegionSelectScreen
         user={user}
         onSelect={setSelectedRegion}
@@ -56,30 +50,31 @@ function App() {
         onLogout={handleLogout}
       />
     )
-  }
-
-  if (screen === 'overlap') {
-    return <OverlapGame region={selectedRegion} onBack={() => setScreen('home')} />
-  }
-
-  if (screen === 'annotate') {
-    return <AnnotateGame region={selectedRegion} onBack={() => setScreen('home')} />
-  }
-
-  if (screen === 'verify') {
-    return <VerifyGame region={selectedRegion} onBack={() => setScreen('home')} />
+  } else if (screen === 'overlap') {
+    content = <OverlapGame region={selectedRegion} onBack={() => setScreen('home')} />
+  } else if (screen === 'annotate') {
+    content = <AnnotateGame region={selectedRegion} onBack={() => setScreen('home')} />
+  } else if (screen === 'verify') {
+    content = <VerifyGame region={selectedRegion} onBack={() => setScreen('home')} />
+  } else {
+    content = (
+      <HomeScreen
+        onPlay={setScreen}
+        user={user}
+        region={selectedRegion}
+        onChangeRegion={() => setSelectedRegion(null)}
+        onOpenAdmin={() => setScreen('admin')}
+        onOpenTeam={() => setScreen('team')}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   return (
-    <HomeScreen
-      onPlay={setScreen}
-      user={user}
-      region={selectedRegion}
-      onChangeRegion={() => setSelectedRegion(null)}
-      onOpenAdmin={() => setScreen('admin')}
-      onOpenTeam={() => setScreen('team')}
-      onLogout={handleLogout}
-    />
+    <>
+      {content}
+      <Footer />
+    </>
   )
 }
 
