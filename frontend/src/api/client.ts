@@ -37,3 +37,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   return (await response.json()) as T
 }
+
+/** Builds a URL for an asset served from the backend's `/assets` static mount, given an `Image.filepath`. */
+export function assetUrl(filepath: string): string {
+  return `${API_BASE_URL}/assets/${filepath}`
+}

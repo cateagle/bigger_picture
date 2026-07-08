@@ -1,35 +1,55 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchCandidatePair, submitOverlapDecision } from '../api/overlapApi'
+import { fetchDivesForRegion } from '../api/diveApi'
+import { fetchNextCandidatePair, submitOverlapDecision } from '../api/overlapApi'
 import type { CandidatePair, Region } from '../api/types'
 
 export default function OverlapGame({ region, onBack }: { region: Region; onBack: () => void }) {
+  // undefined = still resolving a dive for this region; null = region has no dives yet.
+  const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
   const [pair, setPair] = useState<CandidatePair | null>(null)
+  const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reviewedCount, setReviewedCount] = useState(0)
 
-  const loadNextPair = useCallback(() => {
+  useEffect(() => {
+    setDiveUuid(undefined)
     setLoading(true)
     setError(null)
-    fetchCandidatePair()
-      .then(setPair)
+    fetchDivesForRegion(region.uuid)
+      .then((dives) => setDiveUuid(dives[0]?.uuid ?? null))
+      .catch(() => setError('Could not load dive imagery for this region. Please try again.'))
+  }, [region.uuid])
+
+  const loadNextPair = useCallback((forDiveUuid: string) => {
+    setLoading(true)
+    setError(null)
+    fetchNextCandidatePair(forDiveUuid)
+      .then((next) => {
+        setPair(next)
+        setDone(next === null)
+      })
       .catch(() => setError('Could not load an image pair. Please try again.'))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
-    loadNextPair()
-  }, [loadNextPair])
+    if (diveUuid) {
+      loadNextPair(diveUuid)
+    } else if (diveUuid === null) {
+      setLoading(false)
+    }
+  }, [diveUuid, loadNextPair])
 
   const handleDecision = (overlaps: boolean) => {
-    if (!pair || submitting) return
+    if (!pair || !diveUuid || submitting) return
     setSubmitting(true)
     setError(null)
     submitOverlapDecision(pair, overlaps)
       .then(() => {
         setReviewedCount((count) => count + 1)
-        loadNextPair()
+        loadNextPair(diveUuid)
       })
       .catch(() => setError('Could not submit your answer. Please try again.'))
       .finally(() => setSubmitting(false))
@@ -51,6 +71,12 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
 
       {loading && <p className="game-status">Loading image pair…</p>}
       {error && <p className="game-status game-status-error">{error}</p>}
+      {!loading && !error && diveUuid === null && (
+        <p className="game-status">No dive imagery is available for this region yet.</p>
+      )}
+      {!loading && !error && diveUuid && done && (
+        <p className="game-status">No more pairs to review in this region right now — nice work!</p>
+      )}
 
       {pair && !loading && (
         <>

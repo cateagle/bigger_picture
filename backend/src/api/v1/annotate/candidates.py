@@ -3,14 +3,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from src import config
 from src.api.deps import require_current_user
+from src.api.v1.dataset._metadata import decode_metadata
 from src.constants import (
     ANNOTATION_STATUS_INT,
     CANDIDATE_STATUS_INT,
     INT_ANNOTATION_STATUS,
+    INT_CANDIDATE_STATUS,
+    INT_IMAGE_STATUS,
     AnnotationStatus,
     CandidateStatus,
     Role,
@@ -20,12 +23,15 @@ from src.models.annotate import (
     CandidateAnnotationCorrectionRequest,
     CandidateAnnotationCreateRequest,
     CandidateAnnotationResponse,
+    NextCandidateResponse,
+    NextPairImageResponse,
 )
 from src.schema.candidate_annotations import CandidateAnnotation
 from src.schema.candidate_pairs import CandidatePair
+from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
-from src.services.lookups import resolve_sorted_image_pair
+from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
 from src.util import now_ms
 
 router = APIRouter()
@@ -204,3 +210,63 @@ def review_approve(annotation_uuid: UUID, request: Request, db: Session = Depend
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
     return _apply_review(annotation, caller, STATUS_APPROVED, db)
+
+
+def _to_next_image_response(image: Image, db: Session) -> NextPairImageResponse:
+    dive = db.get(Dive, image.dive_id)
+    status_enum = INT_IMAGE_STATUS.get(image.status_id)
+    return NextPairImageResponse(
+        uuid=UUID(bytes=image.uuid),
+        filename=image.filename,
+        filepath=image.filepath,
+        dive_id=UUID(bytes=dive.uuid),
+        status=str(status_enum) if status_enum is not None else None,
+        size_x=image.size_x,
+        size_y=image.size_y,
+        metadata=decode_metadata(image.metadata_json),
+    )
+
+
+def _to_next_candidate_response(candidate: CandidatePair, db: Session) -> NextCandidateResponse:
+    image1 = db.get(Image, candidate.image1_id)
+    image2 = db.get(Image, candidate.image2_id)
+    status_enum = INT_CANDIDATE_STATUS.get(candidate.status_id)
+    return NextCandidateResponse(
+        image1=_to_next_image_response(image1, db),
+        image2=_to_next_image_response(image2, db),
+        status=str(status_enum) if status_enum is not None else None,
+    )
+
+
+@router.get("/next/{dive_uuid}", response_model=list[NextCandidateResponse])
+@router.get("/next/{dive_uuid}/{n}", response_model=list[NextCandidateResponse])
+def get_next_candidates(dive_uuid: UUID, request: Request, n: int = 1, db: Session = Depends(get_db)):
+    user = require_current_user(request)
+    if n < 1:
+        raise HTTPException(status_code=422, detail="n must be >= 1")
+
+    dive = get_by_uuid(db, Dive, dive_uuid.bytes)
+    if dive is None:
+        raise HTTPException(status_code=404, detail="Dive not found")
+
+    Image1 = aliased(Image)
+    Image2 = aliased(Image)
+    annotated_candidate_ids = select(CandidateAnnotation.candidate_id).where(
+        CandidateAnnotation.created_by == user.id
+    )
+
+    stmt = (
+        select(CandidatePair)
+        .join(Image1, CandidatePair.image1_id == Image1.id)
+        .join(Image2, CandidatePair.image2_id == Image2.id)
+        .where(
+            CandidatePair.status_id == CANDIDATE_OPEN,
+            Image1.dive_id == dive.id,
+            Image2.dive_id == dive.id,
+            CandidatePair.id.notin_(annotated_candidate_ids),
+        )
+        .order_by(CandidatePair.created_at.asc())
+        .limit(n)
+    )
+    candidates = db.execute(stmt).scalars().all()
+    return [_to_next_candidate_response(candidate, db) for candidate in candidates]
