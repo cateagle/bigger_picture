@@ -425,3 +425,23 @@ class ImagePairResponse(BaseModel):
     status: str | None = Field(
         description='Lifecycle status of the image pair (hidden, open, review_pending, finalized, or deleted). Always "hidden" on creation.'
     )
+
+
+class DatasetImportCounts(BaseModel):
+    """Number of rows created per entity type by a zip import."""
+
+    labels: int = Field(description="Number of labels created.")
+    cameras: int = Field(description="Number of cameras created.")
+    regions: int = Field(description="Number of regions created.")
+    dives: int = Field(description="Number of dives created.")
+    images: int = Field(description="Number of images created.")
+    candidate_pairs: int = Field(description="Number of candidate pairs created.")
+    image_pairs: int = Field(description="Number of image pairs created.")
+
+
+class DatasetImportResponse(BaseModel):
+    """Result of a successful zip import."""
+
+    created: DatasetImportCounts = Field(
+        description="Per-entity created counts. Newly minted uuids (from rows using uuid \"new\") are not echoed back - reference them by title in later rows of the same import instead."
+    )

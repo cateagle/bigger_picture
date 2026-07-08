@@ -2,7 +2,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.api.deps import require_current_user
@@ -19,6 +18,8 @@ from src.schema.candidate_pairs import CandidatePair
 from src.schema.image_pairs import ImagePair
 from src.schema.images import Image
 from src.schema.users import User
+from src.services.candidate_pairs import create_candidate_pair as _create_candidate_pair_row
+from src.services.errors import ConflictError, SameDiveError
 from src.services.lookups import resolve_sorted_image_pair
 from src.util import now_ms
 
@@ -62,7 +63,7 @@ Create a new candidate pair from two existing images, to be reviewed for overlap
 
 The pair is always created with status "hidden".
 
-Fails with 404 if either image does not exist, 422 if image_a and image_b are the same image, or 409 if a candidate pair for this image combination already exists.
+Fails with 404 if either image does not exist, 422 if image_a and image_b are the same image or belong to different dives, or 409 if a candidate pair for this image combination already exists.
 """,
 )
 def create_candidate_pair(
@@ -71,19 +72,21 @@ def create_candidate_pair(
     user = require_current_user(request)
     ids = _resolve_pair_ids(db, payload.image_a, payload.image_b)
 
-    pair = CandidatePair(
-        created_at=now_ms(),
-        created_by=user.id,
-        image1_id=ids[0],
-        image2_id=ids[1],
-        status_id=CANDIDATE_STATUS_INT[CandidateStatus.HIDDEN],
-    )
-    db.add(pair)
     try:
-        db.commit()
-    except IntegrityError:
+        pair = _create_candidate_pair_row(
+            db,
+            image1_id=ids[0],
+            image2_id=ids[1],
+            status_id=CANDIDATE_STATUS_INT[CandidateStatus.HIDDEN],
+            creator_id=user.id,
+        )
+    except SameDiveError:
+        db.rollback()
+        raise HTTPException(status_code=422, detail="Images must belong to the same dive")
+    except ConflictError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Candidate pair already exists")
+    db.commit()
     db.refresh(pair)
     return _to_response(pair, db)
 
