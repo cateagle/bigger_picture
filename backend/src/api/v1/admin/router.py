@@ -14,7 +14,14 @@ router = APIRouter()
 router.include_router(users_router, prefix="/users")
 
 
-@router.get("/users", response_model=UserListResponse)
+@router.get(
+    "/users",
+    response_model=UserListResponse,
+    summary="List Users",
+    description="""
+Return a summary of every user in the system. Requires the admin role.
+""",
+)
 def list_users(db: Session = Depends(get_db)):
     users = db.execute(select(User)).scalars().all()
     return UserListResponse(

@@ -1,7 +1,7 @@
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LabelResponse(BaseModel):
@@ -52,12 +52,35 @@ class PointAnnotationCreateRequest(BaseModel):
 
 
 class PointAnnotationCorrectionRequest(BaseModel):
-    uuid: UUID
-    label_id: Optional[UUID] = None
-    x1: int = Field(ge=0)
-    y1: int = Field(ge=0)
-    x2: int = Field(ge=0)
-    y2: int = Field(ge=0)
+    """Request used to correct an existing point annotation."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "label_id": "1a6ccf07-c766-4934-a6a5-0ca6dbdb5a0b",
+                "x1": 125,
+                "y1": 240,
+                "x2": 89,
+                "y2": 247,
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier of the annotation to update.")
+
+    label_id: Optional[UUID] = Field(
+        default=None,
+        description="Optional new label for the annotation. If omitted, the current label is kept.",
+    )
+
+    x1: int = Field(ge=0, description="X coordinate of image 1 in pixels.")
+
+    y1: int = Field(ge=0, description="Y coordinate of image 1 in pixels.")
+
+    x2: int = Field(ge=0, description="X coordinate of image 2 in pixels.")
+
+    y2: int = Field(ge=0, description="Y coordinate of image 2 pixels.")
 
 
 class PointAnnotationResponse(BaseModel):
