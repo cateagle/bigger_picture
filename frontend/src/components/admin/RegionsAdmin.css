@@ -1,0 +1,48 @@
+.regions-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.regions-admin-form {
+  border: 1px solid var(--pane-border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.regions-admin-form h3 {
+  margin: 0;
+}
+
+.regions-admin-text-fields {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.regions-admin-text-fields .admin-form-field {
+  flex: 1 1 220px;
+}
+
+.regions-admin-globe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regions-admin-globe-hint {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.regions-admin-globe-container {
+  width: 100%;
+  height: min(50vh, 420px);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--pane-border);
+  background: #000;
+}

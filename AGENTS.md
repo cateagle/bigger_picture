@@ -25,6 +25,7 @@ devenv shell -- python -m pytest                   # full test suite
 devenv shell -- python -m pytest tests/test_auth.py                      # one file
 devenv shell -- python -m pytest tests/test_auth.py::test_signup_sets_cookie  # one test
 devenv shell -- python -m src.bootstrap_admin --username admin           # create first admin (role can't self-elevate)
+devenv shell -- python -m src.create_users --admin-username admin --scientist-username scientist  # add an admin/scientist to a db that's already in use; skips usernames already taken
 ```
 
 The dev shell (Nix `devenv`) provides Python 3.12 + `uv`-synced deps; there's no plain venv workflow — always prefix backend commands with `devenv shell --`.
@@ -61,8 +62,9 @@ docker compose up   # backend on :8000, frontend on :5173 with hot reload
 
 ## Frontend architecture
 
-- Not React Router — `App.tsx` holds `screen` state (`'home' | 'overlap' | 'annotate' | 'verify'`) and switches components directly; there's no URL-based routing.
-- Auth state (`User | null | undefined`) also lives in `App.tsx`: `undefined` = still checking `/auth/me`, `null` = show `LoginScreen`, otherwise render the home/game screens.
-- `src/api/` is one file per backend domain (`authApi`, `annotationApi`, `overlapApi`, `datasetApi`, `adminApi`, `diveApi`, `regionApi`) plus `verifyApi`, which is currently mocked (see `mockDelay.ts`) since the backend has no review-queue endpoint yet — don't assume calls in that file hit the real API.
-- `src/api/client.ts`'s `apiFetch` is the single fetch wrapper: always sends cookies (`credentials: 'include'`, since the auth cookie is httponly and can't be attached manually), throws `ApiError` (with FastAPI's `{"detail": ...}` shape) on non-2xx.
+- Not React Router — `App.tsx` holds `screen` state (`GameId | 'home' | 'admin' | 'team'`, where `GameId` is `'overlap' | 'annotate' | 'verify'`) and switches components directly; there's no URL-based routing.
+- Auth state (`User | null | undefined`) also lives in `App.tsx`: `undefined` = still checking `/auth/me`, `null` = show `LoginScreen`, otherwise render the home/game/admin/team screens. `App.tsx` computes a single `content` element from that state (rather than branching via early `return`s) so it can wrap every screen in one final `<>{content}<Footer /></>` — this is how `Footer` ends up on every screen without each screen component needing to render it itself.
+- `src/api/` is one file per backend domain (`authApi`, `annotationApi`, `overlapApi`, `datasetApi`, `adminApi`, `diveApi`, `regionApi`, `labelApi`) plus `verifyApi`, which is currently mocked (see `mockDelay.ts`) since the backend has no review-queue endpoint yet — don't assume calls in that file hit the real API.
+- `src/api/client.ts`'s `apiFetch` is the single fetch wrapper: always sends cookies (`credentials: 'include'`, since the auth cookie is httponly and can't be attached manually), throws `ApiError` (with FastAPI's `{"detail": ...}` shape) on non-2xx. Its `assetUrl()` builds `/assets/...` URLs from an `Image.filepath` for rendering backend-served images.
 - `VITE_API_BASE_URL` (from `.env`, copy from `.env.example`) points the frontend at the backend; defaults to `http://localhost:8000`.
+- Non-game screens: `TeamScreen` (project contributors, pulled from git history — see its own doc comment) and `AdminScreen` (regions/labels/users CRUD) are reached via buttons in the `.account-bar` (shared by `HomeScreen`/`RegionSelectScreen`), gated to non-`annotator` roles where relevant. `AnnotateGame` shows a one-time-per-visit `AnnotateHintsModal` with annotation tips on mount.

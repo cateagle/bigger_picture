@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { createLabel, fetchLabels, updateLabel } from '../api/labelApi'
-import type { RegionMetadataInput } from '../api/regionApi'
-import { createRegion, fetchRegions, updateRegion } from '../api/regionApi'
 import type { User } from '../api/types'
+import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
 import './AdminScreen.css'
@@ -13,12 +12,6 @@ import './AdminScreen.css'
  * real API functions want a narrower, specific input type; these adapters
  * bridge that gap in one place instead of loosening SimpleEntityAdmin's types.
  */
-function createRegionAdapter(input: Record<string, unknown>) {
-  return createRegion(input as { title: string; description?: string | null; metadata?: RegionMetadataInput | null })
-}
-function updateRegionAdapter(uuid: string, input: Record<string, unknown>) {
-  return updateRegion(uuid, input as { title?: string; description?: string | null; metadata?: RegionMetadataInput | null })
-}
 function createLabelAdapter(input: Record<string, unknown>) {
   return createLabel(input as { scope: string; title: string; description?: string | null })
 }
@@ -27,12 +20,6 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
 }
 
 type Tab = 'regions' | 'labels' | 'users'
-
-const REGION_FIELDS = [
-  { key: 'title', label: 'Title', type: 'text', required: true } as const,
-  { key: 'description', label: 'Description', type: 'textarea' } as const,
-  { key: 'metadata', label: 'Metadata (JSON)', type: 'json' } as const,
-]
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
@@ -68,15 +55,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
         )}
       </div>
 
-      {tab === 'regions' && (
-        <SimpleEntityAdmin
-          entityName="Regions"
-          fields={REGION_FIELDS}
-          fetchList={fetchRegions}
-          create={createRegionAdapter}
-          update={updateRegionAdapter}
-        />
-      )}
+      {tab === 'regions' && <RegionsAdmin />}
       {tab === 'labels' && (
         <SimpleEntityAdmin
           entityName="Labels"
