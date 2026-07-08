@@ -1,84 +1,37 @@
-import { apiFetch } from './client'
-import { delay } from './mockDelay'
+import { apiFetch, assetUrl } from './client'
 import type { CandidatePair } from './types'
 
+/** Mirrors `NextPairImageResponse` from `backend/src/models/annotate.py` (only the fields used here). */
+interface NextCandidateImage {
+  uuid: string
+  filepath: string
+}
+
+/** Mirrors `NextCandidateResponse` from `backend/src/models/annotate.py`. */
+interface NextCandidateResponse {
+  image1: NextCandidateImage
+  image2: NextCandidateImage
+  status: string | null
+}
+
+function toCandidatePair(candidate: NextCandidateResponse): CandidatePair {
+  return {
+    candidateId: `${candidate.image1.uuid}:${candidate.image2.uuid}`,
+    imageA: assetUrl(candidate.image1.filepath),
+    imageB: assetUrl(candidate.image2.filepath),
+    imageAUuid: candidate.image1.uuid,
+    imageBUuid: candidate.image2.uuid,
+  }
+}
+
 /**
- * Mock stand-in for fetching a Stage 1 (Finding Overlap) candidate pair. The
- * backend has no endpoint to fetch/list candidate pairs yet (only
- * `/api/v1/annotate/candidate/create`, which requires already knowing a real
- * candidate pair's image uuids), so this still simulates network latency and
- * serves a fixed rotation of pairs built from the `public/mock-images`
- * assets. Swap this for a real `fetch()` once the backend exposes a
- * fetch-next-candidate endpoint; `submitOverlapDecision` below already calls
- * the real backend.
+ * Real endpoint: GET /api/v1/annotate/candidate/next/{dive_uuid}. Resolves
+ * `null` once there are no more open, unannotated candidate pairs left for
+ * this player in the dive.
  */
-
-const MOCK_CANDIDATES: CandidatePair[] = [
-  {
-    candidateId: 'candidate-1',
-    imageA: '/mock-images/pair-1/a.jpg',
-    imageB: '/mock-images/pair-1/b.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000001',
-    imageBUuid: '00000000-0000-4000-8000-000000000002',
-  },
-  {
-    candidateId: 'candidate-2',
-    imageA: '/mock-images/pair-2/a.jpg',
-    imageB: '/mock-images/pair-3/a.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000003',
-    imageBUuid: '00000000-0000-4000-8000-000000000005',
-  },
-  {
-    candidateId: 'candidate-3',
-    imageA: '/mock-images/pair-2/a.jpg',
-    imageB: '/mock-images/pair-2/b.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000003',
-    imageBUuid: '00000000-0000-4000-8000-000000000004',
-  },
-  {
-    candidateId: 'candidate-4',
-    imageA: '/mock-images/pair-4/b.jpg',
-    imageB: '/mock-images/pair-5/a.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000008',
-    imageBUuid: '00000000-0000-4000-8000-000000000009',
-  },
-  {
-    candidateId: 'candidate-5',
-    imageA: '/mock-images/pair-3/a.jpg',
-    imageB: '/mock-images/pair-3/b.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000005',
-    imageBUuid: '00000000-0000-4000-8000-000000000006',
-  },
-  {
-    candidateId: 'candidate-6',
-    imageA: '/mock-images/pair-5/a.jpg',
-    imageB: '/mock-images/pair-5/b.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000009',
-    imageBUuid: '00000000-0000-4000-8000-00000000000a',
-  },
-  {
-    candidateId: 'candidate-7',
-    imageA: '/mock-images/pair-1/b.jpg',
-    imageB: '/mock-images/pair-4/a.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000002',
-    imageBUuid: '00000000-0000-4000-8000-000000000007',
-  },
-  {
-    candidateId: 'candidate-8',
-    imageA: '/mock-images/pair-4/a.jpg',
-    imageB: '/mock-images/pair-4/b.jpg',
-    imageAUuid: '00000000-0000-4000-8000-000000000007',
-    imageBUuid: '00000000-0000-4000-8000-000000000008',
-  },
-]
-
-let nextCandidateIndex = 0
-
-export async function fetchCandidatePair(): Promise<CandidatePair> {
-  await delay(400)
-  const pair = MOCK_CANDIDATES[nextCandidateIndex % MOCK_CANDIDATES.length]
-  nextCandidateIndex += 1
-  return pair
+export async function fetchNextCandidatePair(diveUuid: string): Promise<CandidatePair | null> {
+  const candidates = await apiFetch<NextCandidateResponse[]>(`/api/v1/annotate/candidate/next/${diveUuid}`)
+  return candidates.length > 0 ? toCandidatePair(candidates[0]) : null
 }
 
 /** Real endpoint: POST /api/v1/annotate/candidate/create. */
