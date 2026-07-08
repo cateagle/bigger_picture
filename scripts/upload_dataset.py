@@ -10,7 +10,8 @@ assigned, and a CSV listing image pairs (by those uuids), this script:
   3. uploads each image via POST /api/v1/dataset/images/create (the image is
      sent base64-encoded in the JSON body; the server writes it to disk and
      reads its dimensions);
-  4. creates each pair via POST /api/v1/dataset/pairs/create;
+  4. creates each pair - image pairs (Stage 2) via /api/v1/dataset/pairs/create
+     by default, or candidate overlap pairs (Stage 1) with --pair-kind candidate;
   5. (optional, --publish) flips the uploaded images and pairs from their
      default `hidden` status to `open` via the batch status-change endpoints,
      so they become available for annotation (e.g. /annotate/points/next).
@@ -67,6 +68,11 @@ FILES_FILENAME_KEYS = ("filename",)
 FILES_UUID_KEYS = ("uuid",)
 PAIRS_A_KEYS = ("image1", "image_a")
 PAIRS_B_KEYS = ("image2", "image_b")
+
+# Pair kinds map to their REST resource segment under /api/v1/dataset/:
+#   image     -> image_pairs   (Stage 2, feeds /annotate/points/next)
+#   candidate -> candidate_pairs (Stage 1 overlap, feeds /annotate/candidate/next)
+PAIR_ENDPOINTS = {"image": "pairs", "candidate": "candidates"}
 
 
 # --------------------------------------------------------------------------- #
@@ -383,7 +389,8 @@ def upload_images(client, files_rows, images_dir: Path, dive_uuid: str, state: P
     return created, skipped, failed
 
 
-def create_pairs(client, pairs_rows, state: ProgressState, dry_run: bool):
+def create_pairs(client, pairs_rows, state: ProgressState, pair_kind: str, dry_run: bool):
+    endpoint = f"/api/v1/dataset/{PAIR_ENDPOINTS[pair_kind]}/create"
     created = skipped = failed = 0
     for a, b in pairs_rows:
         if state.has_pair(a, b):
@@ -393,9 +400,7 @@ def create_pairs(client, pairs_rows, state: ProgressState, dry_run: bool):
         if dry_run:
             print(f"  DRY-RUN would pair {a} <-> {b}")
             continue
-        status, payload = client.post(
-            "/api/v1/dataset/pairs/create", {"image_a": a, "image_b": b}
-        )
+        status, payload = client.post(endpoint, {"image_a": a, "image_b": b})
         if status in (201, 409):
             state.mark_pair(a, b)
         if status == 201:
@@ -410,7 +415,7 @@ def create_pairs(client, pairs_rows, state: ProgressState, dry_run: bool):
     return created, skipped, failed
 
 
-def publish(client, state: ProgressState, status: str, dry_run: bool) -> int:
+def publish(client, state: ProgressState, status: str, pair_kind: str, dry_run: bool) -> int:
     """Flip every uploaded image and pair to `status` so they become usable.
 
     Works off the ledger (`state`), not the raw CSVs, so only items confirmed on
@@ -428,7 +433,7 @@ def publish(client, state: ProgressState, status: str, dry_run: bool) -> int:
     failed = 0
     for label, path, body in (
         ("images", f"/api/v1/dataset/images/batch/status-change/{status}", image_uuids),
-        ("pairs", f"/api/v1/dataset/pairs/batch/status-change/{status}", pair_refs),
+        ("pairs", f"/api/v1/dataset/{PAIR_ENDPOINTS[pair_kind]}/batch/status-change/{status}", pair_refs),
     ):
         if not body:
             continue
@@ -451,6 +456,13 @@ def parse_args(argv=None):
     p.add_argument("--files-csv", required=True, type=Path, help="CSV with columns: filename,uuid")
     p.add_argument("--pairs-csv", required=True, type=Path, help="CSV with columns: image1,image2 (uuids)")
     p.add_argument("--dive-uuid", default=None, help="target dive uuid (omit to pick interactively)")
+    p.add_argument(
+        "--pair-kind",
+        choices=sorted(PAIR_ENDPOINTS),
+        default="image",
+        help="'image' pairs (Stage 2, /annotate/points) or 'candidate' overlap pairs "
+        "(Stage 1, /annotate/candidate); default: image",
+    )
     p.add_argument(
         "--username",
         default=os.environ.get("UPLOAD_USERNAME"),
@@ -481,6 +493,13 @@ def parse_args(argv=None):
         help="status to publish images/pairs to when --publish is set (default: open)",
     )
     return p.parse_args(argv)
+
+
+def _default_state_path(files_csv: Path, pair_kind: str) -> Path:
+    # Image runs keep the plain name; other kinds get a suffix so their ledgers
+    # don't collide when the same CSVs are uploaded as a different pair kind.
+    suffix = ".state.json" if pair_kind == "image" else f".{pair_kind}.state.json"
+    return files_csv.with_name(files_csv.name + suffix)
 
 
 def main(argv=None):
@@ -515,8 +534,10 @@ def main(argv=None):
     print(f"Target dive: {dive_uuid}")
 
     # The ledger is scoped to the resolved dive, so it must be created after the
-    # dive is known - progress for one dive never masks work for another.
-    state_path = args.state_file or args.files_csv.with_name(args.files_csv.name + ".state.json")
+    # dive is known - progress for one dive never masks work for another. The
+    # default name also carries the pair kind so image and candidate runs over
+    # the same CSVs keep separate ledgers.
+    state_path = args.state_file or _default_state_path(args.files_csv, args.pair_kind)
     state = ProgressState(state_path, dive_uuid)
     state.load()
     if state.images or state.pairs:
@@ -531,13 +552,15 @@ def main(argv=None):
         client, files_rows, args.images_dir, dive_uuid, state, args.dry_run
     )
 
-    print("\nCreating pairs:")
-    pair_created, pair_skipped, pair_failed = create_pairs(client, pairs_rows, state, args.dry_run)
+    print(f"\nCreating {args.pair_kind} pairs:")
+    pair_created, pair_skipped, pair_failed = create_pairs(
+        client, pairs_rows, state, args.pair_kind, args.dry_run
+    )
 
     publish_failed = 0
     if args.publish:
         print(f"\nPublishing (status -> {args.publish_status}):")
-        publish_failed = publish(client, state, args.publish_status, args.dry_run)
+        publish_failed = publish(client, state, args.publish_status, args.pair_kind, args.dry_run)
 
     print(
         f"\nDone. images: {img_created} created, {img_skipped} skipped, {img_failed} failed | "
