@@ -105,6 +105,50 @@ h2 {
   background: var(--pane-border);
 }
 
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.level-badge-label {
+  font-weight: 500;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.level-badge-bar {
+  display: block;
+  width: 80px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--pane-border);
+  overflow: hidden;
+}
+
+.level-badge-bar-fill {
+  display: block;
+  height: 100%;
+  background: #2a78d6;
+  border-radius: inherit;
+}
+
+.level-badge-exp {
+  white-space: nowrap;
+}
+
+.game-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.game-header-top .back-link {
+  margin: 0;
+}
+
 .game-screen {
   max-width: 1200px;
   margin: 0 auto;

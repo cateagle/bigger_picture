@@ -1,4 +1,5 @@
 import type { Region, User } from '../api/types'
+import { LevelBadge } from './LevelBadge'
 import './HomeScreen.css'
 
 export type GameId = 'overlap' | 'annotate' | 'verify'
@@ -64,6 +65,7 @@ export default function HomeScreen({
         <span>
           Signed in as <strong>{user.username}</strong> · Region: <strong>{region.title}</strong>
         </span>
+        <LevelBadge exp={user.exp} />
         <button type="button" className="back-link" onClick={onChangeRegion}>
           Change region
         </button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchMyStats } from '../api/statsApi'
 import type { AccuracyStat, MyStats } from '../api/statsApi'
 import type { User } from '../api/types'
+import { LevelBadge } from './LevelBadge'
 import './MyStatsScreen.css'
 
 /** Format an accuracy fraction as a percentage, or "n/a" when nothing is reviewed yet. */
@@ -49,9 +50,12 @@ export default function MyStatsScreen({ user, onBack }: { user: User; onBack: ()
   return (
     <div className="game-screen">
       <header className="game-header">
-        <button type="button" className="back-link" onClick={onBack}>
-          ← Back to games
-        </button>
+        <div className="game-header-top">
+          <button type="button" className="back-link" onClick={onBack}>
+            ← Back to games
+          </button>
+          <LevelBadge exp={user.exp} />
+        </div>
         <h1>My Stats</h1>
         <p>Your contributions and accuracy across the three leagues, {user.username}.</p>
       </header>

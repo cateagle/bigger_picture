@@ -4,6 +4,7 @@ import { fetchRegions } from '../api/regionApi'
 import type { Region, RegionMesh, User } from '../api/types'
 import { normalizeMeshWinding } from '../geo'
 import { useContainerSize } from '../useContainerSize'
+import { LevelBadge } from './LevelBadge'
 import './RegionSelectScreen.css'
 
 const CAP_COLOR = 'rgba(42, 120, 214, 0.55)'
@@ -50,6 +51,7 @@ export default function RegionSelectScreen({
         <span>
           Signed in as <strong>{user.username}</strong>
         </span>
+        <LevelBadge exp={user.exp} />
         {user.role !== 'annotator' && (
           <button type="button" className="back-link" onClick={onOpenAdmin}>
             Admin

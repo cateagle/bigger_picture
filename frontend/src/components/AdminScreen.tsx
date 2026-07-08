@@ -6,6 +6,7 @@ import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
 import ZipUploadAdmin from './admin/ZipUploadAdmin'
+import { LevelBadge } from './LevelBadge'
 import './AdminScreen.css'
 
 /**
@@ -36,9 +37,12 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
   return (
     <div className="game-screen">
       <header className="game-header">
-        <button type="button" className="back-link" onClick={onBack}>
-          ← Back to games
-        </button>
+        <div className="game-header-top">
+          <button type="button" className="back-link" onClick={onBack}>
+            ← Back to games
+          </button>
+          <LevelBadge exp={user.exp} />
+        </div>
         <h1>Admin</h1>
         <p>Manage regions, labels, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>
       </header>

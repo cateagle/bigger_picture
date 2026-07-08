@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { fetchNextImagePair, submitAnnotation } from '../api/annotationApi'
 import { fetchDivesForRegion } from '../api/diveApi'
-import type { Correspondence, ImagePair, NormalizedPoint, Region } from '../api/types'
+import type { Correspondence, ImagePair, NormalizedPoint, Region, User } from '../api/types'
 import AnnotateHintsModal from './AnnotateHintsModal'
 import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
+import { LevelBadge } from './LevelBadge'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 import './AnnotateGame.css'
@@ -23,7 +24,17 @@ function pointFromClick(e: ReactMouseEvent<HTMLImageElement>): NormalizedPoint {
   }
 }
 
-export default function AnnotateGame({ region, onBack }: { region: Region; onBack: () => void }) {
+export default function AnnotateGame({
+  region,
+  user,
+  onUserRefresh,
+  onBack,
+}: {
+  region: Region
+  user: User
+  onUserRefresh: () => void
+  onBack: () => void
+}) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
   const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
   const [pair, setPair] = useState<ImagePair | null>(null)
@@ -116,7 +127,10 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
       widthB: imageB.naturalWidth,
       heightB: imageB.naturalHeight,
     })
-      .then(() => loadNextPair(diveUuid))
+      .then(() => {
+        loadNextPair(diveUuid)
+        onUserRefresh()
+      })
       .catch(() => setError('Could not submit your annotation. Please try again.'))
       .finally(() => setSubmitting(false))
   }
@@ -125,9 +139,12 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
     <div className="game-screen">
       {showHints && <AnnotateHintsModal onDismiss={() => setShowHints(false)} />}
       <header className="game-header">
-        <button type="button" className="back-link" onClick={onBack}>
-          ← Back to games
-        </button>
+        <div className="game-header-top">
+          <button type="button" className="back-link" onClick={onBack}>
+            ← Back to games
+          </button>
+          <LevelBadge exp={user.exp} />
+        </div>
         <h1>Yellow Eel League — Annotating</h1>
         <p className="game-flavor">
           For years, a yellow eel learns every rock and reed of its river home by heart.

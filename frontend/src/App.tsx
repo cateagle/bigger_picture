@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import AdminScreen from './components/AdminScreen'
 import AnnotateGame from './components/AnnotateGame'
 import OverlapGame from './components/OverlapGame'
@@ -22,6 +22,13 @@ function App() {
     me()
       .then(setUser)
       .catch(() => setUser(null))
+  }, [])
+
+  /** Re-fetches the logged-in user so exp/level stay current after game actions. */
+  const refreshUser = useCallback(() => {
+    me()
+      .then(setUser)
+      .catch(() => {})
   }, [])
 
   const handleLogout = () => {
@@ -55,11 +62,17 @@ function App() {
       />
     )
   } else if (screen === 'overlap') {
-    content = <OverlapGame region={selectedRegion} onBack={() => setScreen('home')} />
+    content = (
+      <OverlapGame region={selectedRegion} user={user} onUserRefresh={refreshUser} onBack={() => setScreen('home')} />
+    )
   } else if (screen === 'annotate') {
-    content = <AnnotateGame region={selectedRegion} onBack={() => setScreen('home')} />
+    content = (
+      <AnnotateGame region={selectedRegion} user={user} onUserRefresh={refreshUser} onBack={() => setScreen('home')} />
+    )
   } else if (screen === 'verify') {
-    content = <VerifyGame region={selectedRegion} onBack={() => setScreen('home')} />
+    content = (
+      <VerifyGame region={selectedRegion} user={user} onUserRefresh={refreshUser} onBack={() => setScreen('home')} />
+    )
   } else {
     content = (
       <HomeScreen

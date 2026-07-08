@@ -1,16 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextPendingVerification, submitPointVerification } from '../api/verifyApi'
-import type { PendingVerification, Region } from '../api/types'
+import type { PendingVerification, Region, User } from '../api/types'
 import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
+import { LevelBadge } from './LevelBadge'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 
 type PointStatus = 'approved' | 'flagged'
 
-export default function VerifyGame({ region, onBack }: { region: Region; onBack: () => void }) {
+export default function VerifyGame({
+  region,
+  user,
+  onUserRefresh,
+  onBack,
+}: {
+  region: Region
+  user: User
+  onUserRefresh: () => void
+  onBack: () => void
+}) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
   const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
   const [item, setItem] = useState<PendingVerification | null>(null)
@@ -68,6 +79,7 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
       .then(() => {
         setReviewedCount((count) => count + 1)
         setStatuses((prev) => new Map(prev).set(pointUuid, approved ? 'approved' : 'flagged'))
+        onUserRefresh()
       })
       .catch(() => setError('Could not submit your review. Please try again.'))
       .finally(() => setSubmittingUuid(null))
@@ -76,9 +88,12 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
   return (
     <div className="game-screen">
       <header className="game-header">
-        <button type="button" className="back-link" onClick={onBack}>
-          ← Back to games
-        </button>
+        <div className="game-header-top">
+          <button type="button" className="back-link" onClick={onBack}>
+            ← Back to games
+          </button>
+          <LevelBadge exp={user.exp} />
+        </div>
         <h1>Silver Eel League — Verification</h1>
         <p className="game-flavor">
           Before the long migration back to sea, a silver eel double-checks its bearings.

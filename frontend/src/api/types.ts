@@ -7,6 +7,7 @@ export interface User {
   username: string
   role: Role
   expert_level: number
+  exp: number
   created_at: number
 }
 
