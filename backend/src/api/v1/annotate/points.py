@@ -127,7 +127,19 @@ def _build_annotation(
     )
 
 
-@router.post("/create", response_model=PointAnnotationResponse, status_code=201)
+@router.post(
+    "/create",
+    response_model=PointAnnotationResponse,
+    status_code=201,
+    summary="Create Point Annotation",
+    description="""
+Create a new point annotation, identified by uuid, for an open image pair. Requires the annotator role (or any higher role).
+
+expert_level is copied from the caller at creation time; confidence is always null on creation.
+
+Fails with 404 if either image, the image pair, or the given label does not exist, 409 if the image pair is not open, or 409 if the uuid is already used by an existing annotation.
+""",
+)
 def create_annotation(
     payload: PointAnnotationCreateRequest,
     request: Request,
@@ -146,7 +158,17 @@ def create_annotation(
     return _to_response(annotation, db)
 
 
-@router.post("/batch/create")
+@router.post(
+    "/batch/create",
+    summary="Batch Create Point Annotations",
+    description="""
+Create multiple point annotations in one request, one per item, using the same rules as Create Point Annotation. Requires the annotator role (or any higher role).
+
+The batch is all-or-nothing: if any item fails validation, or any uuid collides with an existing annotation, none of the items are created.
+
+Fails with 404 if any item's images, image pair, or label do not exist, 409 if any item's image pair is not open, or 409 if any item's uuid is already used by an existing annotation.
+""",
+)
 def batch_create_annotations(
     items: list[PointAnnotationCreateRequest],
     request: Request,
@@ -252,7 +274,18 @@ def _apply_review(
     return _to_response(annotation, db)
 
 
-@router.post("/review/{annotation_uuid}/fail", response_model=PointAnnotationResponse)
+@router.post(
+    "/review/{annotation_uuid}/fail",
+    response_model=PointAnnotationResponse,
+    summary="Fail Point Annotation Review",
+    description="""
+Mark a pending point annotation as review_failed. Requires the annotator role (or any higher role); the caller cannot review their own annotation.
+
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than the annotation's expert_level.
+
+Fails with 404 if the annotation does not exist, 409 if it is not pending review, or 403 if the caller is not authorized to review it.
+""",
+)
 def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(get_db)):
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
@@ -261,7 +294,16 @@ def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(g
 
 
 @router.post(
-    "/review/{annotation_uuid}/approve", response_model=PointAnnotationResponse
+    "/review/{annotation_uuid}/approve",
+    response_model=PointAnnotationResponse,
+    summary="Approve Point Annotation Review",
+    description="""
+Mark a pending point annotation as approved. Requires the annotator role (or any higher role); the caller cannot review their own annotation.
+
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than the annotation's expert_level.
+
+Fails with 404 if the annotation does not exist, 409 if it is not pending review, or 403 if the caller is not authorized to review it.
+""",
 )
 def review_approve(
     annotation_uuid: UUID, request: Request, db: Session = Depends(get_db)
@@ -300,8 +342,30 @@ def _to_next_pair_response(pair: ImagePair, db: Session) -> NextPairResponse:
     )
 
 
-@router.get("/next/{dive_uuid}", response_model=list[NextPairResponse])
-@router.get("/next/{dive_uuid}/{n}", response_model=list[NextPairResponse])
+@router.get(
+    "/next/{dive_uuid}",
+    response_model=list[NextPairResponse],
+    summary="Get Next Point Annotation Pairs",
+    description="""
+Return up to n open image pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
+
+A pair is only returned if its difficulty is null or at most the caller's expert_level. Results are ordered by priority descending (nulls last), then by creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+
+Fails with 404 if the dive does not exist, or 422 if n is less than 1.
+""",
+)
+@router.get(
+    "/next/{dive_uuid}/{n}",
+    response_model=list[NextPairResponse],
+    summary="Get Next Point Annotation Pairs",
+    description="""
+Return up to n open image pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
+
+A pair is only returned if its difficulty is null or at most the caller's expert_level. Results are ordered by priority descending (nulls last), then by creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+
+Fails with 404 if the dive does not exist, or 422 if n is less than 1.
+""",
+)
 def get_next_pairs(
     dive_uuid: UUID, request: Request, n: int = 1, db: Session = Depends(get_db)
 ):

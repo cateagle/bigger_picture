@@ -96,7 +96,19 @@ def _build_annotation(payload: CandidateAnnotationCreateRequest, user: User, can
     )
 
 
-@router.post("/create", response_model=CandidateAnnotationResponse, status_code=201)
+@router.post(
+    "/create",
+    response_model=CandidateAnnotationResponse,
+    status_code=201,
+    summary="Create Candidate Pair Annotation",
+    description="""
+Create a new candidate pair annotation, identified by uuid, for an open candidate pair. Requires the annotator role (or any higher role).
+
+expert_level is copied from the caller at creation time.
+
+Fails with 404 if either image or the candidate pair does not exist, 409 if the candidate pair is not open, or 409 if the uuid is already used by an existing annotation.
+""",
+)
 def create_annotation(
     payload: CandidateAnnotationCreateRequest,
     request: Request,
@@ -115,7 +127,17 @@ def create_annotation(
     return _to_response(annotation, db)
 
 
-@router.post("/batch/create")
+@router.post(
+    "/batch/create",
+    summary="Batch Create Candidate Pair Annotations",
+    description="""
+Create multiple candidate pair annotations in one request, one per item, using the same rules as Create Candidate Pair Annotation. Requires the annotator role (or any higher role).
+
+The batch is all-or-nothing: if any item fails validation, or any uuid collides with an existing annotation, none of the items are created.
+
+Fails with 404 if any item's images or candidate pair do not exist, 409 if any item's candidate pair is not open, or 409 if any item's uuid is already used by an existing annotation.
+""",
+)
 def batch_create_annotations(
     items: list[CandidateAnnotationCreateRequest],
     request: Request,
@@ -140,7 +162,18 @@ def batch_create_annotations(
     return {"created": len(annotations)}
 
 
-@router.post("/correction", response_model=CandidateAnnotationResponse)
+@router.post(
+    "/correction",
+    response_model=CandidateAnnotationResponse,
+    summary="Correct a Candidate Pair Annotation",
+    description="""
+Replace the no_overlap value of an existing candidate pair annotation. Can only be done by the user who created the annotation, within the first hour of creating it, and as long as it is in status "review_pending".
+
+Unlike point annotation correction, no_overlap is always required and always overwritten; there is no partial-update behavior.
+
+Fails with 404 if the annotation does not exist, 403 if the caller is not its creator, 409 if it is not pending review, or 403 if the correction window has expired.
+""",
+)
 def correct_annotation(
     payload: CandidateAnnotationCorrectionRequest,
     request: Request,
@@ -196,7 +229,18 @@ def _apply_review(annotation: CandidateAnnotation, caller: User, status_id: int,
     return _to_response(annotation, db)
 
 
-@router.post("/review/{annotation_uuid}/fail", response_model=CandidateAnnotationResponse)
+@router.post(
+    "/review/{annotation_uuid}/fail",
+    response_model=CandidateAnnotationResponse,
+    summary="Fail Candidate Pair Annotation Review",
+    description="""
+Mark a pending candidate pair annotation as review_failed. Requires the annotator role (or any higher role); the caller cannot review their own annotation.
+
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than the annotation's expert_level.
+
+Fails with 404 if the annotation does not exist, 409 if it is not pending review, or 403 if the caller is not authorized to review it.
+""",
+)
 def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(get_db)):
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
@@ -204,7 +248,18 @@ def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(g
     return _apply_review(annotation, caller, STATUS_REVIEW_FAILED, db)
 
 
-@router.post("/review/{annotation_uuid}/approve", response_model=CandidateAnnotationResponse)
+@router.post(
+    "/review/{annotation_uuid}/approve",
+    response_model=CandidateAnnotationResponse,
+    summary="Approve Candidate Pair Annotation Review",
+    description="""
+Mark a pending candidate pair annotation as approved. Requires the annotator role (or any higher role); the caller cannot review their own annotation.
+
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than the annotation's expert_level.
+
+Fails with 404 if the annotation does not exist, 409 if it is not pending review, or 403 if the caller is not authorized to review it.
+""",
+)
 def review_approve(annotation_uuid: UUID, request: Request, db: Session = Depends(get_db)):
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
@@ -238,8 +293,30 @@ def _to_next_candidate_response(candidate: CandidatePair, db: Session) -> NextCa
     )
 
 
-@router.get("/next/{dive_uuid}", response_model=list[NextCandidateResponse])
-@router.get("/next/{dive_uuid}/{n}", response_model=list[NextCandidateResponse])
+@router.get(
+    "/next/{dive_uuid}",
+    response_model=list[NextCandidateResponse],
+    summary="Get Next Candidate Pairs",
+    description="""
+Return up to n open candidate pairs from the given dive that the caller has not yet annotated, ordered by creation time ascending. Requires the annotator role (or any higher role).
+
+Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. n defaults to 1 and must be at least 1; there is no upper bound.
+
+Fails with 404 if the dive does not exist, or 422 if n is less than 1.
+""",
+)
+@router.get(
+    "/next/{dive_uuid}/{n}",
+    response_model=list[NextCandidateResponse],
+    summary="Get Next Candidate Pairs",
+    description="""
+Return up to n open candidate pairs from the given dive that the caller has not yet annotated, ordered by creation time ascending. Requires the annotator role (or any higher role).
+
+Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. n defaults to 1 and must be at least 1; there is no upper bound.
+
+Fails with 404 if the dive does not exist, or 422 if n is less than 1.
+""",
+)
 def get_next_candidates(dive_uuid: UUID, request: Request, n: int = 1, db: Session = Depends(get_db)):
     user = require_current_user(request)
     if n < 1:

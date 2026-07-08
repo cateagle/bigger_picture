@@ -23,7 +23,14 @@ router.include_router(candidates_router, prefix="/candidate")
 router.include_router(points_router, prefix="/points")
 
 
-@router.get("/labels", response_model=LabelListResponse)
+@router.get(
+    "/labels",
+    response_model=LabelListResponse,
+    summary="List Labels",
+    description="""
+Return every label in the system. Requires the annotator role (or any higher role).
+""",
+)
 def list_labels(db: Session = Depends(get_db)):
     labels = db.execute(select(Label)).scalars().all()
     return LabelListResponse(
@@ -39,7 +46,14 @@ def list_labels(db: Session = Depends(get_db)):
     )
 
 
-@router.get("/regions", response_model=RegionListResponse)
+@router.get(
+    "/regions",
+    response_model=RegionListResponse,
+    summary="List Regions",
+    description="""
+Return every region in the system. Requires the annotator role (or any higher role).
+""",
+)
 def list_regions(db: Session = Depends(get_db)):
     regions = db.execute(select(Region)).scalars().all()
     return RegionListResponse(
@@ -57,7 +71,18 @@ def list_regions(db: Session = Depends(get_db)):
     )
 
 
-@router.get("/dives", response_model=DiveListResponse)
+@router.get(
+    "/dives",
+    response_model=DiveListResponse,
+    summary="List Dives In Region",
+    description="""
+Return the dives within the given region, ordered by creation time, so an annotator can pick one to fetch annotation candidates from. Requires the annotator role (or any higher role).
+
+Unlike Dataset's List Dives (requires the scientist role, lists everything), this is scoped to a single region.
+
+Fails with 404 if the region does not exist.
+""",
+)
 def list_dives_for_region(region: UUID, db: Session = Depends(get_db)):
     """List dives within a region, so a player can pick one to fetch game candidates from.
 
