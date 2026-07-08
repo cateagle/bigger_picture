@@ -260,3 +260,48 @@ def test_dives_role_gating_annotator_forbidden(client, seed_user, login_as):
         },
     )
     assert resp.status_code == 403
+
+
+def test_list_dives_returns_all_dives(client, scientist):
+    region = _make_region(client)
+    camera = _make_camera(client)
+    u1 = _new_uuid()
+    u2 = _new_uuid()
+    client.post(
+        "/api/v1/dataset/dives/create",
+        json={
+            "uuid": u1,
+            "title": "dive 1",
+            "metadata": {"depth": 12},
+            "description": "first dive",
+            "region": region,
+            "camera": camera,
+        },
+    )
+    client.post(
+        "/api/v1/dataset/dives/create",
+        json={"uuid": u2, "title": "dive 2", "region": region, "camera": camera},
+    )
+
+    resp = client.get("/api/v1/dataset/dives")
+    assert resp.status_code == 200
+    dives = resp.json()["dives"]
+    assert {d["uuid"] for d in dives} == {u1, u2}
+    by_uuid = {d["uuid"]: d for d in dives}
+    assert by_uuid[u1]["title"] == "dive 1"
+    assert by_uuid[u1]["metadata"] == {"depth": 12}
+    assert by_uuid[u1]["region"] == region
+    assert by_uuid[u1]["camera"] == camera
+    assert by_uuid[u2]["description"] is None
+
+
+def test_list_dives_empty(client, scientist):
+    resp = client.get("/api/v1/dataset/dives")
+    assert resp.status_code == 200
+    assert resp.json()["dives"] == []
+
+
+def test_list_dives_role_gating_annotator_forbidden(client, seed_user, login_as):
+    login_as(seed_user(username="ann", role="annotator"))
+    resp = client.get("/api/v1/dataset/dives")
+    assert resp.status_code == 403
