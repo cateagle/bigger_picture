@@ -25,6 +25,7 @@ devenv shell -- python -m pytest                   # full test suite
 devenv shell -- python -m pytest tests/test_auth.py                      # one file
 devenv shell -- python -m pytest tests/test_auth.py::test_signup_sets_cookie  # one test
 devenv shell -- python -m src.bootstrap_admin --username admin           # create first admin (role can't self-elevate)
+devenv shell -- python -m src.create_users --admin-username admin --scientist-username scientist  # add an admin/scientist to a db that's already in use; skips usernames already taken
 ```
 
 The dev shell (Nix `devenv`) provides Python 3.12 + `uv`-synced deps; there's no plain venv workflow — always prefix backend commands with `devenv shell --`.
