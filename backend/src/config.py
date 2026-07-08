@@ -6,6 +6,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 DATABASE_PATH = os.environ.get("DATABASE_PATH", str(BACKEND_DIR / "data" / "app.db"))
 ASSETS_DIR = os.environ.get("ASSETS_DIR", str(BACKEND_DIR / "assets"))
 IMPORT_DIR = os.environ.get("IMPORT_DIR", str(BACKEND_DIR / "import"))
+FRONTEND_DIST_DIR = os.environ.get("FRONTEND_DIST_DIR", str(BACKEND_DIR.parent / "frontend" / "dist"))
 
 SQLITE_BUSY_TIMEOUT_MS = int(os.environ.get("SQLITE_BUSY_TIMEOUT_MS", "5000"))
 

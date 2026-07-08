@@ -27,6 +27,15 @@
     };
   };
 
+  languages.javascript = {
+    enable = true;
+    directory = "./frontend";
+    npm = {
+      enable = true;
+      install.enable = true;
+    };
+  };
+
   # ── Packages ──────────────────────────────────────────────────────────────
   packages = with pkgs; [
     pkg-config

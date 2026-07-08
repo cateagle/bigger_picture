@@ -30,21 +30,20 @@ backend/
 
 ## Running
 
-From the `backend/` directory:
+Needs Python 3.12+ and [uv](https://docs.astral.sh/uv/). From the `backend/` directory:
 
 ```sh
-# start the API (applies pending migrations on startup)
-devenv shell -- uvicorn src.main:app --reload
-
+uv sync
+uv run uvicorn src.main:app --reload   # applies pending migrations on startup
 # or
-devenv shell -- python -m src.main
+uv run python -m src.main
 ```
-
-From the repo root:
 
 ```sh
-devenv shell -- bash -c "cd backend && python -m pytest"
+uv run pytest
 ```
+
+If you use [devenv](https://devenv.sh) (see the repo's `devenv.nix`), it provisions Python + uv for you — prefix the commands above with `devenv shell --` and drop the `uv run`/`uv sync` (devenv activates the synced venv directly), e.g. `devenv shell -- uvicorn src.main:app --reload` from `backend/`, or `devenv shell -- bash -c "cd backend && python -m pytest"` from the repo root. Devenv is optional, not required.
 
 ## Auth model
 
@@ -74,6 +73,7 @@ This prints the new admin's uuid. Save it - it is the only credential and there 
 | ---------------------- | ------------------- | -------------------------------------------- |
 | DATABASE_PATH          | backend/data/app.db | SQLite file location                         |
 | ASSETS_DIR             | backend/assets      | Public static image directory                |
+| FRONTEND_DIST_DIR      | frontend/dist (sibling to backend/) | Built frontend to serve at `/`; mounted only if the directory exists |
 | COOKIE_NAME            | session_uuid        | Auth cookie name                             |
 | COOKIE_SECURE          | false               | Set `true` behind TLS in any real deployment |
 | COOKIE_MAX_AGE_SECONDS | 31536000 (1 year)   | Cookie lifetime                              |
