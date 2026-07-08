@@ -264,3 +264,35 @@ def test_images_role_gating_annotator_forbidden(client, seed_user, login_as):
         },
     )
     assert resp.status_code == 403
+
+
+def test_list_images_returns_dive_images_in_order(client, scientist):
+    dive = _make_dive(client)
+    u1, _ = _create_image(client, dive, filepath="l1.png")
+    u2, _ = _create_image(client, dive, filepath="l2.png")
+    resp = client.get(f"/api/v1/dataset/images?dive={dive}")
+    assert resp.status_code == 200, resp.text
+    uuids = [img["uuid"] for img in resp.json()["images"]]
+    assert uuids == [u1, u2]
+
+
+def test_list_images_excludes_other_dives(client, scientist):
+    dive_a = _make_dive(client, title="dive-a")
+    dive_b = _make_dive(client, title="dive-b")
+    u_a, _ = _create_image(client, dive_a, filepath="a.png")
+    _create_image(client, dive_b, filepath="b.png")
+    resp = client.get(f"/api/v1/dataset/images?dive={dive_a}")
+    assert resp.status_code == 200
+    uuids = [img["uuid"] for img in resp.json()["images"]]
+    assert uuids == [u_a]
+
+
+def test_list_images_unknown_dive_is_404(client, scientist):
+    resp = client.get(f"/api/v1/dataset/images?dive={_new_uuid()}")
+    assert resp.status_code == 404
+
+
+def test_list_images_role_gating_annotator_forbidden(client, seed_user, login_as):
+    login_as(seed_user(username="ann2", role="annotator"))
+    resp = client.get(f"/api/v1/dataset/images?dive={_new_uuid()}")
+    assert resp.status_code == 403

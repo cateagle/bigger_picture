@@ -162,3 +162,49 @@ def test_pairs_role_gating_annotator_forbidden(client, seed_user, login_as):
         json={"image_a": _new_uuid(), "image_b": _new_uuid()},
     )
     assert resp.status_code == 403
+
+
+def test_list_pairs_returns_pairs_in_dive(client, scientist):
+    dive = _make_dive(client)
+    a = _make_image(client, dive, "la.png")
+    b = _make_image(client, dive, "lb.png")
+    c = _make_image(client, dive, "lc.png")
+    assert client.post("/api/v1/dataset/pairs/create", json={"image_a": a, "image_b": b}).status_code == 201
+    assert client.post("/api/v1/dataset/pairs/create", json={"image_a": b, "image_b": c}).status_code == 201
+
+    resp = client.get(f"/api/v1/dataset/pairs?dive={dive}")
+    assert resp.status_code == 200, resp.text
+    pairs = resp.json()["pairs"]
+    assert len(pairs) == 2
+    assert {frozenset((p["image_a"], p["image_b"])) for p in pairs} == {
+        frozenset((a, b)),
+        frozenset((b, c)),
+    }
+
+
+def test_list_pairs_excludes_other_dives(client, scientist):
+    dive_a = _make_dive(client, title="dive-a")
+    dive_b = _make_dive(client, title="dive-b")
+    a1 = _make_image(client, dive_a, "a1.png")
+    a2 = _make_image(client, dive_a, "a2.png")
+    b1 = _make_image(client, dive_b, "b1.png")
+    b2 = _make_image(client, dive_b, "b2.png")
+    assert client.post("/api/v1/dataset/pairs/create", json={"image_a": a1, "image_b": a2}).status_code == 201
+    assert client.post("/api/v1/dataset/pairs/create", json={"image_a": b1, "image_b": b2}).status_code == 201
+
+    resp = client.get(f"/api/v1/dataset/pairs?dive={dive_a}")
+    assert resp.status_code == 200
+    pairs = resp.json()["pairs"]
+    assert len(pairs) == 1
+    assert {pairs[0]["image_a"], pairs[0]["image_b"]} == {a1, a2}
+
+
+def test_list_pairs_unknown_dive_is_404(client, scientist):
+    resp = client.get(f"/api/v1/dataset/pairs?dive={_new_uuid()}")
+    assert resp.status_code == 404
+
+
+def test_list_pairs_role_gating_annotator_forbidden(client, seed_user, login_as):
+    login_as(seed_user(username="ann2", role="annotator"))
+    resp = client.get(f"/api/v1/dataset/pairs?dive={_new_uuid()}")
+    assert resp.status_code == 403

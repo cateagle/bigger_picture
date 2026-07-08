@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createLabel, fetchLabels, updateLabel } from '../api/labelApi'
 import type { User } from '../api/types'
+import DatasetAdmin from './admin/DatasetAdmin'
 import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
@@ -19,7 +20,7 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
   return updateLabel(uuid, input as { scope?: string; title?: string; description?: string | null })
 }
 
-type Tab = 'regions' | 'labels' | 'users'
+type Tab = 'regions' | 'labels' | 'users' | 'dataset'
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
@@ -38,7 +39,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           ← Back to games
         </button>
         <h1>Admin</h1>
-        <p>Manage regions, labels{isAdmin ? ', and users' : ''}.</p>
+        <p>Manage regions, labels, and the dataset{isAdmin ? ', and users' : ''}.</p>
       </header>
 
       <div className="admin-tab-bar">
@@ -47,6 +48,9 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
         </button>
         <button type="button" className={`btn${tab === 'labels' ? ' btn-primary' : ''}`} onClick={() => setTab('labels')}>
           Labels
+        </button>
+        <button type="button" className={`btn${tab === 'dataset' ? ' btn-primary' : ''}`} onClick={() => setTab('dataset')}>
+          Dataset
         </button>
         {isAdmin && (
           <button type="button" className={`btn${tab === 'users' ? ' btn-primary' : ''}`} onClick={() => setTab('users')}>
@@ -65,6 +69,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           update={updateLabelAdapter}
         />
       )}
+      {tab === 'dataset' && <DatasetAdmin />}
       {tab === 'users' && isAdmin && <UsersAdmin currentUserUuid={user.uuid} />}
     </div>
   )
