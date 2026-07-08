@@ -10,7 +10,10 @@ assigned, and a CSV listing image pairs (by those uuids), this script:
   3. uploads each image via POST /api/v1/dataset/images/create (the image is
      sent base64-encoded in the JSON body; the server writes it to disk and
      reads its dimensions);
-  4. creates each pair via POST /api/v1/dataset/pairs/create.
+  4. creates each pair via POST /api/v1/dataset/pairs/create;
+  5. (optional, --publish) flips the uploaded images and pairs from their
+     default `hidden` status to `open` via the batch status-change endpoints,
+     so they become available for annotation (e.g. /annotate/points/next).
 
 Progress is recorded in a local ledger (default: <files-csv>.state.json) after
 each successful upload/pair, so rerunning the script skips work already done
@@ -407,6 +410,38 @@ def create_pairs(client, pairs_rows, state: ProgressState, dry_run: bool):
     return created, skipped, failed
 
 
+def publish(client, state: ProgressState, status: str, dry_run: bool) -> int:
+    """Flip every uploaded image and pair to `status` so they become usable.
+
+    Works off the ledger (`state`), not the raw CSVs, so only items confirmed on
+    the server are touched - the batch endpoints 404 the whole request if any
+    referenced item is missing. Both endpoints are idempotent, so re-running is
+    safe. Returns the number of failed batch calls.
+    """
+    image_uuids = sorted(state.images)
+    pair_refs = [{"image_a": a, "image_b": b} for a, b in sorted(state.pairs)]
+
+    if dry_run:
+        print(f"  DRY-RUN would set {len(image_uuids)} image(s) and {len(pair_refs)} pair(s) to {status!r}")
+        return 0
+
+    failed = 0
+    for label, path, body in (
+        ("images", f"/api/v1/dataset/images/batch/status-change/{status}", image_uuids),
+        ("pairs", f"/api/v1/dataset/pairs/batch/status-change/{status}", pair_refs),
+    ):
+        if not body:
+            continue
+        code, payload = client.post(path, body)
+        if code == 200:
+            updated = payload.get("updated") if isinstance(payload, dict) else len(body)
+            print(f"  {label} -> {status}: {updated} updated")
+        else:
+            failed += 1
+            print(f"  FAIL {label} -> {status} (HTTP {code}): {_detail(payload)}", file=sys.stderr)
+    return failed
+
+
 # --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
@@ -435,6 +470,16 @@ def parse_args(argv=None):
         help="progress ledger for resumable reruns (default: <files-csv>.state.json)",
     )
     p.add_argument("--dry-run", action="store_true", help="validate and resolve the dive, but make no create calls")
+    p.add_argument(
+        "--publish",
+        action="store_true",
+        help="after uploading, set the images and pairs to --publish-status so they become usable",
+    )
+    p.add_argument(
+        "--publish-status",
+        default="open",
+        help="status to publish images/pairs to when --publish is set (default: open)",
+    )
     return p.parse_args(argv)
 
 
@@ -489,11 +534,16 @@ def main(argv=None):
     print("\nCreating pairs:")
     pair_created, pair_skipped, pair_failed = create_pairs(client, pairs_rows, state, args.dry_run)
 
+    publish_failed = 0
+    if args.publish:
+        print(f"\nPublishing (status -> {args.publish_status}):")
+        publish_failed = publish(client, state, args.publish_status, args.dry_run)
+
     print(
         f"\nDone. images: {img_created} created, {img_skipped} skipped, {img_failed} failed | "
         f"pairs: {pair_created} created, {pair_skipped} skipped, {pair_failed} failed"
     )
-    if img_failed or pair_failed:
+    if img_failed or pair_failed or publish_failed:
         raise SystemExit(1)
 
 

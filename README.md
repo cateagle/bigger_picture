@@ -62,6 +62,7 @@ bigger_picture/
 ├── frontend/              # React + TypeScript SPA — the game itself
 ├── backend/               # FastAPI + SQLite API, auth, and persistence
 ├── compute_homographies.py  # original single-user annotation prototype (OpenCV)
+├── scripts/              # dataset ingestion & seeding CLIs (see "Dataset ingestion")
 └── README.md
 ```
 
@@ -96,6 +97,22 @@ npm run dev
 ```
 
 The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) for everything except Stage 3 (Verification) to work — Stages 1 and 2 fetch real regions/dives/candidates/pairs from it; only Stage 3's mocked endpoints work with no backend running.
+
+## Dataset ingestion (`scripts/`)
+
+Command-line tools for getting marine images and their pairs into the backend. They drive the REST API (so they respect auth and validation) and authenticate as a `scientist`/`admin` user — the Docker Compose setup seeds an `admin` user on startup (`SEED_ADMIN_USERNAME`), which the scripts log in as by default.
+
+- **`sort_images.py`** — scans an image folder, assigns each image a uuid, and pairs each image with its next N neighbours. Writes `images.csv` (`filename,uuid`) and `image_pairs.csv` (uuid pairs); re-runs reuse existing uuids so they stay stable.
+- **`upload_dataset.py`** — uploads the images and creates the pairs for a chosen dive from those two CSVs, and with `--publish` flips them to `open` so they become available for annotation. Idempotent: a local `*.state.json` ledger lets reruns skip work already done.
+- **`seed_examples.py`** — one-shot seeding of the bundled example datasets under `scripts/example_data/` (`dive1`, `north_sea`): ensures each dive and its region exist, prepares the CSVs, uploads, and publishes.
+- **`reset.py`** — deletes the SQLite database and all `*.state.json` ledgers for a clean slate.
+
+Quick start (with the stack running via `docker compose up`):
+
+```sh
+python3 scripts/seed_examples.py             # seed dive1 + north_sea
+python3 scripts/seed_examples.py north_sea   # just one dataset
+```
 
 ## Status
 
