@@ -1,75 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Globe from 'react-globe.gl'
 import { fetchRegions } from '../api/regionApi'
 import type { Region, RegionMesh, User } from '../api/types'
+import { normalizeMeshWinding } from '../geo'
+import { useContainerSize } from '../useContainerSize'
 import './RegionSelectScreen.css'
 
 const CAP_COLOR = 'rgba(42, 120, 214, 0.55)'
 const CAP_COLOR_HOVER = 'rgba(233, 168, 47, 0.75)'
 const STROKE_COLOR = 'rgba(255, 255, 255, 0.85)'
-
-function ringSignedArea(ring: number[][]): number {
-  let sum = 0
-  for (let i = 0; i < ring.length - 1; i++) {
-    const [x1, y1] = ring[i]
-    const [x2, y2] = ring[i + 1]
-    sum += x1 * y2 - x2 * y1
-  }
-  return sum
-}
-
-/**
- * three-globe/d3-geo renders a polygon's *complement* (the whole globe minus
- * the intended area) unless the exterior ring winds clockwise in (lng, lat)
- * order - the opposite of the GeoJSON RFC 7946 convention that most
- * authoring tools (geojson.io, Turf, GIS exports) produce by default. Force
- * the orientation here rather than relying on however a region's mesh
- * happened to be authored; holes (rings after the first) must wind the
- * opposite way from the exterior ring to still read as holes.
- */
-function normalizeRingWinding(rings: number[][][]): number[][][] {
-  return rings.map((ring, i) => {
-    const isExterior = i === 0
-    const isClockwise = ringSignedArea(ring) < 0
-    const needsReversal = isExterior ? !isClockwise : isClockwise
-    return needsReversal ? [...ring].reverse() : ring
-  })
-}
-
-function normalizeMeshWinding(mesh: RegionMesh): RegionMesh {
-  if (mesh.type === 'Polygon') {
-    return { ...mesh, coordinates: normalizeRingWinding(mesh.coordinates as number[][][]) }
-  }
-  return {
-    ...mesh,
-    coordinates: (mesh.coordinates as number[][][][]).map((polygon) => normalizeRingWinding(polygon)),
-  }
-}
-
-/**
- * The observed element mounts only once region data has loaded (an async,
- * conditionally-rendered container), so a plain object ref + mount-time
- * effect would miss it - the effect runs before the element exists. A
- * callback ref re-fires whenever the node itself mounts/unmounts instead.
- */
-function useContainerSize() {
-  const [size, setSize] = useState({ width: 0, height: 0 })
-  const observerRef = useRef<ResizeObserver | null>(null)
-
-  const ref = useCallback((el: HTMLDivElement | null) => {
-    observerRef.current?.disconnect()
-    observerRef.current = null
-    if (!el) return
-    const observer = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect
-      setSize({ width, height })
-    })
-    observer.observe(el)
-    observerRef.current = observer
-  }, [])
-
-  return { ref, size }
-}
 
 export default function RegionSelectScreen({
   user,
