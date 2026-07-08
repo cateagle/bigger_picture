@@ -69,7 +69,9 @@ def _to_response(annotation: PointAnnotation, db: Session) -> PointAnnotationRes
         y2=annotation.y2,
         expert_level=annotation.expert_level,
         confidence=annotation.confidence,
-        status=str(status_enum) if status_enum is not None else str(annotation.status_id),
+        status=str(status_enum)
+        if status_enum is not None
+        else str(annotation.status_id),
         created_at=annotation.created_at,
         created_by=UUID(bytes=creator.uuid),
         reviewed_at=annotation.reviewed_at,
@@ -103,7 +105,9 @@ def _resolve_label_id(db: Session, label_uuid: UUID) -> int:
     return label.id
 
 
-def _build_annotation(payload: PointAnnotationCreateRequest, user: User, pair: ImagePair, db: Session) -> PointAnnotation:
+def _build_annotation(
+    payload: PointAnnotationCreateRequest, user: User, pair: ImagePair, db: Session
+) -> PointAnnotation:
     label_id = None
     if "label_id" in payload.model_fields_set and payload.label_id is not None:
         label_id = _resolve_label_id(db, payload.label_id)
@@ -167,7 +171,16 @@ def batch_create_annotations(
     return {"created": len(annotations)}
 
 
-@router.post("/correction", response_model=PointAnnotationResponse)
+@router.post(
+    "/correction",
+    response_model=PointAnnotationResponse,
+    summary="Correct a Point Annotation",
+    description="""
+Update the bounding box and optionally the label of an existing annotation. Can only be done by the user who created the annotation within the first hour of creating the annotation and as long as it is in status "review_pending".
+
+Coordinates are expressed in image pixels. Only the supplied fields are modified.
+""",
+)
 def correct_annotation(
     payload: PointAnnotationCorrectionRequest,
     request: Request,
@@ -216,14 +229,21 @@ def _load_pending_for_review(db: Session, annotation_uuid: UUID) -> PointAnnotat
 
 def _authorize_review(caller: User, annotation: PointAnnotation) -> None:
     allowed = (caller.id != annotation.created_by) and (
-        (caller.expert_level >= config.MIN_REVIEW_EXPERT_LEVEL and caller.expert_level > annotation.expert_level)
+        (
+            caller.expert_level >= config.MIN_REVIEW_EXPERT_LEVEL
+            and caller.expert_level > annotation.expert_level
+        )
         or caller.role in (Role.SCIENTIST, Role.ADMIN)
     )
     if not allowed:
-        raise HTTPException(status_code=403, detail="Not authorized to review this annotation")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to review this annotation"
+        )
 
 
-def _apply_review(annotation: PointAnnotation, caller: User, status_id: int, db: Session) -> PointAnnotationResponse:
+def _apply_review(
+    annotation: PointAnnotation, caller: User, status_id: int, db: Session
+) -> PointAnnotationResponse:
     annotation.status_id = status_id
     annotation.reviewed_by = caller.id
     annotation.reviewed_at = now_ms()
@@ -240,8 +260,12 @@ def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(g
     return _apply_review(annotation, caller, STATUS_REVIEW_FAILED, db)
 
 
-@router.post("/review/{annotation_uuid}/approve", response_model=PointAnnotationResponse)
-def review_approve(annotation_uuid: UUID, request: Request, db: Session = Depends(get_db)):
+@router.post(
+    "/review/{annotation_uuid}/approve", response_model=PointAnnotationResponse
+)
+def review_approve(
+    annotation_uuid: UUID, request: Request, db: Session = Depends(get_db)
+):
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
@@ -278,7 +302,9 @@ def _to_next_pair_response(pair: ImagePair, db: Session) -> NextPairResponse:
 
 @router.get("/next/{dive_uuid}", response_model=list[NextPairResponse])
 @router.get("/next/{dive_uuid}/{n}", response_model=list[NextPairResponse])
-def get_next_pairs(dive_uuid: UUID, request: Request, n: int = 1, db: Session = Depends(get_db)):
+def get_next_pairs(
+    dive_uuid: UUID, request: Request, n: int = 1, db: Session = Depends(get_db)
+):
     user = require_current_user(request)
     if n < 1:
         raise HTTPException(status_code=422, detail="n must be >= 1")
@@ -289,7 +315,9 @@ def get_next_pairs(dive_uuid: UUID, request: Request, n: int = 1, db: Session = 
 
     Image1 = aliased(Image)
     Image2 = aliased(Image)
-    annotated_pair_ids = select(PointAnnotation.pair_id).where(PointAnnotation.created_by == user.id)
+    annotated_pair_ids = select(PointAnnotation.pair_id).where(
+        PointAnnotation.created_by == user.id
+    )
 
     stmt = (
         select(ImagePair)
@@ -299,7 +327,10 @@ def get_next_pairs(dive_uuid: UUID, request: Request, n: int = 1, db: Session = 
             ImagePair.status_id == PAIR_OPEN,
             Image1.dive_id == dive.id,
             Image2.dive_id == dive.id,
-            or_(ImagePair.difficulty.is_(None), ImagePair.difficulty <= user.expert_level),
+            or_(
+                ImagePair.difficulty.is_(None),
+                ImagePair.difficulty <= user.expert_level,
+            ),
             ImagePair.id.notin_(annotated_pair_ids),
         )
         .order_by(ImagePair.priority.desc().nullslast(), ImagePair.created_at.asc())
