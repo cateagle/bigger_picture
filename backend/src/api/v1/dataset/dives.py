@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata, encode_metadata
+from src.constants import UNKNOWN_CAMERA_UUID
 from src.db import get_db
 from src.models.dataset import DiveCreateRequest, DiveResponse, DiveUpdateRequest
 from src.schema.cameras import Camera
@@ -48,12 +49,43 @@ def _resolve_camera_id(db: Session, camera_uuid: UUID) -> int:
     return camera.id
 
 
+def _resolve_or_default_camera_id(db: Session, camera_uuid: UUID | None, creator_id: int) -> int:
+    """Resolve `camera_uuid`, falling back to the well-known "Unknown Camera" row when unset.
+
+    The fallback row is normally seeded on startup (see
+    `src.schema.cameras.seed_unknown_camera`), but is created here on demand
+    if it's somehow still missing, attributed to the requesting user.
+    """
+    if camera_uuid is not None:
+        return _resolve_camera_id(db, camera_uuid)
+
+    camera = get_by_uuid(db, Camera, UNKNOWN_CAMERA_UUID.bytes)
+    if camera is not None:
+        return camera.id
+
+    camera = Camera(
+        uuid=UNKNOWN_CAMERA_UUID.bytes,
+        created_at=now_ms(),
+        created_by=creator_id,
+        title="Unknown Camera",
+    )
+    db.add(camera)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        camera = get_by_uuid(db, Camera, UNKNOWN_CAMERA_UUID.bytes)
+        if camera is None:
+            raise
+    return camera.id
+
+
 @router.post("/create", response_model=DiveResponse, status_code=201)
 def create_dive(payload: DiveCreateRequest, request: Request, db: Session = Depends(get_db)):
     user = require_current_user(request)
 
     region_id = _resolve_region_id(db, payload.region)
-    camera_id = _resolve_camera_id(db, payload.camera)
+    camera_id = _resolve_or_default_camera_id(db, payload.camera, user.id)
 
     dive = Dive(
         uuid=payload.uuid.bytes,

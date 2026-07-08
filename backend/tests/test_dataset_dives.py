@@ -2,6 +2,8 @@ import uuid
 
 import pytest
 
+from src.constants import UNKNOWN_CAMERA_UUID
+
 
 @pytest.fixture
 def scientist(seed_user, login_as):
@@ -72,6 +74,26 @@ def test_create_dive_defaults_are_null(client, scientist):
     body = resp.json()
     assert body["metadata"] is None
     assert body["description"] is None
+
+
+def test_create_dive_without_camera_defaults_to_unknown_camera(client, scientist):
+    region = _make_region(client)
+    resp = client.post(
+        "/api/v1/dataset/dives/create",
+        json={"uuid": _new_uuid(), "title": "no cam", "region": region},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["camera"] == str(UNKNOWN_CAMERA_UUID)
+
+
+def test_create_dive_explicit_null_camera_defaults_to_unknown_camera(client, scientist):
+    region = _make_region(client)
+    resp = client.post(
+        "/api/v1/dataset/dives/create",
+        json={"uuid": _new_uuid(), "title": "null cam", "region": region, "camera": None},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["camera"] == str(UNKNOWN_CAMERA_UUID)
 
 
 def test_create_dive_unknown_region_is_404(client, scientist):

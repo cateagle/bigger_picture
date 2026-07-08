@@ -43,7 +43,7 @@ class DiveCreateRequest(BaseModel):
     metadata: dict[str, Any] | None = None
     description: str | None = Field(default=None, max_length=1023)
     region: UUID
-    camera: UUID
+    camera: UUID | None = None
 
 
 class DiveUpdateRequest(BaseModel):
