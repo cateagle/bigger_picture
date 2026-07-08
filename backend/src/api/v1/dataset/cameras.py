@@ -2,7 +2,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,17 +19,75 @@ router = APIRouter()
 
 
 class CameraCreateRequest(BaseModel):
-    uuid: UUID
-    title: str = Field(min_length=1, max_length=127)
-    metadata: dict[str, Any] | None = None
-    description: str | None = Field(default=None, max_length=1023)
+    """Request used to create a new camera in the metadata table."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "title": "GoPro Hero 11",
+                "metadata": None,
+                "description": None,
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier to assign to the new camera.")
+
+    title: str = Field(
+        min_length=1,
+        max_length=127,
+        description="Display name of the camera. Must be unique.",
+    )
+
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional arbitrary JSON object to attach to the camera.",
+    )
+
+    description: str | None = Field(
+        default=None,
+        max_length=1023,
+        description="Optional free-text description of the camera.",
+    )
 
 
 class CameraUpdateRequest(BaseModel):
-    uuid: UUID
-    title: str | None = Field(default=None, min_length=1, max_length=127)
-    metadata: dict[str, Any] | None = None
-    description: str | None = Field(default=None, max_length=1023)
+    """Request Model used to partially update an existing camera.
+
+    Only the fields explicitly supplied are changed; omitted fields are left
+    untouched. Sending an explicit null for title is also a no-op, since it
+    is not a nullable column.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "title": "GoPro Hero 11 (renamed)",
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier of the camera to update.")
+
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=127,
+        description="New display name. Must be unique. Omit to leave unchanged.",
+    )
+
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="New metadata object. Send null to clear it, or omit to leave unchanged.",
+    )
+
+    description: str | None = Field(
+        default=None,
+        max_length=1023,
+        description="New description. Send null to clear it, or omit to leave unchanged.",
+    )
 
 
 def _to_response(camera: Camera, db: Session) -> CameraResponse:
@@ -44,8 +102,20 @@ def _to_response(camera: Camera, db: Session) -> CameraResponse:
     )
 
 
-@router.post("/create", response_model=CameraResponse, status_code=201)
-def create_camera(payload: CameraCreateRequest, request: Request, db: Session = Depends(get_db)):
+@router.post(
+    "/create",
+    response_model=CameraResponse,
+    status_code=201,
+    summary="Create Camera",
+    description="""
+Create a new camera, identified by uuid, with the given title and optional metadata and description. Requires the scientist role.
+
+Fails with 409 if a camera with this uuid or title already exists.
+""",
+)
+def create_camera(
+    payload: CameraCreateRequest, request: Request, db: Session = Depends(get_db)
+):
     user = require_current_user(request)
 
     camera = Camera(
@@ -66,8 +136,21 @@ def create_camera(payload: CameraCreateRequest, request: Request, db: Session = 
     return _to_response(camera, db)
 
 
-@router.post("/update", response_model=CameraResponse)
-def update_camera(payload: CameraUpdateRequest, request: Request, db: Session = Depends(get_db)):
+@router.post(
+    "/update",
+    response_model=CameraResponse,
+    summary="Update Camera",
+    description="""
+Partially update an existing camera, identified by uuid. Requires the scientist role.
+
+Only the fields supplied in the request are changed; omitted fields are left as-is. Sending an explicit null for title is a no-op, but sending an explicit null for metadata or description clears it.
+
+Fails with 404 if the uuid is not found, or 409 if the new title is already taken.
+""",
+)
+def update_camera(
+    payload: CameraUpdateRequest, request: Request, db: Session = Depends(get_db)
+):
     require_current_user(request)
 
     camera = get_by_uuid(db, Camera, payload.uuid.bytes)
@@ -77,7 +160,11 @@ def update_camera(payload: CameraUpdateRequest, request: Request, db: Session = 
     updates = apply_partial_update(
         payload,
         nullable_columns={"metadata_json", "description"},
-        field_map={"title": "title", "metadata": "metadata_json", "description": "description"},
+        field_map={
+            "title": "title",
+            "metadata": "metadata_json",
+            "description": "description",
+        },
     )
     if updates.get("metadata_json") is not None:
         updates["metadata_json"] = encode_metadata(updates["metadata_json"])

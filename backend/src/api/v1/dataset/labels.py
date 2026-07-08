@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,17 +17,76 @@ router = APIRouter()
 
 
 class LabelCreateRequest(BaseModel):
-    uuid: UUID
-    scope: str = Field(min_length=1, max_length=127)
-    title: str = Field(min_length=1, max_length=127)
-    description: str | None = Field(default=None, max_length=1023)
+    """Request used to create a new label."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "scope": "point-annotation",
+                "title": "Coral",
+                "description": None,
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier to assign to the new label.")
+
+    scope: str = Field(
+        min_length=1,
+        max_length=127,
+        description="Caller-defined namespace for the label. Combined with title, must be unique.",
+    )
+
+    title: str = Field(
+        min_length=1, max_length=127, description="Display name of the label."
+    )
+
+    description: str | None = Field(
+        default=None,
+        max_length=1023,
+        description="Optional free-text description of the label.",
+    )
 
 
 class LabelUpdateRequest(BaseModel):
-    uuid: UUID
-    scope: str | None = Field(default=None, min_length=1, max_length=127)
-    title: str | None = Field(default=None, min_length=1, max_length=127)
-    description: str | None = Field(default=None, max_length=1023)
+    """Request used to partially update an existing label.
+
+    Only the fields explicitly supplied are changed; omitted fields are left
+    untouched. Sending an explicit null for scope or title is also a no-op,
+    since neither is a nullable column.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "title": "Coral (renamed)",
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier of the label to update.")
+
+    scope: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=127,
+        description="New scope. Omit to leave unchanged.",
+    )
+
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=127,
+        description="New display name. Omit to leave unchanged.",
+    )
+
+    description: str | None = Field(
+        default=None,
+        max_length=1023,
+        description="New description. Send null to clear it, or omit to leave unchanged.",
+    )
 
 
 def _to_response(label: Label, db: Session) -> LabelResponse:
@@ -42,7 +101,17 @@ def _to_response(label: Label, db: Session) -> LabelResponse:
     )
 
 
-@router.post("/create", response_model=LabelResponse, status_code=201)
+@router.post(
+    "/create",
+    response_model=LabelResponse,
+    status_code=201,
+    summary="Create Label",
+    description="""
+Create a new label, identified by uuid, with the given scope, title, and optional description. Requires the scientist role.
+
+Fails with 409 if a label with this uuid already exists, or if the scope and title combination is already taken.
+""",
+)
 def create_label(payload: LabelCreateRequest, request: Request, db: Session = Depends(get_db)):
     user = require_current_user(request)
 
@@ -64,7 +133,18 @@ def create_label(payload: LabelCreateRequest, request: Request, db: Session = De
     return _to_response(label, db)
 
 
-@router.post("/update", response_model=LabelResponse)
+@router.post(
+    "/update",
+    response_model=LabelResponse,
+    summary="Update Label",
+    description="""
+Partially update an existing label, identified by uuid. Requires the scientist role.
+
+Only the fields supplied in the request are changed; omitted fields are left as-is. Sending an explicit null for scope or title is also a no-op.
+
+Fails with 404 if the uuid is not found, or 409 if the new scope and title combination is already taken.
+""",
+)
 def update_label(payload: LabelUpdateRequest, request: Request, db: Session = Depends(get_db)):
     require_current_user(request)
 

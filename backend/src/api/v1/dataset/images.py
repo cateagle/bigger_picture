@@ -83,7 +83,19 @@ def _ingest_image(filepath: str, image_b64: str) -> tuple[int, int, Path, bool]:
     return size_x, size_y, path, pre_existed
 
 
-@router.post("/create", response_model=ImageResponse, status_code=201)
+@router.post(
+    "/create",
+    response_model=ImageResponse,
+    status_code=201,
+    summary="Create Image",
+    description="""
+Upload a new image, identified by uuid, into an existing dive. The image bytes are supplied base64-encoded and written to disk at filepath; width and height are computed from the decoded image. Requires the scientist role.
+
+The image is always created with status "hidden".
+
+Fails with 404 if the dive does not exist, 422 if filepath is invalid or the image data cannot be decoded, or 409 if an image with this uuid or filepath already exists.
+""",
+)
 def create_image(payload: ImageCreateRequest, request: Request, db: Session = Depends(get_db)):
     user = require_current_user(request)
 
@@ -119,7 +131,18 @@ def create_image(payload: ImageCreateRequest, request: Request, db: Session = De
     return _to_response(image, db)
 
 
-@router.post("/update", response_model=ImageResponse)
+@router.post(
+    "/update",
+    response_model=ImageResponse,
+    summary="Update Image",
+    description="""
+Partially update an existing image, identified by uuid, optionally replacing its file. Requires the scientist role.
+
+Only the fields supplied in the request are changed; omitted fields are left as-is. Sending an explicit null for filename, filepath, or dive_uuid is a no-op, but sending an explicit null for metadata, difficulty, or priority clears it.
+
+Fails with 404 if the uuid or dive_uuid is not found, 422 if filepath is invalid or the replacement image data cannot be decoded, or 409 if the new image data would change the image's dimensions while point annotations referencing it exist, or if an image with the new filepath already exists.
+""",
+)
 def update_image(payload: ImageUpdateRequest, request: Request, db: Session = Depends(get_db)):
     require_current_user(request)
 
@@ -211,7 +234,17 @@ def update_image(payload: ImageUpdateRequest, request: Request, db: Session = De
     return _to_response(image, db)
 
 
-@router.post("/batch/status-change/{new_status}")
+@router.post(
+    "/batch/status-change/{new_status}",
+    summary="Batch Change Image Status",
+    description="""
+Set the status of every image in the given list of uuids to new_status. Requires the scientist role.
+
+Valid statuses are hidden, open, review_pending, finalized, and deleted.
+
+Fails with 422 if new_status is not a recognized status, or 404 if any uuid does not resolve to an existing image (no images are updated in that case).
+""",
+)
 def batch_status_change(
     new_status: str,
     uuids: list[UUID],

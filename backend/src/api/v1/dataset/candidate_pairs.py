@@ -52,8 +52,22 @@ def _resolve_pair_ids(db: Session, image_a: UUID, image_b: UUID) -> tuple[int, i
     return ids
 
 
-@router.post("/create", response_model=CandidatePairResponse, status_code=201)
-def create_candidate_pair(payload: ImagePairRef, request: Request, db: Session = Depends(get_db)):
+@router.post(
+    "/create",
+    response_model=CandidatePairResponse,
+    status_code=201,
+    summary="Create Candidate Pair",
+    description="""
+Create a new candidate pair from two existing images, to be reviewed for overlap. Requires the scientist role. The order of image_a and image_b does not matter and the backend ensures bidirectional uniqueness.
+
+The pair is always created with status "hidden".
+
+Fails with 404 if either image does not exist, 422 if image_a and image_b are the same image, or 409 if a candidate pair for this image combination already exists.
+""",
+)
+def create_candidate_pair(
+    payload: ImagePairRef, request: Request, db: Session = Depends(get_db)
+):
     user = require_current_user(request)
     ids = _resolve_pair_ids(db, payload.image_a, payload.image_b)
 
@@ -74,7 +88,17 @@ def create_candidate_pair(payload: ImagePairRef, request: Request, db: Session =
     return _to_response(pair, db)
 
 
-@router.post("/batch/status-change/{new_status}")
+@router.post(
+    "/batch/status-change/{new_status}",
+    summary="Batch Change Candidate Pair Status",
+    description="""
+Set the status of the given candidate pairs, each referenced by its image_a/image_b uuids, to new_status. Requires the scientist role.
+
+Valid statuses are hidden, open, no_overlap, has_overlap, and deleted. Transitioning a pair to has_overlap also creates a corresponding image pair, with status "hidden", for the same image combination, unless one already exists.
+
+Fails with 422 if new_status is not a recognized status, 404 if any item's images or candidate pair cannot be found, or 422 if any item's image_a and image_b are the same image.
+""",
+)
 def batch_status_change(
     new_status: str,
     items: list[ImagePairRef],
