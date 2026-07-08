@@ -7,6 +7,7 @@ from PIL import Image as PILImage
 from sqlalchemy import text
 
 from src import config
+from src.constants import CANDIDATE_STATUS_INT, CandidateStatus
 
 
 def _new_uuid() -> str:
@@ -169,6 +170,22 @@ def test_create_uuid_conflict_is_409(client, dataset, annotator):
     resp = client.post(
         "/api/v1/annotate/candidate/create",
         json={"uuid": u, "image_a": imgs[1], "image_b": imgs[2], "no_overlap": True},
+    )
+    assert resp.status_code == 409, resp.text
+
+
+def test_create_second_vote_by_same_user_for_same_candidate_is_409(client, dataset, annotator):
+    imgs = dataset["images"]
+    assert (
+        client.post(
+            "/api/v1/annotate/candidate/create",
+            json={"uuid": _new_uuid(), "image_a": imgs[0], "image_b": imgs[1], "no_overlap": True},
+        ).status_code
+        == 201
+    )
+    resp = client.post(
+        "/api/v1/annotate/candidate/create",
+        json={"uuid": _new_uuid(), "image_a": imgs[0], "image_b": imgs[1], "no_overlap": False},
     )
     assert resp.status_code == 409, resp.text
 
@@ -356,6 +373,85 @@ def test_scientist_can_fail_regardless_of_expert(client, dataset, annotator, see
     resp = client.post(f"/api/v1/annotate/candidate/review/{u}/fail")
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "review_failed"
+
+
+def test_weighted_overlap_consensus_promotes_candidate_and_opens_pair(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+
+    voters = [
+        seed_user(username="vote1", role="annotator", expert_level=1),
+        seed_user(username="vote2", role="annotator", expert_level=1),
+        seed_user(username="vote3", role="annotator", expert_level=3),
+        seed_user(username="vote4", role="annotator", expert_level=3),
+        seed_user(username="vote5", role="annotator", expert_level=3),
+        seed_user(username="vote6", role="annotator", expert_level=3),
+    ]
+
+    for voter in voters:
+        login_as(voter)
+        resp = client.post(
+            "/api/v1/annotate/candidate/create",
+            json={"uuid": _new_uuid(), "image_a": imgs[0], "image_b": imgs[1], "no_overlap": False},
+        )
+        assert resp.status_code == 201, resp.text
+
+    engine = client.app.state.engine
+    with engine.begin() as conn:
+        candidate_status = conn.execute(
+            text(
+                "SELECT cp.status_id FROM candidate_pairs cp "
+                "JOIN images i1 ON i1.id = cp.image1_id "
+                "JOIN images i2 ON i2.id = cp.image2_id "
+                "WHERE i1.uuid = :a AND i2.uuid = :b"
+            ),
+            {"a": uuid.UUID(imgs[0]).bytes, "b": uuid.UUID(imgs[1]).bytes},
+        ).scalar_one()
+
+    assert candidate_status == CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]
+
+
+def test_weighted_no_overlap_consensus_closes_candidate_without_pair(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+
+    voters = [
+        seed_user(username="no1", role="annotator", expert_level=3),
+        seed_user(username="no2", role="annotator", expert_level=3),
+        seed_user(username="no3", role="annotator", expert_level=3),
+        seed_user(username="no4", role="annotator", expert_level=3),
+        seed_user(username="no5", role="annotator", expert_level=3),
+    ]
+
+    for voter in voters:
+        login_as(voter)
+        resp = client.post(
+            "/api/v1/annotate/candidate/create",
+            json={"uuid": _new_uuid(), "image_a": imgs[1], "image_b": imgs[2], "no_overlap": True},
+        )
+        assert resp.status_code == 201, resp.text
+
+    engine = client.app.state.engine
+    with engine.begin() as conn:
+        candidate_status = conn.execute(
+            text(
+                "SELECT cp.status_id FROM candidate_pairs cp "
+                "JOIN images i1 ON i1.id = cp.image1_id "
+                "JOIN images i2 ON i2.id = cp.image2_id "
+                "WHERE i1.uuid = :a AND i2.uuid = :b"
+            ),
+            {"a": uuid.UUID(imgs[1]).bytes, "b": uuid.UUID(imgs[2]).bytes},
+        ).scalar_one()
+        pair_count = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM image_pairs ip "
+                "JOIN images i1 ON i1.id = ip.image1_id "
+                "JOIN images i2 ON i2.id = ip.image2_id "
+                "WHERE i1.uuid = :a AND i2.uuid = :b"
+            ),
+            {"a": uuid.UUID(imgs[1]).bytes, "b": uuid.UUID(imgs[2]).bytes},
+        ).scalar_one()
+
+    assert candidate_status == CANDIDATE_STATUS_INT[CandidateStatus.NO_OVERLAP]
+    assert pair_count == 0
 
 
 def test_review_non_pending_is_409(client, dataset, annotator, seed_user, login_as):
