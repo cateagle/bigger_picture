@@ -25,3 +25,11 @@
   border-radius: 4px;
   display: block;
 }
+
+.dataset-admin-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+}

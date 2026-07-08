@@ -14,6 +14,7 @@ def test_applies_cleanly_and_is_idempotent(tmp_path):
         "0002_dive_consistency_triggers.sql",
         "0003_annotation_views.sql",
         "0004_status_descriptions.sql",
+        "0005_candidate_vote_uniqueness.sql",
     ]
 
     applied_again = run_migrations(db_path)

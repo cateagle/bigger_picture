@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 
 /** Thrown for any non-2xx response; `detail` mirrors FastAPI's `{"detail": "..."}` body. */
 export class ApiError extends Error {

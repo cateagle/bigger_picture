@@ -38,6 +38,7 @@ from src.util import now_ms
 router = APIRouter()
 
 CANDIDATE_OPEN = CANDIDATE_STATUS_INT[CandidateStatus.OPEN]
+COUNTED_ANNOTATION_STATUSES = {ANNOTATION_REVIEW_PENDING, ANNOTATION_APPROVED}
 
 
 def _to_response(annotation: CandidateAnnotation, db: Session) -> CandidateAnnotationResponse:
@@ -94,6 +95,45 @@ def _build_annotation(payload: CandidateAnnotationCreateRequest, user: User, can
     )
 
 
+def _vote_weight(annotation: CandidateAnnotation) -> int:
+    if annotation.expert_level >= config.CANDIDATE_CONSENSUS_EXPERT_LEVEL:
+        return config.CANDIDATE_CONSENSUS_EXPERT_WEIGHT
+    return 1
+
+
+def _recompute_candidate_consensus(candidate: CandidatePair, actor: User, db: Session) -> None:
+    if candidate.status_id != CANDIDATE_OPEN:
+        return
+
+    annotations = db.execute(
+        select(CandidateAnnotation).where(CandidateAnnotation.candidate_id == candidate.id)
+    ).scalars().all()
+    counted = [annotation for annotation in annotations if annotation.status_id in COUNTED_ANNOTATION_STATUSES]
+    if not counted:
+        return
+
+    overlap_weight = sum(_vote_weight(annotation) for annotation in counted if not annotation.no_overlap)
+    no_overlap_weight = sum(_vote_weight(annotation) for annotation in counted if annotation.no_overlap)
+    total_weight = overlap_weight + no_overlap_weight
+    if total_weight < config.CANDIDATE_CONSENSUS_MIN_WEIGHT:
+        return
+
+    overlap_share = overlap_weight / total_weight
+    no_overlap_share = no_overlap_weight / total_weight
+    reviewed_at = now_ms()
+
+    if overlap_share >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
+        candidate.status_id = CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]
+        candidate.reviewed_by = actor.id
+        candidate.reviewed_at = reviewed_at
+        return
+
+    if no_overlap_share >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
+        candidate.status_id = CANDIDATE_STATUS_INT[CandidateStatus.NO_OVERLAP]
+        candidate.reviewed_by = actor.id
+        candidate.reviewed_at = reviewed_at
+
+
 @router.post(
     "/create",
     response_model=CandidateAnnotationResponse,
@@ -117,6 +157,8 @@ def create_annotation(
     annotation = _build_annotation(payload, user, candidate)
     db.add(annotation)
     try:
+        db.flush()
+        _recompute_candidate_consensus(candidate, user, db)
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -152,11 +194,13 @@ def batch_create_annotations(
 
     try:
         db.flush()
+        for annotation in annotations:
+            candidate = db.get(CandidatePair, annotation.candidate_id)
+            _recompute_candidate_consensus(candidate, user, db)
+        db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Annotation already exists")
-
-    db.commit()
     return {"created": len(annotations)}
 
 
@@ -193,6 +237,8 @@ def correct_annotation(
         raise HTTPException(status_code=403, detail="Correction window expired")
 
     annotation.no_overlap = bool(payload.no_overlap)
+    candidate = db.get(CandidatePair, annotation.candidate_id)
+    _recompute_candidate_consensus(candidate, user, db)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)
@@ -222,6 +268,8 @@ def _apply_review(annotation: CandidateAnnotation, caller: User, status_id: int,
     annotation.status_id = status_id
     annotation.reviewed_by = caller.id
     annotation.reviewed_at = now_ms()
+    candidate = db.get(CandidatePair, annotation.candidate_id)
+    _recompute_candidate_consensus(candidate, caller, db)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)

@@ -69,6 +69,8 @@ export interface DatasetImage {
 export interface CandidatePairSummary {
   image_a: string
   image_b: string
+  image_a_filename: string
+  image_b_filename: string
   status: string | null
 }
 
@@ -76,6 +78,8 @@ export interface CandidatePairSummary {
 export interface ImagePairSummary {
   image_a: string
   image_b: string
+  image_a_filename: string
+  image_b_filename: string
   difficulty: number | null
   priority: number | null
   status: string | null
