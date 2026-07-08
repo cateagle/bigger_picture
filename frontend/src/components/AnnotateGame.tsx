@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
-import { fetchImagePair, submitAnnotation } from '../api/annotationApi'
+import { fetchNextImagePair, submitAnnotation } from '../api/annotationApi'
+import { fetchDivesForRegion } from '../api/diveApi'
 import type { Correspondence, ImagePair, NormalizedPoint, Region } from '../api/types'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
@@ -19,7 +20,10 @@ function pointFromClick(e: ReactMouseEvent<HTMLImageElement>): NormalizedPoint {
 }
 
 export default function AnnotateGame({ region, onBack }: { region: Region; onBack: () => void }) {
+  // undefined = still resolving a dive for this region; null = region has no dives yet.
+  const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
   const [pair, setPair] = useState<ImagePair | null>(null)
+  const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,20 +32,36 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
 
-  const loadNextPair = useCallback(() => {
+  useEffect(() => {
+    setDiveUuid(undefined)
+    setLoading(true)
+    setError(null)
+    fetchDivesForRegion(region.uuid)
+      .then((dives) => setDiveUuid(dives[0]?.uuid ?? null))
+      .catch(() => setError('Could not load dive imagery for this region. Please try again.'))
+  }, [region.uuid])
+
+  const loadNextPair = useCallback((forDiveUuid: string) => {
     setLoading(true)
     setError(null)
     setCorrespondences([])
     setPendingA(null)
-    fetchImagePair()
-      .then(setPair)
+    fetchNextImagePair(forDiveUuid)
+      .then((next) => {
+        setPair(next)
+        setDone(next === null)
+      })
       .catch(() => setError('Could not load an image pair. Please try again.'))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
-    loadNextPair()
-  }, [loadNextPair])
+    if (diveUuid) {
+      loadNextPair(diveUuid)
+    } else if (diveUuid === null) {
+      setLoading(false)
+    }
+  }, [diveUuid, loadNextPair])
 
   const handleClickA = (e: ReactMouseEvent<HTMLImageElement>) => {
     if (submitting) return
@@ -69,7 +89,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
   }
 
   const handleSubmit = () => {
-    if (!pair || correspondences.length < MIN_CORRESPONDENCES) return
+    if (!pair || !diveUuid || correspondences.length < MIN_CORRESPONDENCES) return
     const imageA = imageARef.current
     const imageB = imageBRef.current
     if (!imageA || !imageB) return
@@ -82,7 +102,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
       widthB: imageB.naturalWidth,
       heightB: imageB.naturalHeight,
     })
-      .then(() => loadNextPair())
+      .then(() => loadNextPair(diveUuid))
       .catch(() => setError('Could not submit your annotation. Please try again.'))
       .finally(() => setSubmitting(false))
   }
@@ -106,6 +126,12 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
 
       {loading && <p className="game-status">Loading image pair…</p>}
       {error && <p className="game-status game-status-error">{error}</p>}
+      {!loading && !error && diveUuid === null && (
+        <p className="game-status">No dive imagery is available for this region yet.</p>
+      )}
+      {!loading && !error && diveUuid && done && (
+        <p className="game-status">No more pairs to annotate in this region right now — nice work!</p>
+      )}
 
       {pair && !loading && (
         <>

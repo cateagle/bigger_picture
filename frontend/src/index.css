@@ -94,6 +94,14 @@ h2 {
 
 .account-bar .back-link {
   margin: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--pane-border);
+  border-radius: 6px;
+  color: var(--text-h);
+}
+
+.account-bar .back-link:hover {
+  background: var(--pane-border);
 }
 
 .game-screen {

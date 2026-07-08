@@ -75,11 +75,13 @@ export default function RegionSelectScreen({
   user,
   onSelect,
   onOpenAdmin,
+  onOpenTeam,
   onLogout,
 }: {
   user: User
   onSelect: (region: Region) => void
   onOpenAdmin: () => void
+  onOpenTeam: () => void
   onLogout: () => void
 }) {
   const [regions, setRegions] = useState<Region[] | null>(null)
@@ -112,6 +114,9 @@ export default function RegionSelectScreen({
             Admin
           </button>
         )}
+        <button type="button" className="back-link" onClick={onOpenTeam}>
+          Team
+        </button>
         <button type="button" className="back-link" onClick={onLogout}>
           Log out
         </button>
