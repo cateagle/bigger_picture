@@ -1,81 +1,69 @@
-import { apiFetch } from './client'
-import { delay } from './mockDelay'
-import type { PendingVerification } from './types'
+import { apiFetch, assetUrl } from './client'
+import type { NormalizedPoint, PendingVerification } from './types'
+
+/** Mirrors `NextPairImageResponse` from `backend/src/models/annotate.py` (only the fields used here). */
+interface ReviewImage {
+  uuid: string
+  filepath: string
+  size_x: number
+  size_y: number
+}
+
+/** Mirrors `PointAnnotationReviewResponse` from `backend/src/models/annotate.py` (only the fields used here). */
+interface PointAnnotationReview {
+  uuid: string
+  image_a: ReviewImage
+  image_b: ReviewImage
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
 
 /**
- * Mock stand-in for fetching a Stage 3 (Verification) item. The backend has
- * no endpoint to fetch/list pending annotations yet (only
- * `/api/v1/annotate/points/review/{uuid}/approve|fail`, which require
- * already knowing a real point annotation's uuid), so this still simulates
- * network latency and serves a fixed rotation of already-annotated pairs -
- * most with plausible matching points, one with an obviously mismatched
- * point. Swap this for a real `fetch()` once the backend exposes a
- * review-queue endpoint; `submitVerification` below already calls the real
- * backend.
+ * How many pending points to pull per fetch. The review-queue endpoint
+ * returns individual points, not grouped by pair, so this needs to be large
+ * enough to reliably capture every point belonging to the first pair in the
+ * batch (see `groupByPair`).
  */
+const REVIEW_BATCH_SIZE = 25
 
-const MOCK_VERIFICATIONS: PendingVerification[] = [
-  {
-    annotationId: 'verify-1',
-    imageA: '/mock-images/pair-1/a.jpg',
-    imageB: '/mock-images/pair-1/b.jpg',
-    correspondences: [
-      { pointUuid: '00000000-0000-4000-9000-000000000001', pointA: { x: 0.22, y: 0.35 }, pointB: { x: 0.2, y: 0.33 } },
-      { pointUuid: '00000000-0000-4000-9000-000000000002', pointA: { x: 0.55, y: 0.6 }, pointB: { x: 0.52, y: 0.58 } },
-      { pointUuid: '00000000-0000-4000-9000-000000000003', pointA: { x: 0.75, y: 0.25 }, pointB: { x: 0.72, y: 0.23 } },
-      { pointUuid: '00000000-0000-4000-9000-000000000004', pointA: { x: 0.4, y: 0.8 }, pointB: { x: 0.38, y: 0.78 } },
-    ],
-  },
-  {
-    annotationId: 'verify-2',
-    imageA: '/mock-images/pair-2/a.jpg',
-    imageB: '/mock-images/pair-2/b.jpg',
-    correspondences: [
-      { pointUuid: '00000000-0000-4000-9000-000000000005', pointA: { x: 0.3, y: 0.4 }, pointB: { x: 0.28, y: 0.38 } },
-      { pointUuid: '00000000-0000-4000-9000-000000000006', pointA: { x: 0.6, y: 0.3 }, pointB: { x: 0.58, y: 0.28 } },
-      { pointUuid: '00000000-0000-4000-9000-000000000007', pointA: { x: 0.5, y: 0.7 }, pointB: { x: 0.1, y: 0.15 } }, // deliberately mismatched
-      { pointUuid: '00000000-0000-4000-9000-000000000008', pointA: { x: 0.2, y: 0.6 }, pointB: { x: 0.18, y: 0.58 } },
-    ],
-  },
-  {
-    annotationId: 'verify-3',
-    imageA: '/mock-images/pair-3/a.jpg',
-    imageB: '/mock-images/pair-3/b.jpg',
-    correspondences: [
-      { pointUuid: '00000000-0000-4000-9000-000000000009', pointA: { x: 0.35, y: 0.45 }, pointB: { x: 0.33, y: 0.43 } },
-      { pointUuid: '00000000-0000-4000-9000-00000000000a', pointA: { x: 0.65, y: 0.35 }, pointB: { x: 0.62, y: 0.33 } },
-      { pointUuid: '00000000-0000-4000-9000-00000000000b', pointA: { x: 0.5, y: 0.75 }, pointB: { x: 0.48, y: 0.73 } },
-    ],
-  },
-  {
-    annotationId: 'verify-4',
-    imageA: '/mock-images/pair-4/a.jpg',
-    imageB: '/mock-images/pair-4/b.jpg',
-    correspondences: [
-      { pointUuid: '00000000-0000-4000-9000-00000000000c', pointA: { x: 0.25, y: 0.3 }, pointB: { x: 0.23, y: 0.28 } },
-      { pointUuid: '00000000-0000-4000-9000-00000000000d', pointA: { x: 0.5, y: 0.5 }, pointB: { x: 0.48, y: 0.48 } },
-      { pointUuid: '00000000-0000-4000-9000-00000000000e', pointA: { x: 0.7, y: 0.6 }, pointB: { x: 0.68, y: 0.58 } },
-      { pointUuid: '00000000-0000-4000-9000-00000000000f', pointA: { x: 0.45, y: 0.2 }, pointB: { x: 0.43, y: 0.18 } },
-    ],
-  },
-  {
-    annotationId: 'verify-5',
-    imageA: '/mock-images/pair-5/a.jpg',
-    imageB: '/mock-images/pair-5/b.jpg',
-    correspondences: [
-      { pointUuid: '00000000-0000-4000-9000-000000000010', pointA: { x: 0.4, y: 0.4 }, pointB: { x: 0.38, y: 0.38 } },
-      { pointUuid: '00000000-0000-4000-9000-000000000011', pointA: { x: 0.6, y: 0.6 }, pointB: { x: 0.58, y: 0.58 } },
-    ],
-  },
-]
+function toNormalizedPoint(x: number, y: number, image: ReviewImage): NormalizedPoint {
+  return { x: x / image.size_x, y: y / image.size_y }
+}
 
-let nextVerificationIndex = 0
+/** Keeps only the points belonging to the same image pair as the first item, so a whole annotated pair is reviewed together. */
+function groupByPair(items: PointAnnotationReview[]): PointAnnotationReview[] {
+  if (items.length === 0) return []
+  const [first] = items
+  return items.filter((item) => item.image_a.uuid === first.image_a.uuid && item.image_b.uuid === first.image_b.uuid)
+}
 
-export async function fetchPendingVerification(): Promise<PendingVerification> {
-  await delay(400)
-  const item = MOCK_VERIFICATIONS[nextVerificationIndex % MOCK_VERIFICATIONS.length]
-  nextVerificationIndex += 1
-  return item
+/**
+ * Real endpoint: GET /api/v1/annotate/points/review/next/{dive_uuid}/{n}.
+ * Groups the fetched points by image pair and returns the first pair's
+ * points as one verification item (all its correspondences reviewed
+ * together), converting pixel coordinates back to the [0, 1] normalized
+ * space the UI works in. Resolves `null` once there's nothing pending.
+ */
+export async function fetchNextPendingVerification(diveUuid: string): Promise<PendingVerification | null> {
+  const items = await apiFetch<PointAnnotationReview[]>(
+    `/api/v1/annotate/points/review/next/${diveUuid}/${REVIEW_BATCH_SIZE}`,
+  )
+  const group = groupByPair(items)
+  if (group.length === 0) return null
+
+  const { image_a, image_b } = group[0]
+  return {
+    annotationId: `${image_a.uuid}:${image_b.uuid}`,
+    imageA: assetUrl(image_a.filepath),
+    imageB: assetUrl(image_b.filepath),
+    correspondences: group.map((item) => ({
+      pointUuid: item.uuid,
+      pointA: toNormalizedPoint(item.x1, item.y1, image_a),
+      pointB: toNormalizedPoint(item.x2, item.y2, image_b),
+    })),
+  }
 }
 
 /** Real endpoint: POST /api/v1/annotate/points/review/{uuid}/approve|fail, one call per point. */

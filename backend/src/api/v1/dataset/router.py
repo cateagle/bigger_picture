@@ -8,6 +8,7 @@ from src.api.v1.dataset.dives import router as dives_router
 from src.api.v1.dataset.image_pairs import router as image_pairs_router
 from src.api.v1.dataset.images import router as images_router
 from src.api.v1.dataset.labels import router as labels_router
+from src.api.v1.dataset.point_annotations import router as point_annotations_router
 from src.api.v1.dataset.regions import router as regions_router
 from src.api.v1.dataset.zip_upload import router as zip_upload_router
 from src.db import get_db
@@ -33,6 +34,7 @@ router.include_router(dives_router, prefix="/dives")
 router.include_router(images_router, prefix="/images")
 router.include_router(candidate_pairs_router, prefix="/candidates")
 router.include_router(image_pairs_router, prefix="/pairs")
+router.include_router(point_annotations_router, prefix="/annotations")
 router.include_router(zip_upload_router)
 
 

@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { assetUrl } from '../../api/client'
-import { fetchCandidatePairsForDive, fetchImagePairsForDive, fetchImagesForDive } from '../../api/datasetApi'
+import {
+  fetchAnnotationsForDive,
+  fetchCandidatePairsForDive,
+  fetchImagePairsForDive,
+  fetchImagesForDive,
+} from '../../api/datasetApi'
 import { fetchDivesForRegion } from '../../api/diveApi'
 import { fetchRegions } from '../../api/regionApi'
-import type { CandidatePairSummary, DatasetImage, Dive, ImagePairSummary, Region } from '../../api/types'
+import type { AnnotationSummary, CandidatePairSummary, DatasetImage, Dive, ImagePairSummary, Region } from '../../api/types'
 import '../admin/AdminPanels.css'
 import './DatasetAdmin.css'
 
@@ -15,6 +20,7 @@ export default function DatasetAdmin() {
   const [images, setImages] = useState<DatasetImage[] | null>(null)
   const [candidates, setCandidates] = useState<CandidatePairSummary[] | null>(null)
   const [pairs, setPairs] = useState<ImagePairSummary[] | null>(null)
+  const [annotations, setAnnotations] = useState<AnnotationSummary[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,20 +43,30 @@ export default function DatasetAdmin() {
     setImages(null)
     setCandidates(null)
     setPairs(null)
+    setAnnotations(null)
     if (!diveUuid) return
     setLoading(true)
     setError(null)
-    Promise.all([fetchImagesForDive(diveUuid), fetchCandidatePairsForDive(diveUuid), fetchImagePairsForDive(diveUuid)])
-      .then(([imagesRes, candidatesRes, pairsRes]) => {
+    Promise.all([
+      fetchImagesForDive(diveUuid),
+      fetchCandidatePairsForDive(diveUuid),
+      fetchImagePairsForDive(diveUuid),
+      fetchAnnotationsForDive(diveUuid),
+    ])
+      .then(([imagesRes, candidatesRes, pairsRes, annotationsRes]) => {
         setImages(imagesRes)
         setCandidates(candidatesRes)
         setPairs(pairsRes)
+        setAnnotations(annotationsRes)
       })
       .catch(() => setError('Could not load images/pairs for this dive.'))
       .finally(() => setLoading(false))
   }, [diveUuid])
 
   const filenameFor = (uuid: string) => images?.find((img) => img.uuid === uuid)?.filename ?? uuid
+
+  const annotationsFor = (pair: ImagePairSummary) =>
+    (annotations ?? []).filter((a) => a.image_a === pair.image_a && a.image_b === pair.image_b)
 
   return (
     <div className="dataset-admin">
@@ -168,21 +184,32 @@ export default function DatasetAdmin() {
                   <th>Difficulty</th>
                   <th>Priority</th>
                   <th>Status</th>
+                  <th>Annotations</th>
+                  <th>Expert levels</th>
                 </tr>
               </thead>
               <tbody>
-                {(pairs ?? []).map((pair) => (
-                  <tr key={`${pair.image_a}:${pair.image_b}`}>
-                    <td>{filenameFor(pair.image_a)}</td>
-                    <td>{filenameFor(pair.image_b)}</td>
-                    <td>{pair.difficulty ?? '—'}</td>
-                    <td>{pair.priority ?? '—'}</td>
-                    <td>{pair.status ?? '—'}</td>
-                  </tr>
-                ))}
+                {(pairs ?? []).map((pair) => {
+                  const pairAnnotations = annotationsFor(pair)
+                  return (
+                    <tr key={`${pair.image_a}:${pair.image_b}`}>
+                      <td>{filenameFor(pair.image_a)}</td>
+                      <td>{filenameFor(pair.image_b)}</td>
+                      <td>{pair.difficulty ?? '—'}</td>
+                      <td>{pair.priority ?? '—'}</td>
+                      <td>{pair.status ?? '—'}</td>
+                      <td>{pairAnnotations.length === 0 ? 'None' : pairAnnotations.length}</td>
+                      <td>
+                        {pairAnnotations.length === 0
+                          ? '—'
+                          : pairAnnotations.map((a) => a.expert_level).join(', ')}
+                      </td>
+                    </tr>
+                  )
+                })}
                 {(pairs ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={5}>No image pairs in this dive yet.</td>
+                    <td colSpan={7}>No image pairs in this dive yet.</td>
                   </tr>
                 )}
               </tbody>

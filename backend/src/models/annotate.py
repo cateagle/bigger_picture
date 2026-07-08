@@ -214,6 +214,12 @@ class PointAnnotationResponse(BaseModel):
     )
 
 
+class PointAnnotationListResponse(BaseModel):
+    annotations: list[PointAnnotationResponse] = Field(
+        description="Point annotations whose image pair belongs to the given dive."
+    )
+
+
 class NextPairImageResponse(BaseModel):
     """An image within a pair offered for annotation."""
 
@@ -329,3 +335,24 @@ class MyStatsResponse(BaseModel):
     overlap: OverlapStats = Field(description="Stage 1 (Finding Overlap) statistics.")
     annotate: AnnotateStats = Field(description="Stage 2 (Annotating) statistics.")
     verify: VerifyStats = Field(description="Stage 3 (Verification) statistics.")
+
+class PointAnnotationReviewResponse(BaseModel):
+    """A point annotation pending review, with full image details so the two images can be rendered."""
+
+    uuid: UUID = Field(description="Unique identifier of the annotation.")
+    image_a: NextPairImageResponse = Field(description="One image of the annotated pair.")
+    image_b: NextPairImageResponse = Field(description="The other image of the annotated pair.")
+    label_id: Optional[UUID] = Field(
+        description="Unique identifier of the label assigned to the annotation, or null if unlabeled."
+    )
+    x1: int = Field(description="X coordinate in image_a, in pixels.")
+    y1: int = Field(description="Y coordinate in image_a, in pixels.")
+    x2: int = Field(description="X coordinate in image_b, in pixels.")
+    y2: int = Field(description="Y coordinate in image_b, in pixels.")
+    expert_level: int = Field(
+        description="expert_level of the user who created the annotation, captured at creation time."
+    )
+    status: str = Field(description="Always review_pending for items returned by the review queue.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the annotation was created."
+    )
