@@ -1,136 +1,401 @@
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DatasetSummaryResponse(BaseModel):
-    dive_count: int
-    image_count: int
-    image_pair_count: int
+    """Aggregate counts across the dataset."""
+
+    dive_count: int = Field(description="Total number of dives.")
+    image_count: int = Field(description="Total number of images.")
+    image_pair_count: int = Field(description="Total number of image pairs.")
 
 
 class LabelResponse(BaseModel):
-    uuid: UUID
-    created_at: int
-    created_by: UUID
-    scope: str
-    title: str
-    description: str | None
+    """A label that can be assigned to a point annotation."""
+
+    uuid: UUID = Field(description="Unique identifier of the label.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the label was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the label."
+    )
+    scope: str = Field(
+        description="Caller-defined namespace for the label. Combined with title, must be unique."
+    )
+    title: str = Field(description="Display name of the label.")
+    description: str | None = Field(
+        description="Optional free-text description of the label."
+    )
 
 
 class RegionResponse(BaseModel):
-    uuid: UUID
-    created_at: int
-    created_by: UUID
-    title: str
-    metadata: Any | None
-    description: str | None
+    """A named region that a dive can be associated with."""
+
+    uuid: UUID = Field(description="Unique identifier of the region.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the region was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the region."
+    )
+    title: str = Field(description="Display name of the region. Must be unique.")
+    metadata: Any | None = Field(
+        description="Arbitrary caller-supplied JSON object, or null."
+    )
+    description: str | None = Field(
+        description="Optional free-text description of the region."
+    )
 
 
 class RegionListResponse(BaseModel):
-    regions: list[RegionResponse]
+    regions: list[RegionResponse] = Field(description="All regions in the system.")
 
 
 class CameraResponse(BaseModel):
-    uuid: UUID
-    created_at: int
-    created_by: UUID
-    title: str
-    metadata: Any | None
-    description: str | None
+    """A camera that a dive can be recorded with."""
+
+    uuid: UUID = Field(description="Unique identifier of the camera.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the camera was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the camera."
+    )
+    title: str = Field(description="Display name of the camera. Must be unique.")
+    metadata: Any | None = Field(
+        description="Arbitrary caller-supplied JSON object, or null."
+    )
+    description: str | None = Field(
+        description="Optional free-text description of the camera."
+    )
 
 
 class DiveCreateRequest(BaseModel):
-    uuid: UUID
-    title: str = Field(min_length=1, max_length=127)
-    metadata: dict[str, Any] | None = None
-    description: str | None = Field(default=None, max_length=1023)
-    region: UUID
-    camera: UUID | None = None
+    """Request used to create a new dive."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "title": "Dive 1",
+                "metadata": None,
+                "description": None,
+                "region": "1a6ccf07-c766-4934-a6a5-0ca6dbdb5a0b",
+                "camera": None,
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier to assign to the new dive.")
+
+    title: str = Field(
+        min_length=1,
+        max_length=127,
+        description="Display name of the dive. Must be unique.",
+    )
+
+    metadata: dict[str, Any] | None = Field(
+        default=None, description="Arbitrary JSON object to attach to the dive."
+    )
+
+    description: str | None = Field(
+        default=None,
+        max_length=1023,
+        description="Optional free-text description of the dive.",
+    )
+
+    region: UUID = Field(
+        description="Unique identifier of an existing region to associate with the dive."
+    )
+
+    camera: UUID | None = Field(
+        default=None,
+        description='Unique identifier of an existing camera to associate with the dive. If omitted, falls back to the well-known "Unknown Camera".',
+    )
 
 
 class DiveUpdateRequest(BaseModel):
-    uuid: UUID
-    title: str | None = Field(default=None, min_length=1, max_length=127)
-    metadata: dict[str, Any] | None = None
-    description: str | None = Field(default=None, max_length=1023)
-    region: UUID | None = None
-    camera: UUID | None = None
+    """Request used to partially update an existing dive.
+
+    Only the fields explicitly supplied are changed; omitted fields are left
+    untouched. Sending an explicit null for title, region, or camera is also a
+    no-op, since none of these can be cleared.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "title": "Dive 1 (renamed)",
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier of the dive to update.")
+
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=127,
+        description="New display name. Must be unique. Omit to leave unchanged.",
+    )
+
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="New metadata object. Send null to clear it, or omit to leave unchanged.",
+    )
+
+    description: str | None = Field(
+        default=None,
+        max_length=1023,
+        description="New description. Send null to clear it, or omit to leave unchanged.",
+    )
+
+    region: UUID | None = Field(
+        default=None,
+        description="Unique identifier of a new region to associate with the dive. Omit to leave unchanged.",
+    )
+
+    camera: UUID | None = Field(
+        default=None,
+        description="Unique identifier of a new camera to associate with the dive. Omit to leave unchanged.",
+    )
 
 
 class DiveResponse(BaseModel):
-    uuid: UUID
-    created_at: int
-    created_by: UUID
-    title: str
-    metadata: Any | None
-    description: str | None
-    region: UUID
-    camera: UUID
+    """A dive: an association between a region, a camera, and the images captured during it."""
+
+    uuid: UUID = Field(description="Unique identifier of the dive.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the dive was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the dive."
+    )
+    title: str = Field(description="Display name of the dive.")
+    metadata: Any | None = Field(
+        description="Arbitrary caller-supplied JSON object, or null."
+    )
+    description: str | None = Field(
+        description="Optional free-text description of the dive."
+    )
+    region: UUID = Field(
+        description="Unique identifier of the region associated with the dive."
+    )
+    camera: UUID = Field(
+        description="Unique identifier of the camera associated with the dive."
+    )
 
 
 class DiveListResponse(BaseModel):
-    dives: list[DiveResponse]
+    dives: list[DiveResponse] = Field(description="All dives in the system.")
 
 
 class ImageCreateRequest(BaseModel):
-    uuid: UUID
-    filename: str = Field(min_length=1, max_length=255)
-    filepath: str = Field(min_length=1, max_length=1023)
-    dive_uuid: UUID
-    metadata: dict[str, Any] | None = None
-    difficulty: int | None = None
-    priority: int | None = None
-    image: str
+    """Request model used to upload a new image."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "filename": "frame_0001.jpg",
+                "filepath": "dive1/frame_0001.jpg",
+                "dive_uuid": "1a6ccf07-c766-4934-a6a5-0ca6dbdb5a0b",
+                "metadata": None,
+                "difficulty": None,
+                "priority": None,
+                "image": "<base64-encoded image bytes>",
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier to assign to the new image.")
+
+    filename: str = Field(
+        min_length=1, max_length=255, description="Display filename of the image."
+    )
+
+    filepath: str = Field(
+        min_length=1,
+        max_length=1023,
+        description="Relative path under the assets directory to store the image at. Must be unique.",
+    )
+
+    dive_uuid: UUID = Field(
+        description="Unique identifier of an existing dive to associate the image with."
+    )
+
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional arbitrary JSON object to attach to the image.",
+    )
+
+    difficulty: int | None = Field(
+        default=None,
+        description="Stored verbatim; not currently used by any query logic.",
+    )
+
+    priority: int | None = Field(
+        default=None,
+        description="Stored verbatim; not currently used by any query logic.",
+    )
+
+    image: str = Field(
+        description="Base64-encoded raw image bytes. Decoded and written to filepath; the image's width and height are computed from the decoded bytes, not read from this request."
+    )
 
 
 class ImageUpdateRequest(BaseModel):
-    uuid: UUID
-    filename: str | None = Field(default=None, min_length=1, max_length=255)
-    filepath: str | None = Field(default=None, min_length=1, max_length=1023)
-    dive_uuid: UUID | None = None
-    metadata: dict[str, Any] | None = None
-    difficulty: int | None = None
-    priority: int | None = None
-    image: str | None = None
+    """Request used to partially update an existing image, optionally replacing its file.
+
+    Only the fields explicitly supplied are changed; omitted fields are left
+    untouched. Sending an explicit null for filename, filepath, or dive_uuid
+    is also a no-op, since none of these can be cleared.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "difficulty": 2,
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier of the image to update.")
+
+    filename: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="New display filename. Omit to leave unchanged.",
+    )
+
+    filepath: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=1023,
+        description="New relative path under the assets directory. Must be unique. Omit to leave unchanged. The file will be moved to this new path in the assets directory.",
+    )
+
+    dive_uuid: UUID | None = Field(
+        default=None,
+        description="Unique identifier of a new dive to associate the image with. Omit to leave unchanged.",
+    )
+
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="New metadata object. Send null to clear it, or omit to leave unchanged.",
+    )
+
+    difficulty: int | None = Field(
+        default=None,
+        description="Send null to clear it, or omit to leave unchanged. Stored verbatim; not currently used by any query logic.",
+    )
+
+    priority: int | None = Field(
+        default=None,
+        description="Send null to clear it, or omit to leave unchanged. Stored verbatim; not currently used by any query logic.",
+    )
+
+    image: str | None = Field(
+        default=None,
+        description="Base64-encoded raw image bytes to replace the current file with. Omit to leave the file unchanged. Rejected with 409 if it would change the image's dimensions while point annotations referencing it exist to prevent inconsistencies.",
+    )
 
 
 class ImageResponse(BaseModel):
-    uuid: UUID
-    created_at: int
-    created_by: UUID
-    filename: str
-    filepath: str
-    dive: UUID
-    status: str | None
-    size_x: int
-    size_y: int
-    metadata: Any | None
-    difficulty: int | None
-    priority: int | None
+    """An image belonging to a dive."""
+
+    uuid: UUID = Field(description="Unique identifier of the image.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the image was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the image."
+    )
+    filename: str = Field(description="Display filename of the image.")
+    filepath: str = Field(
+        description="Relative path under the assets directory the image is stored at."
+    )
+    dive: UUID = Field(
+        description="Unique identifier of the dive the image belongs to."
+    )
+    status: str | None = Field(
+        description='Lifecycle status of the image (hidden, open, review_pending, finalized, or deleted). Always "hidden" on creation.'
+    )
+    size_x: int = Field(
+        description="Width of the image in pixels, computed from the uploaded file."
+    )
+    size_y: int = Field(
+        description="Height of the image in pixels, computed from the uploaded file."
+    )
+    metadata: Any | None = Field(
+        description="Arbitrary caller-supplied JSON object, or null."
+    )
+    difficulty: int | None = Field(
+        description="Stored verbatim; not currently used by any query logic."
+    )
+    priority: int | None = Field(
+        description="Stored verbatim; not currently used by any query logic."
+    )
 
 
 class ImagePairRef(BaseModel):
     """A pair of images, referenced by their uuids."""
 
-    image_a: UUID
-    image_b: UUID
+    image_a: UUID = Field(
+        description="Unique identifier of one image in the pair. Order of image_a and image_b does not matter."
+    )
+    image_b: UUID = Field(
+        description="Unique identifier of the other image in the pair. Must differ from image_a."
+    )
 
 
 class CandidatePairResponse(BaseModel):
-    created_at: int
-    created_by: UUID
-    image_a: UUID
-    image_b: UUID
-    status: str | None
+    """A candidate pair of images awaiting an overlap review, before it becomes an image pair."""
+
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the candidate pair was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the candidate pair."
+    )
+    image_a: UUID = Field(
+        description="Unique identifier of one image in the pair. Order of image_a and image_b does not matter."
+    )
+    image_b: UUID = Field(
+        description="Unique identifier of the other image in the pair. Order of image_a and image_b does not matter."
+    )
+    status: str | None = Field(
+        description='Lifecycle status of the candidate pair (hidden, open, no_overlap, has_overlap, or deleted). Always "hidden" on creation.'
+    )
 
 
 class ImagePairResponse(BaseModel):
-    created_at: int
-    created_by: UUID
-    image_a: UUID
-    image_b: UUID
-    difficulty: int | None
-    priority: int | None
-    status: str | None
+    """A pair of images available for point annotation."""
+
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the image pair was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the image pair."
+    )
+    image_a: UUID = Field(
+        description="Unique identifier of one image in the pair. Order of image_a and image_b does not matter."
+    )
+    image_b: UUID = Field(
+        description="Unique identifier of the other image in the pair. Order of image_a and image_b does not matter."
+    )
+    difficulty: int | None = Field(
+        description="Minimum expert_level a user must have to be offered this pair for annotation. Null means no gating."
+    )
+    priority: int | None = Field(
+        description="Pairs with a higher priority are offered for annotation first; null sorts last."
+    )
+    status: str | None = Field(
+        description='Lifecycle status of the image pair (hidden, open, review_pending, finalized, or deleted). Always "hidden" on creation.'
+    )

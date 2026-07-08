@@ -47,8 +47,24 @@ def _resolve_pair_ids(db: Session, image_a: UUID, image_b: UUID) -> tuple[int, i
     return ids
 
 
-@router.post("/create", response_model=ImagePairResponse, status_code=201)
-def create_image_pair(payload: ImagePairRef, request: Request, db: Session = Depends(get_db)):
+@router.post(
+    "/create",
+    response_model=ImagePairResponse,
+    status_code=201,
+    summary="Create Image Pair",
+    description="""
+Create a new image pair from two existing images, available for point annotation once its status is opened. Requires the scientist role.
+
+The order of image_a and image_b does not matter. The backend reorders them and ensures bidirectional uniqueness.
+
+The pair is always created with status "hidden" and null difficulty/priority.
+
+Fails with 404 if either image does not exist, 422 if image_a and image_b are the same image, or 409 if an image pair for this image combination already exists.
+""",
+)
+def create_image_pair(
+    payload: ImagePairRef, request: Request, db: Session = Depends(get_db)
+):
     user = require_current_user(request)
     ids = _resolve_pair_ids(db, payload.image_a, payload.image_b)
 
@@ -69,7 +85,19 @@ def create_image_pair(payload: ImagePairRef, request: Request, db: Session = Dep
     return _to_response(pair, db)
 
 
-@router.post("/batch/status-change/{new_status}")
+@router.post(
+    "/batch/status-change/{new_status}",
+    summary="Batch Change Image Pair Status",
+    description="""
+Set the status of the given image pairs, each referenced by its image_a/image_b uuids, to new_status. Requires the scientist role.
+
+The order of image_a and image_b does not matter. The backend reorders them and ensures bidirectional uniqueness.
+
+Valid statuses are hidden, open, review_pending, finalized, and deleted.
+
+Fails with 422 if new_status is not a recognized status, 404 if any item's images or image pair cannot be found, or 422 if any item's image_a and image_b are the same image.
+""",
+)
 def batch_status_change(
     new_status: str,
     items: list[ImagePairRef],

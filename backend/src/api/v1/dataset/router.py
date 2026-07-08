@@ -26,7 +26,14 @@ router.include_router(candidate_pairs_router, prefix="/candidates")
 router.include_router(image_pairs_router, prefix="/pairs")
 
 
-@router.get("/summary", response_model=DatasetSummaryResponse)
+@router.get(
+    "/summary",
+    response_model=DatasetSummaryResponse,
+    summary="Get Dataset Summary",
+    description="""
+Return aggregate counts of dives, images, and image pairs. Requires the scientist role.
+""",
+)
 def dataset_summary(db: Session = Depends(get_db)):
     dive_count = db.execute(select(func.count()).select_from(Dive)).scalar_one()
     image_count = db.execute(select(func.count()).select_from(Image)).scalar_one()
