@@ -1,15 +1,18 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from src import config
 from src.api.deps import require_current_user
+from src.api.v1.dataset._metadata import decode_metadata
 from src.constants import (
     ANNOTATION_STATUS_INT,
     INT_ANNOTATION_STATUS,
+    INT_IMAGE_STATUS,
+    INT_PAIR_STATUS,
     PAIR_STATUS_INT,
     AnnotationStatus,
     PairStatus,
@@ -17,10 +20,13 @@ from src.constants import (
 )
 from src.db import get_db
 from src.models.annotate import (
+    NextPairImageResponse,
+    NextPairResponse,
     PointAnnotationCorrectionRequest,
     PointAnnotationCreateRequest,
     PointAnnotationResponse,
 )
+from src.schema.dives import Dive
 from src.schema.image_pairs import ImagePair
 from src.schema.images import Image
 from src.schema.labels import Label
@@ -240,3 +246,64 @@ def review_approve(annotation_uuid: UUID, request: Request, db: Session = Depend
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
     return _apply_review(annotation, caller, STATUS_APPROVED, db)
+
+
+def _to_next_image_response(image: Image, db: Session) -> NextPairImageResponse:
+    dive = db.get(Dive, image.dive_id)
+    status_enum = INT_IMAGE_STATUS.get(image.status_id)
+    return NextPairImageResponse(
+        uuid=UUID(bytes=image.uuid),
+        filename=image.filename,
+        filepath=image.filepath,
+        dive_id=UUID(bytes=dive.uuid),
+        status=str(status_enum) if status_enum is not None else None,
+        size_x=image.size_x,
+        size_y=image.size_y,
+        metadata=decode_metadata(image.metadata_json),
+    )
+
+
+def _to_next_pair_response(pair: ImagePair, db: Session) -> NextPairResponse:
+    image1 = db.get(Image, pair.image1_id)
+    image2 = db.get(Image, pair.image2_id)
+    status_enum = INT_PAIR_STATUS.get(pair.status_id)
+    return NextPairResponse(
+        image1=_to_next_image_response(image1, db),
+        image2=_to_next_image_response(image2, db),
+        difficulty=pair.difficulty,
+        priority=pair.priority,
+        status=str(status_enum) if status_enum is not None else None,
+    )
+
+
+@router.get("/next/{dive_uuid}", response_model=list[NextPairResponse])
+@router.get("/next/{dive_uuid}/{n}", response_model=list[NextPairResponse])
+def get_next_pairs(dive_uuid: UUID, request: Request, n: int = 1, db: Session = Depends(get_db)):
+    user = require_current_user(request)
+    if n < 1:
+        raise HTTPException(status_code=422, detail="n must be >= 1")
+
+    dive = get_by_uuid(db, Dive, dive_uuid.bytes)
+    if dive is None:
+        raise HTTPException(status_code=404, detail="Dive not found")
+
+    Image1 = aliased(Image)
+    Image2 = aliased(Image)
+    annotated_pair_ids = select(PointAnnotation.pair_id).where(PointAnnotation.created_by == user.id)
+
+    stmt = (
+        select(ImagePair)
+        .join(Image1, ImagePair.image1_id == Image1.id)
+        .join(Image2, ImagePair.image2_id == Image2.id)
+        .where(
+            ImagePair.status_id == PAIR_OPEN,
+            Image1.dive_id == dive.id,
+            Image2.dive_id == dive.id,
+            or_(ImagePair.difficulty.is_(None), ImagePair.difficulty <= user.expert_level),
+            ImagePair.id.notin_(annotated_pair_ids),
+        )
+        .order_by(ImagePair.priority.desc().nullslast(), ImagePair.created_at.asc())
+        .limit(n)
+    )
+    pairs = db.execute(stmt).scalars().all()
+    return [_to_next_pair_response(pair, db) for pair in pairs]
