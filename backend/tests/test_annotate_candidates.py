@@ -86,7 +86,7 @@ def dataset(client, seed_user, login_as):
         ).status_code
         == 201
     )
-    return {"scientist": sci, "images": imgs}
+    return {"scientist": sci, "images": imgs, "dive": dive}
 
 
 @pytest.fixture
@@ -372,3 +372,109 @@ def test_review_missing_is_404(client, dataset, annotator, login_as):
     login_as(dataset["scientist"])
     resp = client.post(f"/api/v1/annotate/candidate/review/{_new_uuid()}/approve")
     assert resp.status_code == 404, resp.text
+
+
+# ------------------------- next -------------------------
+
+
+def _set_candidate_created_at(client, image_a, image_b, created_at):
+    engine = client.app.state.engine
+    id_a = uuid.UUID(image_a).bytes
+    id_b = uuid.UUID(image_b).bytes
+    with engine.begin() as conn:
+        img1 = conn.execute(text("SELECT id FROM images WHERE uuid = :u"), {"u": id_a}).scalar_one()
+        img2 = conn.execute(text("SELECT id FROM images WHERE uuid = :u"), {"u": id_b}).scalar_one()
+        lo, hi = sorted((img1, img2))
+        conn.execute(
+            text("UPDATE candidate_pairs SET created_at = :ts WHERE image1_id = :lo AND image2_id = :hi"),
+            {"ts": created_at, "lo": lo, "hi": hi},
+        )
+
+
+def test_next_default_n_returns_one(client, dataset, annotator):
+    imgs = dataset["images"]
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 1
+    candidate = body[0]
+    assert {candidate["image1"]["uuid"], candidate["image2"]["uuid"]} <= set(imgs)
+    assert candidate["status"] == "open"
+
+
+def test_next_n_two_orders_by_age(client, dataset, annotator):
+    imgs = dataset["images"]
+    _set_candidate_created_at(client, imgs[0], imgs[1], 200)
+    _set_candidate_created_at(client, imgs[1], imgs[2], 100)
+
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 2
+    assert {body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]} == {imgs[1], imgs[2]}
+    assert {body[1]["image1"]["uuid"], body[1]["image2"]["uuid"]} == {imgs[0], imgs[1]}
+
+
+def test_next_excludes_candidate_annotated_by_caller(client, dataset, annotator):
+    imgs = dataset["images"]
+    _create_annotation(client, [imgs[0], imgs[1]])
+
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    for candidate in body:
+        assert {candidate["image1"]["uuid"], candidate["image2"]["uuid"]} != {imgs[0], imgs[1]}
+
+
+def test_next_includes_candidate_annotated_by_other_user(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    _create_annotation(client, [imgs[0], imgs[1]])
+    other = seed_user(username="other-next", role="annotator", expert_level=1)
+    login_as(other)
+
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    candidates = [{c["image1"]["uuid"], c["image2"]["uuid"]} for c in body]
+    assert {imgs[0], imgs[1]} in candidates
+
+
+def test_next_excludes_non_open_candidate(client, dataset, annotator):
+    imgs = dataset["images"]
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    candidates = [{c["image1"]["uuid"], c["image2"]["uuid"]} for c in resp.json()]
+    assert {imgs[2], imgs[3]} not in candidates
+
+
+def test_next_excludes_candidate_from_other_dive(client, dataset, annotator, login_as):
+    login_as(dataset["scientist"])
+    other_dive = _make_dive(client, title="other-dive")
+    other_imgs = [_make_image(client, other_dive, f"other-img{i}.png") for i in range(2)]
+    _open_candidate(client, other_imgs[0], other_imgs[1])
+    login_as(annotator)
+
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    candidates = [{c["image1"]["uuid"], c["image2"]["uuid"]} for c in resp.json()]
+    assert {other_imgs[0], other_imgs[1]} not in candidates
+
+
+def test_next_unknown_dive_is_404(client, dataset, annotator):
+    resp = client.get(f"/api/v1/annotate/candidate/next/{_new_uuid()}")
+    assert resp.status_code == 404, resp.text
+
+
+def test_next_n_zero_is_422(client, dataset, annotator):
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/0")
+    assert resp.status_code == 422, resp.text
+
+
+def test_next_no_matches_is_empty_list(client, dataset, annotator):
+    imgs = dataset["images"]
+    _create_annotation(client, [imgs[0], imgs[1]])
+    _create_annotation(client, [imgs[1], imgs[2]])
+
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []

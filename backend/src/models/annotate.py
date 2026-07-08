@@ -95,3 +95,9 @@ class NextPairResponse(BaseModel):
     difficulty: int | None
     priority: int | None
     status: str | None
+
+
+class NextCandidateResponse(BaseModel):
+    image1: NextPairImageResponse
+    image2: NextPairImageResponse
+    status: str | None
