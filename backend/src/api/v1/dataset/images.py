@@ -14,15 +14,13 @@ from src.models.dataset import ImageCreateRequest, ImageListResponse, ImageRespo
 from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
-from src.services.assets import (
-    move_asset,
-    read_image_dimensions,
-    resolve_asset_path,
-    write_base64_image,
-    write_temp_image,
-)
+from src.services.assets import move_asset, read_image_dimensions, resolve_asset_path, write_temp_image
+from src.services.errors import ConflictError
+from src.services.images import create_image as _create_image_row
+from src.services.images import ingest_base64_image
+from src.services.images import resolve_dive_id as _resolve_dive_id_or_none
 from src.services.lookups import get_by_uuid, image_has_point_annotations
-from src.util import apply_partial_update, now_ms
+from src.util import apply_partial_update
 
 router = APIRouter()
 
@@ -51,37 +49,10 @@ def _to_response(image: Image, db: Session) -> ImageResponse:
 
 
 def _resolve_dive_id(db: Session, dive_uuid: UUID) -> int:
-    dive = get_by_uuid(db, Dive, dive_uuid.bytes)
-    if dive is None:
+    dive_id = _resolve_dive_id_or_none(db, dive_uuid)
+    if dive_id is None:
         raise HTTPException(status_code=404, detail="Dive not found")
-    return dive.id
-
-
-def _ingest_image(filepath: str, image_b64: str) -> tuple[int, int, Path, bool]:
-    """Validate path, write the decoded image, and read its dimensions.
-
-    Returns `(size_x, size_y, path, pre_existed)`. `pre_existed` records whether
-    the destination file already existed before writing, so a failed DB insert
-    can unlink only the file it actually created (avoiding orphaned assets).
-    """
-    try:
-        path = resolve_asset_path(filepath)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid filepath")
-    pre_existed = path.exists()
-    try:
-        write_base64_image(path, image_b64)
-    except Exception:  # invalid base64 / write failure
-        if not pre_existed:
-            path.unlink(missing_ok=True)
-        raise HTTPException(status_code=422, detail="Invalid image data")
-    try:
-        size_x, size_y = read_image_dimensions(path)
-    except ValueError:
-        if not pre_existed:
-            path.unlink(missing_ok=True)
-        raise HTTPException(status_code=422, detail="Could not decode image")
-    return size_x, size_y, path, pre_existed
+    return dive_id
 
 
 @router.get(
@@ -120,32 +91,31 @@ def create_image(payload: ImageCreateRequest, request: Request, db: Session = De
 
     dive_id = _resolve_dive_id(db, payload.dive_uuid)
 
-    size_x, size_y, path, pre_existed = _ingest_image(payload.filepath, payload.image)
+    size_x, size_y, path, pre_existed = ingest_base64_image(payload.filepath, payload.image)
 
-    image = Image(
-        uuid=payload.uuid.bytes,
-        created_at=now_ms(),
-        created_by=user.id,
-        filename=payload.filename,
-        filepath=payload.filepath,
-        dive_id=dive_id,
-        status_id=IMAGE_STATUS_INT[ImageStatus.HIDDEN],
-        size_x=size_x,
-        size_y=size_y,
-        metadata_json=encode_metadata(payload.metadata),
-        difficulty=payload.difficulty,
-        priority=payload.priority,
-    )
-    db.add(image)
     try:
-        db.commit()
-    except IntegrityError:
+        image = _create_image_row(
+            db,
+            uuid=payload.uuid,
+            filename=payload.filename,
+            filepath=payload.filepath,
+            dive_id=dive_id,
+            status_id=IMAGE_STATUS_INT[ImageStatus.HIDDEN],
+            size_x=size_x,
+            size_y=size_y,
+            metadata=payload.metadata,
+            difficulty=payload.difficulty,
+            priority=payload.priority,
+            creator_id=user.id,
+        )
+    except ConflictError:
         db.rollback()
         # Remove the file we just wrote so a failed create leaves no orphan,
         # but only if it did not pre-exist this request.
         if not pre_existed:
             path.unlink(missing_ok=True)
         raise HTTPException(status_code=409, detail="Image already exists")
+    db.commit()
     db.refresh(image)
     return _to_response(image, db)
 

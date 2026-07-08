@@ -6,11 +6,17 @@ from sqlalchemy.orm import Session
 from src.schema.image_pairs import ImagePair
 from src.schema.images import Image
 from src.schema.point_annotations import PointAnnotation
+from src.services.errors import SameDiveError
 
 
 def get_by_uuid(session: Session, model, uuid_bytes: bytes):
     """Return the `model` row whose `uuid` matches `uuid_bytes`, or None."""
     return session.execute(select(model).where(model.uuid == uuid_bytes)).scalar_one_or_none()
+
+
+def get_by_title(session: Session, model, title: str):
+    """Return the `model` row whose `title` matches `title`, or None."""
+    return session.execute(select(model).where(model.title == title)).scalar_one_or_none()
 
 
 def resolve_image_id(session: Session, image_uuid: UUID) -> int | None:
@@ -33,6 +39,14 @@ def resolve_sorted_image_pair(session: Session, image_a: UUID, image_b: UUID) ->
         return None
     lo, hi = sorted((id_a, id_b))
     return (lo, hi)
+
+
+def require_same_dive(session: Session, image1_id: int, image2_id: int) -> None:
+    """Raise `SameDiveError` if the two images don't belong to the same dive."""
+    dive1_id = session.get(Image, image1_id).dive_id
+    dive2_id = session.get(Image, image2_id).dive_id
+    if dive1_id != dive2_id:
+        raise SameDiveError("Both images must belong to the same dive")
 
 
 def image_has_point_annotations(session: Session, image_id: int) -> bool:

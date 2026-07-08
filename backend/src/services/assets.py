@@ -1,5 +1,6 @@
 import base64
 import os
+import shutil
 import tempfile
 from pathlib import Path, PurePosixPath
 
@@ -8,35 +9,41 @@ import cv2
 from src import config
 
 
-def resolve_asset_path(filepath: str) -> Path:
-    """Resolve `filepath` under `config.ASSETS_DIR`, rejecting traversal.
+def resolve_asset_path(filepath: str, base_dir: Path | None = None) -> Path:
+    """Resolve `filepath` under `base_dir`, rejecting traversal.
 
-    `filepath` must be a relative path referencing a file *within* the assets
-    directory. Defense-in-depth checks, each raising `ValueError`:
+    `base_dir` defaults to `config.ASSETS_DIR`, read at call time (not bound
+    as a default argument value) so callers that monkeypatch `config.ASSETS_DIR`
+    (e.g. tests) keep working. Passing an explicit `base_dir` lets this same
+    validated resolution logic be reused against other roots, e.g. a zip
+    import's extraction directory.
+
+    `filepath` must be a relative path referencing a file *within* `base_dir`.
+    Defense-in-depth checks, each raising `ValueError`:
 
     - empty `filepath`, or one containing a NUL byte;
     - absolute paths (either `Path.is_absolute()` or a leading `/`);
     - any path with a `..` component;
-    - a path that resolves to the assets directory itself (must be a file
-      within it, not the root).
+    - a path that resolves to `base_dir` itself (must be a file within it,
+      not the root).
 
     The final `is_relative_to` guard on the resolved path is the real
     backstop: because `.resolve()` follows symlinks, it also catches escapes
     via symlinked components.
     """
     if not filepath or "\x00" in filepath:
-        raise ValueError(f"Invalid asset filepath: {filepath!r}")
+        raise ValueError(f"Invalid filepath: {filepath!r}")
     if Path(filepath).is_absolute() or filepath.startswith("/"):
-        raise ValueError(f"Absolute asset filepath not allowed: {filepath!r}")
+        raise ValueError(f"Absolute filepath not allowed: {filepath!r}")
     if ".." in PurePosixPath(filepath).parts:
         raise ValueError(f"Path traversal not allowed: {filepath!r}")
 
-    assets_dir = Path(config.ASSETS_DIR).resolve()
-    resolved = (assets_dir / filepath).resolve()
-    if resolved == assets_dir:
-        raise ValueError(f"Asset filepath must reference a file: {filepath!r}")
-    if not resolved.is_relative_to(assets_dir):
-        raise ValueError(f"Path escapes assets directory: {filepath!r}")
+    root = (base_dir if base_dir is not None else Path(config.ASSETS_DIR)).resolve()
+    resolved = (root / filepath).resolve()
+    if resolved == root:
+        raise ValueError(f"Filepath must reference a file: {filepath!r}")
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"Path escapes base directory: {filepath!r}")
     return resolved
 
 
@@ -62,6 +69,27 @@ def write_temp_image(b64: str) -> Path:
     try:
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
+    except Exception:
+        Path(name).unlink(missing_ok=True)
+        raise
+    return Path(name)
+
+
+def stage_source_file(src: Path) -> Path:
+    """Copy `src`'s bytes into a fresh temp file in `ASSETS_DIR/.tmp`.
+
+    Mirrors `write_temp_image`, but the source is an already-extracted file on
+    disk rather than base64 text. The temp file lives inside `ASSETS_DIR` so it
+    is on the same filesystem as final asset destinations, enabling atomic
+    `os.replace` when it's moved into place. Caller owns cleanup of the
+    returned path.
+    """
+    tmp_dir = Path(config.ASSETS_DIR) / ".tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=str(tmp_dir), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as out, open(src, "rb") as inp:
+            shutil.copyfileobj(inp, out)
     except Exception:
         Path(name).unlink(missing_ok=True)
         raise
