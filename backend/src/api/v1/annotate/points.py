@@ -274,6 +274,70 @@ def _apply_review(
     return _to_response(annotation, db)
 
 
+@router.get(
+    "/review/next/{dive_uuid}",
+    response_model=list[PointAnnotationResponse],
+    summary="Get Next Point Annotations to Review",
+    description="""
+Return up to n point annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
+
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+
+Fails with 404 if the dive does not exist, or 422 if n is less than 1.
+""",
+)
+@router.get(
+    "/review/next/{dive_uuid}/{n}",
+    response_model=list[PointAnnotationResponse],
+    summary="Get Next Point Annotations to Review",
+    description="""
+Return up to n point annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
+
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+
+Fails with 404 if the dive does not exist, or 422 if n is less than 1.
+""",
+)
+def get_next_reviews(
+    dive_uuid: UUID, request: Request, n: int = 1, db: Session = Depends(get_db)
+):
+    user = require_current_user(request)
+    if n < 1:
+        raise HTTPException(status_code=422, detail="n must be >= 1")
+
+    dive = get_by_uuid(db, Dive, dive_uuid.bytes)
+    if dive is None:
+        raise HTTPException(status_code=404, detail="Dive not found")
+
+    is_privileged = user.role in (Role.SCIENTIST, Role.ADMIN)
+    if not is_privileged and user.expert_level < config.MIN_REVIEW_EXPERT_LEVEL:
+        return []
+
+    Image1 = aliased(Image)
+    Image2 = aliased(Image)
+
+    conditions = [
+        PointAnnotation.status_id == STATUS_REVIEW_PENDING,
+        PointAnnotation.created_by != user.id,
+        Image1.dive_id == dive.id,
+        Image2.dive_id == dive.id,
+    ]
+    if not is_privileged:
+        conditions.append(PointAnnotation.expert_level < user.expert_level)
+
+    stmt = (
+        select(PointAnnotation)
+        .join(ImagePair, PointAnnotation.pair_id == ImagePair.id)
+        .join(Image1, ImagePair.image1_id == Image1.id)
+        .join(Image2, ImagePair.image2_id == Image2.id)
+        .where(*conditions)
+        .order_by(ImagePair.priority.desc().nullslast(), PointAnnotation.created_at.asc())
+        .limit(n)
+    )
+    annotations = db.execute(stmt).scalars().all()
+    return [_to_response(annotation, db) for annotation in annotations]
+
+
 @router.post(
     "/review/{annotation_uuid}/fail",
     response_model=PointAnnotationResponse,
