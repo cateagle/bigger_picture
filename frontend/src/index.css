@@ -202,3 +202,54 @@ h2 {
   pointer-events: none;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
 }
+
+.marker-reviewed {
+  opacity: 0.35;
+}
+
+.verify-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.verify-point-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.verify-point-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+.verify-point-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.verify-point-status {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.verify-point-status-approved {
+  color: #1baf7a;
+}
+
+.verify-point-status-flagged {
+  color: #e34948;
+}

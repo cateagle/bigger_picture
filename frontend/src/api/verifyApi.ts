@@ -66,12 +66,10 @@ export async function fetchNextPendingVerification(diveUuid: string): Promise<Pe
   }
 }
 
-/** Real endpoint: POST /api/v1/annotate/points/review/{uuid}/approve|fail, one call per point. */
-export function submitVerification(item: PendingVerification, approved: boolean): Promise<void> {
+/** Real endpoint: POST /api/v1/annotate/points/review/{uuid}/approve|fail. */
+export function submitPointVerification(pointUuid: string, approved: boolean): Promise<void> {
   const action = approved ? 'approve' : 'fail'
-  return Promise.all(
-    item.correspondences.map((c) =>
-      apiFetch<unknown>(`/api/v1/annotate/points/review/${c.pointUuid}/${action}`, { method: 'POST' }),
-    ),
-  ).then(() => undefined)
+  return apiFetch<unknown>(`/api/v1/annotate/points/review/${pointUuid}/${action}`, { method: 'POST' }).then(
+    () => undefined,
+  )
 }

@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchDivesForRegion } from '../api/diveApi'
-import { fetchNextPendingVerification, submitVerification } from '../api/verifyApi'
+import { fetchNextPendingVerification, submitPointVerification } from '../api/verifyApi'
 import type { PendingVerification, Region } from '../api/types'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
+
+type PointStatus = 'approved' | 'flagged'
 
 export default function VerifyGame({ region, onBack }: { region: Region; onBack: () => void }) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
   const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
   const [item, setItem] = useState<PendingVerification | null>(null)
+  const [statuses, setStatuses] = useState<Map<string, PointStatus>>(new Map())
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
+  const [submittingUuid, setSubmittingUuid] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reviewedCount, setReviewedCount] = useState(0)
 
@@ -30,6 +33,7 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
     fetchNextPendingVerification(forDiveUuid)
       .then((next) => {
         setItem(next)
+        setStatuses(new Map())
         setDone(next === null)
       })
       .catch(() => setError('Could not load an annotation to review. Please try again.'))
@@ -44,17 +48,25 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
     }
   }, [diveUuid, loadNext])
 
-  const handleDecision = (approved: boolean) => {
-    if (!item || !diveUuid || submitting) return
-    setSubmitting(true)
+  // Once every point in the current pair has a decision, move on to the next one.
+  useEffect(() => {
+    if (!item || !diveUuid) return
+    if (statuses.size > 0 && statuses.size === item.correspondences.length) {
+      loadNext(diveUuid)
+    }
+  }, [statuses, item, diveUuid, loadNext])
+
+  const handlePointDecision = (pointUuid: string, approved: boolean) => {
+    if (!item || !diveUuid || submittingUuid) return
+    setSubmittingUuid(pointUuid)
     setError(null)
-    submitVerification(item, approved)
+    submitPointVerification(pointUuid, approved)
       .then(() => {
         setReviewedCount((count) => count + 1)
-        loadNext(diveUuid)
+        setStatuses((prev) => new Map(prev).set(pointUuid, approved ? 'approved' : 'flagged'))
       })
       .catch(() => setError('Could not submit your review. Please try again.'))
-      .finally(() => setSubmitting(false))
+      .finally(() => setSubmittingUuid(null))
   }
 
   return (
@@ -69,7 +81,7 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
         </p>
         <p>
           Review the numbered points below - does each pair mark the same physical spot in both
-          images? Flag it if any point looks wrong.
+          images? Approve or flag each point on its own.
         </p>
         <p className="game-region">Region: {region.title}</p>
       </header>
@@ -89,34 +101,68 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
             <div className="image-pane">
               <img src={item.imageA} alt="Annotated image A" />
               {item.correspondences.map((c, i) => (
-                <Marker key={`a-${i}`} point={c.pointA} color={markerColor(i)} label={i + 1} />
+                <Marker
+                  key={`a-${i}`}
+                  point={c.pointA}
+                  color={markerColor(i)}
+                  label={i + 1}
+                  reviewed={statuses.has(c.pointUuid)}
+                />
               ))}
             </div>
             <div className="image-pane">
               <img src={item.imageB} alt="Annotated image B" />
               {item.correspondences.map((c, i) => (
-                <Marker key={`b-${i}`} point={c.pointB} color={markerColor(i)} label={i + 1} />
+                <Marker
+                  key={`b-${i}`}
+                  point={c.pointB}
+                  color={markerColor(i)}
+                  label={i + 1}
+                  reviewed={statuses.has(c.pointUuid)}
+                />
               ))}
             </div>
           </div>
 
-          <p className="game-hint">
-            {item.correspondences.length} point{item.correspondences.length === 1 ? '' : 's'} marked
-          </p>
+          <ul className="verify-points">
+            {item.correspondences.map((c, i) => {
+              const status = statuses.get(c.pointUuid)
+              return (
+                <li key={c.pointUuid} className="verify-point-row">
+                  <span className="verify-point-swatch" style={{ backgroundColor: markerColor(i) }}>
+                    {i + 1}
+                  </span>
+                  {status ? (
+                    <span className={`verify-point-status verify-point-status-${status}`}>
+                      {status === 'approved' ? 'Approved' : 'Flagged'}
+                    </span>
+                  ) : (
+                    <span className="verify-point-actions">
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => handlePointDecision(c.pointUuid, false)}
+                        disabled={submittingUuid === c.pointUuid}
+                      >
+                        Flag
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => handlePointDecision(c.pointUuid, true)}
+                        disabled={submittingUuid === c.pointUuid}
+                      >
+                        Approve
+                      </button>
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
 
           <footer className="game-footer">
             <span className="game-count">{reviewedCount} reviewed</span>
-            <button type="button" className="btn" onClick={() => handleDecision(false)} disabled={submitting}>
-              Flag
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => handleDecision(true)}
-              disabled={submitting}
-            >
-              Approve
-            </button>
           </footer>
         </>
       )}
