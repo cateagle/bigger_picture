@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { CandidatePairSummary, DatasetImage, DatasetSummary, ImagePairSummary } from './types'
+import type { AnnotationSummary, CandidatePairSummary, DatasetImage, DatasetSummary, ImagePairSummary } from './types'
 
 /** Scientist/admin only - counts of dives, images, and image pairs in the dataset. */
 export function fetchDatasetSummary(): Promise<DatasetSummary> {
@@ -21,4 +21,11 @@ export function fetchCandidatePairsForDive(diveUuid: string): Promise<CandidateP
 /** Scientist/admin only - real endpoint: GET /api/v1/dataset/pairs?dive={uuid}. */
 export function fetchImagePairsForDive(diveUuid: string): Promise<ImagePairSummary[]> {
   return apiFetch<{ pairs: ImagePairSummary[] }>(`/api/v1/dataset/pairs?dive=${diveUuid}`).then((res) => res.pairs)
+}
+
+/** Scientist/admin only - real endpoint: GET /api/v1/dataset/annotations?dive={uuid}. */
+export function fetchAnnotationsForDive(diveUuid: string): Promise<AnnotationSummary[]> {
+  return apiFetch<{ annotations: AnnotationSummary[] }>(`/api/v1/dataset/annotations?dive=${diveUuid}`).then(
+    (res) => res.annotations,
+  )
 }

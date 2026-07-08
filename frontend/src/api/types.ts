@@ -81,6 +81,15 @@ export interface ImagePairSummary {
   status: string | null
 }
 
+/** Mirrors `PointAnnotationResponse` from `backend/src/models/annotate.py`, as returned by `GET /api/v1/dataset/annotations`. */
+export interface AnnotationSummary {
+  uuid: string
+  image_a: string
+  image_b: string
+  expert_level: number
+  status: string
+}
+
 export interface ImagePair {
   pairId: string
   imageA: string
