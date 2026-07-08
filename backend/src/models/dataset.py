@@ -12,6 +12,32 @@ class DatasetSummaryResponse(BaseModel):
     image_pair_count: int = Field(description="Total number of image pairs.")
 
 
+class StatusEnumResponse(BaseModel):
+    """A single status value, as recognized by the `status` field of one of the dataset's entity types."""
+
+    name: str = Field(description="The status value itself, e.g. hidden or open.")
+    description: str | None = Field(
+        description="Free-text explanation of what this status means and when it applies."
+    )
+
+
+class StatusEnumListResponse(BaseModel):
+    """All recognized status values, grouped by the entity type they apply to."""
+
+    image_statuses: list[StatusEnumResponse] = Field(
+        description="Status values for images."
+    )
+    pair_statuses: list[StatusEnumResponse] = Field(
+        description="Status values for image pairs."
+    )
+    candidate_statuses: list[StatusEnumResponse] = Field(
+        description="Status values for candidate pairs."
+    )
+    annotation_statuses: list[StatusEnumResponse] = Field(
+        description="Status values for point annotations."
+    )
+
+
 class LabelResponse(BaseModel):
     """A label that can be assigned to a point annotation."""
 
