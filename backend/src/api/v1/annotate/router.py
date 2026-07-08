@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.api.v1.annotate.candidates import router as candidates_router
 from src.api.v1.annotate.points import router as points_router
+from src.api.v1.annotate.stats import router as stats_router
 from src.api.v1.dataset._metadata import decode_metadata
 from src.db import get_db
 from src.models.annotate import LabelListResponse, LabelResponse
@@ -21,6 +22,7 @@ router = APIRouter()
 
 router.include_router(candidates_router, prefix="/candidate")
 router.include_router(points_router, prefix="/points")
+router.include_router(stats_router, prefix="/stats")
 
 
 @router.get(

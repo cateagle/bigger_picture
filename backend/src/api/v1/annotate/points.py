@@ -9,12 +9,13 @@ from src import config
 from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata
 from src.constants import (
-    ANNOTATION_STATUS_INT,
+    ANNOTATION_APPROVED,
+    ANNOTATION_REVIEW_FAILED,
+    ANNOTATION_REVIEW_PENDING,
     INT_ANNOTATION_STATUS,
     INT_IMAGE_STATUS,
     INT_PAIR_STATUS,
     PAIR_STATUS_INT,
-    AnnotationStatus,
     PairStatus,
     Role,
 )
@@ -38,9 +39,6 @@ from src.util import now_ms
 
 router = APIRouter()
 
-STATUS_REVIEW_PENDING = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_PENDING]
-STATUS_REVIEW_FAILED = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_FAILED]
-STATUS_APPROVED = ANNOTATION_STATUS_INT[AnnotationStatus.APPROVED]
 PAIR_OPEN = PAIR_STATUS_INT[PairStatus.OPEN]
 
 
@@ -124,7 +122,7 @@ def _build_annotation(
         y2=payload.y2,
         expert_level=user.expert_level,
         confidence=None,
-        status_id=STATUS_REVIEW_PENDING,
+        status_id=ANNOTATION_REVIEW_PENDING,
     )
 
 
@@ -219,7 +217,7 @@ def correct_annotation(
 
     if annotation.created_by != user.id:
         raise HTTPException(status_code=403, detail="Not the annotation creator")
-    if annotation.status_id != STATUS_REVIEW_PENDING:
+    if annotation.status_id != ANNOTATION_REVIEW_PENDING:
         raise HTTPException(status_code=409, detail="Annotation is not pending review")
     if now_ms() - annotation.created_at >= config.SELF_CORRECTION_TIME_LIMIT_MS:
         raise HTTPException(status_code=403, detail="Correction window expired")
@@ -245,7 +243,7 @@ def _load_pending_for_review(db: Session, annotation_uuid: UUID) -> PointAnnotat
     ).scalar_one_or_none()
     if annotation is None:
         raise HTTPException(status_code=404, detail="Annotation not found")
-    if annotation.status_id != STATUS_REVIEW_PENDING:
+    if annotation.status_id != ANNOTATION_REVIEW_PENDING:
         raise HTTPException(status_code=409, detail="Annotation is not pending review")
     return annotation
 
@@ -343,7 +341,7 @@ def get_next_reviews(
     Image2 = aliased(Image)
 
     conditions = [
-        PointAnnotation.status_id == STATUS_REVIEW_PENDING,
+        PointAnnotation.status_id == ANNOTATION_REVIEW_PENDING,
         PointAnnotation.created_by != user.id,
         Image1.dive_id == dive.id,
         Image2.dive_id == dive.id,
@@ -380,7 +378,7 @@ def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(g
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
-    return _apply_review(annotation, caller, STATUS_REVIEW_FAILED, db)
+    return _apply_review(annotation, caller, ANNOTATION_REVIEW_FAILED, db)
 
 
 @router.post(
@@ -401,7 +399,7 @@ def review_approve(
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
-    return _apply_review(annotation, caller, STATUS_APPROVED, db)
+    return _apply_review(annotation, caller, ANNOTATION_APPROVED, db)
 
 
 def _to_next_image_response(image: Image, db: Session) -> NextPairImageResponse:

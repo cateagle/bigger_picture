@@ -46,6 +46,7 @@ export default function HomeScreen({
   onChangeRegion,
   onOpenAdmin,
   onOpenTeam,
+  onOpenStats,
   onLogout,
 }: {
   onPlay: (id: GameId) => void
@@ -54,6 +55,7 @@ export default function HomeScreen({
   onChangeRegion: () => void
   onOpenAdmin: () => void
   onOpenTeam: () => void
+  onOpenStats: () => void
   onLogout: () => void
 }) {
   return (
@@ -70,6 +72,9 @@ export default function HomeScreen({
             Admin
           </button>
         )}
+        <button type="button" className="back-link" onClick={onOpenStats}>
+          My Stats
+        </button>
         <button type="button" className="back-link" onClick={onOpenTeam}>
           Team
         </button>

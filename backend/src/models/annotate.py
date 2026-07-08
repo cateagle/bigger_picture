@@ -265,6 +265,77 @@ class NextCandidateResponse(BaseModel):
     )
 
 
+class AccuracyStat(BaseModel):
+    """An accuracy figure derived from reviewed annotations.
+
+    Accuracy is the fraction of a user's *reviewed* annotations that were
+    approved (approved / (approved + review_failed)). Pending and otherwise
+    unreviewed annotations are excluded, so `reviewed` is the denominator.
+    """
+
+    correct: int = Field(description="Number of the user's annotations that were reviewed and approved.")
+    reviewed: int = Field(
+        description="Number of the user's annotations that have been reviewed (approved or review_failed)."
+    )
+    accuracy: float | None = Field(
+        description="correct / reviewed, or null when no annotations have been reviewed yet."
+    )
+
+
+class OverlapStats(BaseModel):
+    """Stage 1 (Finding Overlap) statistics for a single player."""
+
+    pairs_marked: int = Field(description="Total overlap votes the player has cast.")
+    overlaps_found: int = Field(
+        description="Overlap votes where the player judged the pair to overlap (no_overlap = false)."
+    )
+    overall_pairs_with_overlap: int = Field(
+        description="Global count of candidate pairs resolved to has_overlap (context, not player-specific)."
+    )
+    accuracy_all_time: AccuracyStat = Field(description="Overlap accuracy over all of the player's reviewed votes.")
+    accuracy_window: AccuracyStat = Field(
+        description="Overlap accuracy over the player's most recent `window` votes."
+    )
+
+
+class AnnotateStats(BaseModel):
+    """Stage 2 (Annotating) statistics for a single player."""
+
+    annotations: int = Field(description="Total point annotations the player has created.")
+    annotations_verified: int = Field(description="Player's point annotations that were reviewed and approved.")
+    pairs_marked: int = Field(description="Distinct image pairs the player has annotated.")
+    pairs_verified: int = Field(
+        description="Distinct image pairs where at least one of the player's annotations was approved."
+    )
+    accuracy_all_time: AccuracyStat = Field(
+        description="Annotation accuracy over all of the player's reviewed annotations."
+    )
+    accuracy_window: AccuracyStat = Field(
+        description="Annotation accuracy over the player's most recent `window` annotations."
+    )
+
+
+class VerifyStats(BaseModel):
+    """Stage 3 (Verification) statistics for a single player, i.e. reviews they performed.
+
+    Verification *accuracy* is intentionally omitted: under the review-status
+    basis there is no independent ground truth for a single reviewer's call.
+    Only counters are reported until a consensus/meta-review mechanism exists.
+    """
+
+    verified: int = Field(description="Total annotations the player has reviewed (across overlap and point annotations).")
+    accepted: int = Field(description="Reviews where the player approved the annotation.")
+    faulty_found: int = Field(description="Reviews where the player marked the annotation as failed.")
+
+
+class MyStatsResponse(BaseModel):
+    """The signed-in player's own statistics across all three game stages."""
+
+    window: int = Field(description="Size of the recent-annotation window used for the windowed accuracies.")
+    overlap: OverlapStats = Field(description="Stage 1 (Finding Overlap) statistics.")
+    annotate: AnnotateStats = Field(description="Stage 2 (Annotating) statistics.")
+    verify: VerifyStats = Field(description="Stage 3 (Verification) statistics.")
+
 class PointAnnotationReviewResponse(BaseModel):
     """A point annotation pending review, with full image details so the two images can be rendered."""
 
