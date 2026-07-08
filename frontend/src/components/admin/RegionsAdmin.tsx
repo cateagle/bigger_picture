@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import Globe from 'react-globe.gl'
 import { ApiError } from '../../api/client'
@@ -51,6 +51,7 @@ export default function RegionsAdmin() {
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const { ref: globeContainerRef, size: globeSize } = useContainerSize()
+  const globeSectionRef = useRef<HTMLDivElement>(null)
 
   const load = () => {
     setLoading(true)
@@ -77,6 +78,7 @@ export default function RegionsAdmin() {
     setDescription(region.description ?? '')
     setPoints(meshToPoints(region.metadata?.mesh))
     setFormError(null)
+    globeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const handleSubmit = (e: FormEvent) => {
@@ -168,7 +170,7 @@ export default function RegionsAdmin() {
           </label>
         </div>
 
-        <div className="regions-admin-globe-field">
+        <div className="regions-admin-globe-field" ref={globeSectionRef}>
           <p className="regions-admin-globe-hint">
             Click the globe to place the region's boundary points
             {points.length > 0 && points.length < 3 ? ` (${points.length} placed, need at least 3)` : ''}.
