@@ -140,6 +140,11 @@ h2 {
   color: #e34948;
 }
 
+.image-toolbar {
+  display: flex;
+  justify-content: center;
+}
+
 .image-pane-row {
   display: flex;
   gap: 12px;
@@ -200,6 +205,30 @@ h2 {
   justify-content: center;
   pointer-events: none;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.grid-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.grid-line-vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.grid-line-horizontal {
+  left: 0;
+  right: 0;
+  height: 1px;
 }
 
 .marker-reviewed {

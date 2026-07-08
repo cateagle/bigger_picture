@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextPendingVerification, submitPointVerification } from '../api/verifyApi'
 import type { PendingVerification, Region } from '../api/types'
+import { GridOverlay } from './GridOverlay'
+import type { GridSize } from './gridSize'
+import { gridToggleLabel, nextGridSize } from './gridSize'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 
@@ -17,6 +20,7 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
   const [submittingUuid, setSubmittingUuid] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reviewedCount, setReviewedCount] = useState(0)
+  const [gridSize, setGridSize] = useState<GridSize>(0)
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -97,9 +101,16 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
 
       {item && !loading && (
         <>
+          <div className="image-toolbar">
+            <button type="button" className="btn" onClick={() => setGridSize(nextGridSize(gridSize))}>
+              {gridToggleLabel(gridSize)}
+            </button>
+          </div>
+
           <div className="image-pane-row">
             <div className="image-pane">
               <img src={item.imageA} alt="Annotated image A" />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
               {item.correspondences.map((c, i) => (
                 <Marker
                   key={`a-${i}`}
@@ -112,6 +123,7 @@ export default function VerifyGame({ region, onBack }: { region: Region; onBack:
             </div>
             <div className="image-pane">
               <img src={item.imageB} alt="Annotated image B" />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
               {item.correspondences.map((c, i) => (
                 <Marker
                   key={`b-${i}`}

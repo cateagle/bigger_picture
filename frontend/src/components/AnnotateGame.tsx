@@ -4,6 +4,9 @@ import { fetchNextImagePair, submitAnnotation } from '../api/annotationApi'
 import { fetchDivesForRegion } from '../api/diveApi'
 import type { Correspondence, ImagePair, NormalizedPoint, Region } from '../api/types'
 import AnnotateHintsModal from './AnnotateHintsModal'
+import { GridOverlay } from './GridOverlay'
+import type { GridSize } from './gridSize'
+import { gridToggleLabel, nextGridSize } from './gridSize'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 import './AnnotateGame.css'
@@ -31,6 +34,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
   const [correspondences, setCorrespondences] = useState<Correspondence[]>([])
   const [pending, setPending] = useState<{ side: 'A' | 'B'; point: NormalizedPoint } | null>(null)
   const [showHints, setShowHints] = useState(true)
+  const [gridSize, setGridSize] = useState<GridSize>(0)
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
 
@@ -146,6 +150,12 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
 
       {pair && !loading && (
         <>
+          <div className="image-toolbar">
+            <button type="button" className="btn" onClick={() => setGridSize(nextGridSize(gridSize))}>
+              {gridToggleLabel(gridSize)}
+            </button>
+          </div>
+
           <div className="image-pane-row">
             <div className="image-pane">
               <img
@@ -155,6 +165,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
                 onClick={handleClickImage('A')}
                 className={`clickable${pending?.side === 'A' ? ' awaiting-match' : ''}`}
               />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
               {correspondences.map((c, i) => (
                 <Marker key={`a-${i}`} point={c.pointA} color={markerColor(i)} label={i + 1} />
               ))}
@@ -175,6 +186,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
                 onClick={handleClickImage('B')}
                 className={`clickable${pending?.side === 'B' ? ' awaiting-match' : ''}`}
               />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
               {correspondences.map((c, i) => (
                 <Marker key={`b-${i}`} point={c.pointB} color={markerColor(i)} label={i + 1} />
               ))}

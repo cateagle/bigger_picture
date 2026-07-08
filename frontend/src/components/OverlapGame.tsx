@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextCandidatePair, submitOverlapDecision } from '../api/overlapApi'
 import type { CandidatePair, Region } from '../api/types'
+import { GridOverlay } from './GridOverlay'
+import type { GridSize } from './gridSize'
+import { gridToggleLabel, nextGridSize } from './gridSize'
 
 export default function OverlapGame({ region, onBack }: { region: Region; onBack: () => void }) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
@@ -12,6 +15,7 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reviewedCount, setReviewedCount] = useState(0)
+  const [gridSize, setGridSize] = useState<GridSize>(0)
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -85,12 +89,20 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
 
       {pair && !loading && (
         <>
+          <div className="image-toolbar">
+            <button type="button" className="btn" onClick={() => setGridSize(nextGridSize(gridSize))}>
+              {gridToggleLabel(gridSize)}
+            </button>
+          </div>
+
           <div className="image-pane-row">
             <div className="image-pane">
               <img src={pair.imageA} alt="Candidate scene A" />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
             </div>
             <div className="image-pane">
               <img src={pair.imageB} alt="Candidate scene B" />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
             </div>
           </div>
 
