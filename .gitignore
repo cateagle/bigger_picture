@@ -3,5 +3,6 @@
 .devenv
 backend/data/
 backend/assets/
+scripts/**/*.state.json
 __pycache__/
 *.pyc

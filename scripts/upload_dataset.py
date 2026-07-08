@@ -14,8 +14,10 @@ assigned, and a CSV listing image pairs (by those uuids), this script:
 
 Progress is recorded in a local ledger (default: <files-csv>.state.json) after
 each successful upload/pair, so rerunning the script skips work already done
-without re-reading files or round-tripping the API. Delete the ledger to force a
-full re-run. Override its location with --state-file.
+without re-reading files or round-tripping the API. Progress is tracked
+per-dive, so uploading the same CSVs to a different --dive-uuid starts fresh for
+that dive rather than skipping everything. Delete the ledger to force a full
+re-run. Override its location with --state-file.
 
 Authentication needs a user with the `scientist` or `admin` role (the
 /api/v1/dataset/* routes require it). Two ways to authenticate:
@@ -150,14 +152,22 @@ class ProgressState:
     """A local record of what has already been persisted server-side, so reruns
     can skip finished work without re-encoding files or round-tripping the API.
 
-    Images are keyed by their uuid (globally unique in the DB). Pairs are keyed
-    by the two uuids sorted, matching how the server orders them, so (a, b) and
-    (b, a) are treated as the same pair. The ledger is written atomically after
-    each new entry, so an interrupted run keeps whatever progress it made.
+    Progress is scoped per target dive: the ledger file holds a separate record
+    for each dive uuid, so uploading the same images.csv to a different dive is
+    tracked independently and never wrongly skipped. Within a dive, images are
+    keyed by their uuid and pairs by the two uuids sorted (matching how the
+    server orders them, so (a, b) and (b, a) are the same pair). The file is
+    written atomically after each new entry, so an interrupted run keeps
+    whatever progress it made, and records for other dives are preserved.
+
+    File layout:
+        {"dives": {"<dive_uuid>": {"images": [...], "pairs": [[a, b], ...]}}}
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, dive_uuid: str):
         self.path = path
+        self.dive_uuid = dive_uuid
+        self._all: dict = {}  # full file contents, keyed by dive uuid
         self.images: set[str] = set()
         self.pairs: set[tuple[str, str]] = set()
 
@@ -166,22 +176,24 @@ class ProgressState:
             return
         try:
             data = json.loads(self.path.read_text())
-            self.images = set(data.get("images", []))
-            self.pairs = {tuple(sorted(p)) for p in data.get("pairs", [])}
-        except (ValueError, OSError, TypeError) as exc:
+            self._all = data["dives"] if isinstance(data, dict) and "dives" in data else {}
+            record = self._all.get(self.dive_uuid, {})
+            self.images = set(record.get("images", []))
+            self.pairs = {tuple(sorted(p)) for p in record.get("pairs", [])}
+        except (ValueError, OSError, TypeError, KeyError) as exc:
             print(
                 f"WARNING: ignoring unreadable progress file {self.path} ({exc}); starting fresh.",
                 file=sys.stderr,
             )
-            self.images, self.pairs = set(), set()
+            self._all, self.images, self.pairs = {}, set(), set()
 
     def _save(self) -> None:
-        payload = {
+        self._all[self.dive_uuid] = {
             "images": sorted(self.images),
             "pairs": sorted(list(p) for p in self.pairs),
         }
         tmp = self.path.with_name(self.path.name + ".tmp")
-        tmp.write_text(json.dumps(payload, indent=2))
+        tmp.write_text(json.dumps({"dives": self._all}, indent=2))
         os.replace(tmp, self.path)  # atomic on the same filesystem
 
     def has_image(self, image_uuid: str) -> bool:
@@ -442,15 +454,6 @@ def main(argv=None):
     validate(files_rows, pairs_rows, args.images_dir)
     print(f"Validated {len(files_rows)} image(s) and {len(pairs_rows)} pair(s).")
 
-    state_path = args.state_file or args.files_csv.with_name(args.files_csv.name + ".state.json")
-    state = ProgressState(state_path)
-    state.load()
-    if state.images or state.pairs:
-        print(
-            f"Resuming from {state_path}: "
-            f"{len(state.images)} image(s) and {len(state.pairs)} pair(s) already done."
-        )
-
     client = ApiClient(args.api_base_url, args.session_uuid)
     if args.username:
         user = client.login(args.username)
@@ -464,7 +467,19 @@ def main(argv=None):
             )
 
     dive_uuid = resolve_dive(client, args.dive_uuid)
-    print(f"Target dive: {dive_uuid}\n")
+    print(f"Target dive: {dive_uuid}")
+
+    # The ledger is scoped to the resolved dive, so it must be created after the
+    # dive is known - progress for one dive never masks work for another.
+    state_path = args.state_file or args.files_csv.with_name(args.files_csv.name + ".state.json")
+    state = ProgressState(state_path, dive_uuid)
+    state.load()
+    if state.images or state.pairs:
+        print(
+            f"Resuming from {state_path}: for this dive, "
+            f"{len(state.images)} image(s) and {len(state.pairs)} pair(s) already done."
+        )
+    print()
 
     print("Uploading images:")
     img_created, img_skipped, img_failed = upload_images(
