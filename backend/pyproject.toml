@@ -1,5 +1,5 @@
 [project]
-name = "connecting-the-dots"
+name = "bigger-picture"
 version = "0.1.0"
 description = "Playground for Citizen Science Interface to Crowd Source Ground-Truth Annotations"
 readme = "README.md"

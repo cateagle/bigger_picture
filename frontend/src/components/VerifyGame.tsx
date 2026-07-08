@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchPendingVerification, submitVerification } from '../api/verifyApi'
-import type { PendingVerification } from '../api/types'
+import type { PendingVerification, Region } from '../api/types'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 
-export default function VerifyGame({ onBack }: { onBack: () => void }) {
+export default function VerifyGame({ region, onBack }: { region: Region; onBack: () => void }) {
   const [item, setItem] = useState<PendingVerification | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -28,7 +28,7 @@ export default function VerifyGame({ onBack }: { onBack: () => void }) {
     if (!item || submitting) return
     setSubmitting(true)
     setError(null)
-    submitVerification(item.annotationId, approved)
+    submitVerification(item, approved)
       .then(() => {
         setReviewedCount((count) => count + 1)
         loadNext()
@@ -51,6 +51,7 @@ export default function VerifyGame({ onBack }: { onBack: () => void }) {
           Review the numbered points below - does each pair mark the same physical spot in both
           images? Flag it if any point looks wrong.
         </p>
+        <p className="game-region">Region: {region.title}</p>
       </header>
 
       {loading && <p className="game-status">Loading annotation…</p>}

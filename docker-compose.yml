@@ -8,6 +8,8 @@ services:
     volumes:
       - ./backend/data:/app/data
       - ./backend/assets:/app/assets
+    environment:
+      - SEED_ADMIN_USERNAME=admin
 
   frontend:
     build:

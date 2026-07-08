@@ -1,4 +1,10 @@
+import uuid
 from enum import StrEnum
+
+# Fixed uuid of the "Unknown Camera" row seeded on startup (see
+# `src.schema.cameras.seed_unknown_camera`). Dives created without an
+# explicit camera fall back to this row.
+UNKNOWN_CAMERA_UUID = uuid.UUID("0484f929-b38d-4076-8aea-864e9c2138a2")
 
 
 class Role(StrEnum):

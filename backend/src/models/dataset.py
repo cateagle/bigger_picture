@@ -28,6 +28,10 @@ class RegionResponse(BaseModel):
     description: str | None
 
 
+class RegionListResponse(BaseModel):
+    regions: list[RegionResponse]
+
+
 class CameraResponse(BaseModel):
     uuid: UUID
     created_at: int
@@ -43,7 +47,7 @@ class DiveCreateRequest(BaseModel):
     metadata: dict[str, Any] | None = None
     description: str | None = Field(default=None, max_length=1023)
     region: UUID
-    camera: UUID
+    camera: UUID | None = None
 
 
 class DiveUpdateRequest(BaseModel):

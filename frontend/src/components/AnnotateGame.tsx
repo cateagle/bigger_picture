@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { fetchImagePair, submitAnnotation } from '../api/annotationApi'
-import type { Correspondence, ImagePair, NormalizedPoint } from '../api/types'
+import type { Correspondence, ImagePair, NormalizedPoint, Region } from '../api/types'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 import './AnnotateGame.css'
@@ -18,13 +18,15 @@ function pointFromClick(e: ReactMouseEvent<HTMLImageElement>): NormalizedPoint {
   }
 }
 
-export default function AnnotateGame({ onBack }: { onBack: () => void }) {
+export default function AnnotateGame({ region, onBack }: { region: Region; onBack: () => void }) {
   const [pair, setPair] = useState<ImagePair | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [correspondences, setCorrespondences] = useState<Correspondence[]>([])
   const [pendingA, setPendingA] = useState<NormalizedPoint | null>(null)
+  const imageARef = useRef<HTMLImageElement>(null)
+  const imageBRef = useRef<HTMLImageElement>(null)
 
   const loadNextPair = useCallback(() => {
     setLoading(true)
@@ -68,9 +70,18 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
 
   const handleSubmit = () => {
     if (!pair || correspondences.length < MIN_CORRESPONDENCES) return
+    const imageA = imageARef.current
+    const imageB = imageBRef.current
+    if (!imageA || !imageB) return
+
     setSubmitting(true)
     setError(null)
-    submitAnnotation(pair.pairId, correspondences)
+    submitAnnotation(pair, correspondences, {
+      widthA: imageA.naturalWidth,
+      heightA: imageA.naturalHeight,
+      widthB: imageB.naturalWidth,
+      heightB: imageB.naturalHeight,
+    })
       .then(() => loadNextPair())
       .catch(() => setError('Could not submit your annotation. Please try again.'))
       .finally(() => setSubmitting(false))
@@ -90,6 +101,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
           Click a point in the left image, then click the same physical spot in the right image.
           Repeat for at least {MIN_CORRESPONDENCES} points, then submit.
         </p>
+        <p className="game-region">Region: {region.title}</p>
       </header>
 
       {loading && <p className="game-status">Loading image pair…</p>}
@@ -100,6 +112,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
           <div className="image-pane-row">
             <div className="image-pane">
               <img
+                ref={imageARef}
                 src={pair.imageA}
                 alt="Image A"
                 onClick={handleClickA}
@@ -118,7 +131,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
               )}
             </div>
             <div className="image-pane">
-              <img src={pair.imageB} alt="Image B" onClick={handleClickB} className="clickable" />
+              <img ref={imageBRef} src={pair.imageB} alt="Image B" onClick={handleClickB} className="clickable" />
               {correspondences.map((c, i) => (
                 <Marker key={`b-${i}`} point={c.pointB} color={markerColor(i)} label={i + 1} />
               ))}

@@ -9,7 +9,11 @@ def test_applies_cleanly_and_is_idempotent(tmp_path):
     db_path = str(tmp_path / "test.db")
 
     applied = run_migrations(db_path)
-    assert applied == ["0001_initial_schema.sql"]
+    assert applied == [
+        "0001_initial_schema.sql",
+        "0002_dive_consistency_triggers.sql",
+        "0003_annotation_views.sql",
+    ]
 
     applied_again = run_migrations(db_path)
     assert applied_again == []
@@ -74,5 +78,40 @@ def test_rerunning_migrations_keeps_wal_and_autovacuum(tmp_path):
     try:
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert conn.execute("PRAGMA auto_vacuum").fetchone()[0] == 1
+    finally:
+        conn.close()
+
+
+def test_applies_pending_migrations_when_database_is_partially_migrated(tmp_path):
+    from pathlib import Path
+
+    db_path = str(tmp_path / "test.db")
+    migrations_dir = Path(__file__).resolve().parent.parent / "src" / "migrations"
+
+    # First, apply only 0001 by copying it to a temp migrations dir
+    temp_migrations_dir = tmp_path / "migrations_0001_only"
+    temp_migrations_dir.mkdir()
+    (temp_migrations_dir / "0001_initial_schema.sql").write_text(
+        (migrations_dir / "0001_initial_schema.sql").read_text()
+    )
+
+    # Initialize database with only 0001
+    applied = run_migrations(db_path, migrations_dir=temp_migrations_dir)
+    assert applied == ["0001_initial_schema.sql"]
+
+    # Now run migrations with all migrations available - should apply 0002 and 0003
+    applied = run_migrations(db_path, migrations_dir=migrations_dir)
+    assert applied == ["0002_dive_consistency_triggers.sql", "0003_annotation_views.sql"]
+
+    # Verify all three are tracked in schema_migrations
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute("SELECT filename FROM schema_migrations ORDER BY filename").fetchall()
+        filenames = [row[0] for row in rows]
+        assert filenames == [
+            "0001_initial_schema.sql",
+            "0002_dive_consistency_triggers.sql",
+            "0003_annotation_views.sql",
+        ]
     finally:
         conn.close()

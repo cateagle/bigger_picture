@@ -9,8 +9,10 @@ from starlette.staticfiles import StaticFiles
 from src import config
 from src.api.middleware.auth_middleware import AuthMiddleware
 from src.api.router import router as api_router
+from src.bootstrap_admin import seed_admin_from_env
 from src.db import make_engine, make_session_factory
 from src.migrations.runner import run_migrations
+from src.schema.cameras import seed_unknown_camera
 
 
 def create_app(*, database_path: str | None = None) -> FastAPI:
@@ -27,6 +29,8 @@ def create_app(*, database_path: str | None = None) -> FastAPI:
         run_migrations(db_path)
 
         engine = make_engine(db_path)
+        seed_admin_from_env(engine)
+        seed_unknown_camera(engine)
         app.state.engine = engine
         app.state.session_factory = make_session_factory(engine)
 

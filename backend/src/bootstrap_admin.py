@@ -12,6 +12,7 @@ authenticate as this user.
 """
 
 import argparse
+import logging
 
 from sqlalchemy.engine import Engine
 
@@ -26,6 +27,27 @@ def bootstrap_admin(engine: Engine, username: str, expert_level: int = 0) -> Use
     if count_users(engine) > 0:
         raise RuntimeError("users table is not empty; refusing to bootstrap a second self-referencing admin")
     return create_self_referencing_user(engine, username=username, role=Role.ADMIN, expert_level=expert_level)
+
+
+def seed_admin_from_env(engine: Engine) -> User | None:
+    """Create the seed admin configured via SEED_ADMIN_USERNAME, if any.
+
+    Called on startup once the schema exists. Idempotent and safe to run on
+    every boot: does nothing if no username is configured or if the users
+    table is already populated (so an existing database is never touched, and
+    the admin is not re-created after it has been renamed or deleted).
+    """
+    username = config.SEED_ADMIN_USERNAME.strip()
+    if not username:
+        return None
+    if count_users(engine) > 0:
+        return None
+
+    user = create_self_referencing_user(
+        engine, username=username, role=Role.ADMIN, expert_level=config.SEED_ADMIN_EXPERT_LEVEL
+    )
+    logging.getLogger(__name__).info("Seeded admin user %r (id=%s) from SEED_ADMIN_USERNAME", username, user.id)
+    return user
 
 
 if __name__ == "__main__":

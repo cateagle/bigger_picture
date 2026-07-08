@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchCandidatePair, submitOverlapDecision } from '../api/overlapApi'
-import type { CandidatePair } from '../api/types'
+import type { CandidatePair, Region } from '../api/types'
 
-export default function OverlapGame({ onBack }: { onBack: () => void }) {
+export default function OverlapGame({ region, onBack }: { region: Region; onBack: () => void }) {
   const [pair, setPair] = useState<CandidatePair | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -26,7 +26,7 @@ export default function OverlapGame({ onBack }: { onBack: () => void }) {
     if (!pair || submitting) return
     setSubmitting(true)
     setError(null)
-    submitOverlapDecision(pair.candidateId, overlaps)
+    submitOverlapDecision(pair, overlaps)
       .then(() => {
         setReviewedCount((count) => count + 1)
         loadNextPair()
@@ -46,6 +46,7 @@ export default function OverlapGame({ onBack }: { onBack: () => void }) {
           A glass eel drifts in from the open ocean, scanning the coastline for familiar water.
         </p>
         <p>Look at both images below and decide whether they show the same physical scene.</p>
+        <p className="game-region">Region: {region.title}</p>
       </header>
 
       {loading && <p className="game-status">Loading image pair…</p>}

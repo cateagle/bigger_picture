@@ -1,0 +1,66 @@
+.admin-panel {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.admin-panel-list {
+  flex: 2 1 480px;
+  min-width: 320px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--pane-border);
+  font-size: 0.9rem;
+}
+
+.admin-row-active {
+  background: color-mix(in srgb, #2a78d6 12%, transparent);
+}
+
+.admin-form {
+  flex: 1 1 280px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--pane-border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.admin-form h3 {
+  margin: 0;
+}
+
+.admin-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.admin-form-field input,
+.admin-form-field select,
+.admin-form-field textarea {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--pane-border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.admin-form-actions {
+  display: flex;
+  gap: 8px;
+}
