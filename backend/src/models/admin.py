@@ -6,14 +6,20 @@ from src.constants import Role
 
 
 class UserSummary(BaseModel):
-    uuid: UUID
-    username: str
-    role: Role
-    expert_level: int
+    """Condensed user record returned when listing all users."""
+
+    uuid: UUID = Field(description="Unique identifier of the user.")
+    username: str = Field(description="Login name of the user.")
+    role: Role = Field(
+        description="Permission level of the user (annotator, scientist, or admin)."
+    )
+    expert_level: int = Field(
+        description="Annotation-weight used to gate review permissions; unrelated to role."
+    )
 
 
 class UserListResponse(BaseModel):
-    users: list[UserSummary]
+    users: list[UserSummary] = Field(description="All users in the system.")
 
 
 class UserCreateRequest(BaseModel):
