@@ -1,0 +1,4 @@
+uuid;title;metadata;description;region_uuid;region_title;camera_uuid;camera_title
+new;Dive 2024-05-12 Site A;{"max_depth_m": 1200};;;Reykjanes Ridge;;ROV Camera 1
+new;Dive 2024-05-14 Site B;;;;Reykjanes Ridge;;
+a87c4623-7678-4b29-8522-6ab33b93cf3c;Dive 2024-06-02 Site C;;Follow-up survey of the fracture zone;07bd8168-d881-4ca9-8c16-b14f974af44b;;3f2bde7f-eca5-4e39-8005-aef528f9f65c;
