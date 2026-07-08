@@ -5,10 +5,17 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from src import config
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, require_current_user
+from src.api.v1.dataset._metadata import decode_metadata, encode_metadata
 from src.constants import Role
 from src.db import get_db
-from src.models.auth import LoginRequest, SignupRequest, UserResponse
+from src.models.auth import (
+    LoginRequest,
+    SignupRequest,
+    StoryResponse,
+    StoryUpdateRequest,
+    UserResponse,
+)
 from src.schema.users import User, create_self_referencing_user, lookup_user_by_username
 
 router = APIRouter()
@@ -22,6 +29,7 @@ def _to_response(user: User) -> UserResponse:
         username=user.username,
         role=Role(user.role),
         expert_level=user.expert_level,
+        exp=user.exp,
         created_at=user.created_at,
     )
 
@@ -105,3 +113,37 @@ Clear the session cookie. Always succeeds, even if no session was active.
 )
 def logout(response: Response):
     response.delete_cookie(config.COOKIE_NAME, path="/")
+
+
+@router.get(
+    "/story",
+    response_model=StoryResponse,
+    summary="Get Story",
+    description="""
+Return the caller's own story progression.
+
+Fails with 401 if there is no valid session.
+""",
+)
+def get_story(request: Request):
+    user = require_current_user(request)
+    return StoryResponse(story=decode_metadata(user.story))
+
+
+@router.post(
+    "/story",
+    response_model=StoryResponse,
+    summary="Update Story",
+    description="""
+Overwrite the caller's own story progression with an arbitrary JSON object. Sending null clears it.
+
+Fails with 401 if there is no valid session.
+""",
+)
+def update_story(payload: StoryUpdateRequest, request: Request, db: Session = Depends(get_db)):
+    caller = require_current_user(request)
+    user = db.get(User, caller.id)
+    user.story = encode_metadata(payload.story)
+    db.commit()
+    db.refresh(user)
+    return StoryResponse(story=decode_metadata(user.story))

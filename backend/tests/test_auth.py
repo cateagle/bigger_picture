@@ -7,6 +7,8 @@ def test_signup_creates_annotator_and_sets_cookie(client):
     body = response.json()
     assert body["username"] == "alice"
     assert body["role"] == "annotator"
+    assert body["expert_level"] == 0
+    assert body["exp"] == 0
     assert config.COOKIE_NAME in response.cookies
 
 
@@ -72,3 +74,48 @@ def test_logout_clears_cookie(client):
     assert client.get("/api/v1/auth/me").status_code == 200
     client.post("/api/v1/auth/logout")
     assert client.get("/api/v1/auth/me").status_code == 401
+
+
+def test_story_defaults_to_null(client):
+    client.post("/api/v1/auth/signup", json={"username": "story-default"})
+    response = client.get("/api/v1/auth/story")
+    assert response.status_code == 200
+    assert response.json() == {"story": None}
+
+
+def test_story_round_trips_arbitrary_json(client):
+    client.post("/api/v1/auth/signup", json={"username": "story-writer"})
+    payload = {"chapter": 3, "flags": ["met_octopus"], "done": False}
+    response = client.post("/api/v1/auth/story", json={"story": payload})
+    assert response.status_code == 200
+    assert response.json() == {"story": payload}
+
+    response = client.get("/api/v1/auth/story")
+    assert response.status_code == 200
+    assert response.json() == {"story": payload}
+
+
+def test_story_explicit_null_clears_it(client):
+    client.post("/api/v1/auth/signup", json={"username": "story-clearer"})
+    client.post("/api/v1/auth/story", json={"story": {"chapter": 1}})
+    response = client.post("/api/v1/auth/story", json={"story": None})
+    assert response.status_code == 200
+    assert response.json() == {"story": None}
+
+
+def test_story_is_per_user(client):
+    client.post("/api/v1/auth/signup", json={"username": "story-a"})
+    client.post("/api/v1/auth/story", json={"story": {"owner": "a"}})
+    client.post("/api/v1/auth/logout")
+
+    client.post("/api/v1/auth/signup", json={"username": "story-b"})
+    response = client.get("/api/v1/auth/story")
+    assert response.status_code == 200
+    assert response.json() == {"story": None}
+
+
+def test_story_without_cookie_is_401(client):
+    response = client.get("/api/v1/auth/story")
+    assert response.status_code == 401
+    response = client.post("/api/v1/auth/story", json={"story": {}})
+    assert response.status_code == 401

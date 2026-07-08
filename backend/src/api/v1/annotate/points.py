@@ -34,6 +34,7 @@ from src.schema.images import Image
 from src.schema.labels import Label
 from src.schema.point_annotations import PointAnnotation
 from src.schema.users import User
+from src.services.experience import grant_exp
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
 from src.util import now_ms
 
@@ -268,6 +269,10 @@ def _apply_review(
     annotation.status_id = status_id
     annotation.reviewed_by = caller.id
     annotation.reviewed_at = now_ms()
+    grant_exp(db, db.get(User, caller.id), config.POINT_ANNOTATION_REVIEW_EXP)
+    if status_id == ANNOTATION_APPROVED:
+        creator = db.get(User, annotation.created_by)
+        grant_exp(db, creator, config.POINT_ANNOTATION_REVIEW_EXP)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)

@@ -14,8 +14,9 @@ class UserSummary(BaseModel):
         description="Permission level of the user (annotator, scientist, or admin)."
     )
     expert_level: int = Field(
-        description="Annotation-weight used to gate review permissions; unrelated to role."
+        description="Annotation-weight used to gate review permissions; unrelated to role. Read-only, derived from exp."
     )
+    exp: int = Field(description="Total experience points the user has earned.")
 
 
 class UserListResponse(BaseModel):
@@ -49,7 +50,8 @@ class UserCreateRequest(BaseModel):
     )
 
     expert_level: int = Field(
-        default=0, description="Initial annotation-weight for the new user."
+        default=0,
+        description="Ignored. expert_level is read-only and derived from exp; new users always start at 0.",
     )
 
 
@@ -57,8 +59,9 @@ class UserUpdateRequest(BaseModel):
     """Request used to partially update an existing user.
 
     Only the fields explicitly supplied are changed; omitted fields are left
-    untouched. Sending an explicit null for username, role, or expert_level is
-    also a no-op, since none of these columns are nullable.
+    untouched. Sending an explicit null for username or role is also a no-op,
+    since neither column is nullable. expert_level is read-only and derived
+    from exp; any value supplied for it is ignored.
     """
 
     model_config = ConfigDict(
@@ -84,5 +87,6 @@ class UserUpdateRequest(BaseModel):
     )
 
     expert_level: int | None = Field(
-        default=None, description="New annotation-weight. Omit to leave unchanged."
+        default=None,
+        description="Ignored. expert_level is read-only and derived from exp.",
     )

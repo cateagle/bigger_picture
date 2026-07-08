@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from src.api.v1.dataset.cameras import router as cameras_router
 from src.api.v1.dataset.candidate_pairs import router as candidate_pairs_router
 from src.api.v1.dataset.dives import router as dives_router
+from src.api.v1.dataset.fun_facts import router as fun_facts_router
 from src.api.v1.dataset.image_pairs import router as image_pairs_router
 from src.api.v1.dataset.images import router as images_router
 from src.api.v1.dataset.labels import router as labels_router
@@ -35,6 +36,7 @@ router.include_router(images_router, prefix="/images")
 router.include_router(candidate_pairs_router, prefix="/candidates")
 router.include_router(image_pairs_router, prefix="/pairs")
 router.include_router(point_annotations_router, prefix="/annotations")
+router.include_router(fun_facts_router, prefix="/fun-facts")
 router.include_router(zip_upload_router)
 
 

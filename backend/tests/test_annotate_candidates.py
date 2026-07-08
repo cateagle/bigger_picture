@@ -470,6 +470,41 @@ def test_review_missing_is_404(client, dataset, annotator, login_as):
     assert resp.status_code == 404, resp.text
 
 
+# ------------------------- review exp -------------------------
+
+
+def _get_exp(client, user_uuid: bytes) -> int:
+    engine = client.app.state.engine
+    with engine.begin() as conn:
+        return conn.execute(text("SELECT exp FROM users WHERE uuid = :u"), {"u": user_uuid}).scalar_one()
+
+
+def test_review_approve_grants_exp_to_reviewer_and_creator(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator: annotator
+    senior = seed_user(username="senior-exp", role="annotator", expert_level=3)
+    login_as(senior)
+    senior_before = _get_exp(client, senior.uuid)
+    creator_before = _get_exp(client, annotator.uuid)
+    resp = client.post(f"/api/v1/annotate/candidate/review/{u}/approve")
+    assert resp.status_code == 200, resp.text
+    assert _get_exp(client, senior.uuid) == senior_before + config.CANDIDATE_ANNOTATION_REVIEW_EXP
+    assert _get_exp(client, annotator.uuid) == creator_before + config.CANDIDATE_ANNOTATION_REVIEW_EXP
+
+
+def test_review_fail_grants_exp_to_reviewer_only(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator: annotator
+    senior = seed_user(username="senior-exp2", role="annotator", expert_level=3)
+    login_as(senior)
+    senior_before = _get_exp(client, senior.uuid)
+    creator_before = _get_exp(client, annotator.uuid)
+    resp = client.post(f"/api/v1/annotate/candidate/review/{u}/fail")
+    assert resp.status_code == 200, resp.text
+    assert _get_exp(client, senior.uuid) == senior_before + config.CANDIDATE_ANNOTATION_REVIEW_EXP
+    assert _get_exp(client, annotator.uuid) == creator_before
+
+
 # ------------------------- next -------------------------
 
 

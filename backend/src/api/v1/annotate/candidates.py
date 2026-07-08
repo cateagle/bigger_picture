@@ -32,6 +32,7 @@ from src.schema.candidate_pairs import CandidatePair
 from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
+from src.services.experience import grant_exp
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
 from src.util import now_ms
 
@@ -268,6 +269,10 @@ def _apply_review(annotation: CandidateAnnotation, caller: User, status_id: int,
     annotation.status_id = status_id
     annotation.reviewed_by = caller.id
     annotation.reviewed_at = now_ms()
+    grant_exp(db, db.get(User, caller.id), config.CANDIDATE_ANNOTATION_REVIEW_EXP)
+    if status_id == ANNOTATION_APPROVED:
+        creator = db.get(User, annotation.created_by)
+        grant_exp(db, creator, config.CANDIDATE_ANNOTATION_REVIEW_EXP)
     candidate = db.get(CandidatePair, annotation.candidate_id)
     _recompute_candidate_consensus(candidate, caller, db)
     db.commit()
