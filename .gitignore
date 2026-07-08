@@ -2,5 +2,6 @@
 .env
 .devenv
 backend/data/
+backend/assets/
 __pycache__/
 *.pyc
