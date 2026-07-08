@@ -70,6 +70,10 @@ class DiveResponse(BaseModel):
     camera: UUID
 
 
+class DiveListResponse(BaseModel):
+    dives: list[DiveResponse]
+
+
 class ImageCreateRequest(BaseModel):
     uuid: UUID
     filename: str = Field(min_length=1, max_length=255)

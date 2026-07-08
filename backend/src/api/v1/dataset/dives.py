@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -8,7 +9,7 @@ from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata, encode_metadata
 from src.constants import UNKNOWN_CAMERA_UUID
 from src.db import get_db
-from src.models.dataset import DiveCreateRequest, DiveResponse, DiveUpdateRequest
+from src.models.dataset import DiveCreateRequest, DiveListResponse, DiveResponse, DiveUpdateRequest
 from src.schema.cameras import Camera
 from src.schema.dives import Dive
 from src.schema.regions import Region
@@ -48,7 +49,6 @@ def _resolve_camera_id(db: Session, camera_uuid: UUID) -> int:
         raise HTTPException(status_code=404, detail="Camera not found")
     return camera.id
 
-
 def _resolve_or_default_camera_id(db: Session, camera_uuid: UUID | None, creator_id: int) -> int:
     """Resolve `camera_uuid`, falling back to the well-known "Unknown Camera" row when unset.
 
@@ -79,6 +79,30 @@ def _resolve_or_default_camera_id(db: Session, camera_uuid: UUID | None, creator
             raise
     return camera.id
 
+@router.get("", response_model=DiveListResponse)
+def list_dives(db: Session = Depends(get_db)):
+    rows = db.execute(
+        select(Dive, Region, Camera, User)
+        .join(Region, Dive.region_id == Region.id)
+        .join(Camera, Dive.camera_id == Camera.id)
+        .join(User, Dive.created_by == User.id)
+        .order_by(Dive.created_at)
+    ).all()
+    return DiveListResponse(
+        dives=[
+            DiveResponse(
+                uuid=UUID(bytes=dive.uuid),
+                created_at=dive.created_at,
+                created_by=UUID(bytes=creator.uuid),
+                title=dive.title,
+                metadata=decode_metadata(dive.metadata_json),
+                description=dive.description,
+                region=UUID(bytes=region.uuid),
+                camera=UUID(bytes=camera.uuid),
+            )
+            for dive, region, camera, creator in rows
+        ]
+    )
 
 @router.post("/create", response_model=DiveResponse, status_code=201)
 def create_dive(payload: DiveCreateRequest, request: Request, db: Session = Depends(get_db)):
