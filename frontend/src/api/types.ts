@@ -27,6 +27,15 @@ export interface Label {
   description: string | null
 }
 
+/** Mirrors `FunFactResponse` from `backend/src/models/dataset.py`. */
+export interface FunFact {
+  uuid: string
+  title: string
+  fact: unknown
+  min_level: number
+  region: string | null
+}
+
 /** Mirrors `DatasetSummaryResponse` from `backend/src/models/dataset.py`. */
 export interface DatasetSummary {
   dive_count: number

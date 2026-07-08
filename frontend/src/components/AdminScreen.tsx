@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createFunFact, fetchFunFacts, updateFunFact } from '../api/funFactApi'
 import { createLabel, fetchLabels, updateLabel } from '../api/labelApi'
 import type { User } from '../api/types'
 import DatasetAdmin from './admin/DatasetAdmin'
@@ -22,12 +23,24 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
   return updateLabel(uuid, input as { scope?: string; title?: string; description?: string | null })
 }
 
-type Tab = 'regions' | 'labels' | 'users' | 'dataset' | 'import'
+function createFunFactAdapter(input: Record<string, unknown>) {
+  return createFunFact(input as { title: string; fact: unknown })
+}
+function updateFunFactAdapter(uuid: string, input: Record<string, unknown>) {
+  return updateFunFact(uuid, input as { title?: string; fact?: unknown })
+}
+
+type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import'
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
   { key: 'title', label: 'Title', type: 'text', required: true } as const,
   { key: 'description', label: 'Description', type: 'textarea' } as const,
+]
+
+const FACT_FIELDS = [
+  { key: 'title', label: 'Title', type: 'text', required: true } as const,
+  { key: 'fact', label: 'Fact (JSON)', type: 'json', required: true } as const,
 ]
 
 export default function AdminScreen({ user, onBack }: { user: User; onBack: () => void }) {
@@ -44,7 +57,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           <LevelBadge exp={user.exp} />
         </div>
         <h1>Admin</h1>
-        <p>Manage regions, labels, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>
+        <p>Manage regions, labels, facts, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>
       </header>
 
       <div className="admin-tab-bar">
@@ -53,6 +66,9 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
         </button>
         <button type="button" className={`btn${tab === 'labels' ? ' btn-primary' : ''}`} onClick={() => setTab('labels')}>
           Labels
+        </button>
+        <button type="button" className={`btn${tab === 'facts' ? ' btn-primary' : ''}`} onClick={() => setTab('facts')}>
+          Facts
         </button>
         <button type="button" className={`btn${tab === 'dataset' ? ' btn-primary' : ''}`} onClick={() => setTab('dataset')}>
           Dataset
@@ -75,6 +91,15 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           fetchList={fetchLabels}
           create={createLabelAdapter}
           update={updateLabelAdapter}
+        />
+      )}
+      {tab === 'facts' && (
+        <SimpleEntityAdmin
+          entityName="Facts"
+          fields={FACT_FIELDS}
+          fetchList={fetchFunFacts}
+          create={createFunFactAdapter}
+          update={updateFunFactAdapter}
         />
       )}
       {tab === 'dataset' && <DatasetAdmin />}
