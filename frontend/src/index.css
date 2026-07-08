@@ -105,6 +105,11 @@ h2 {
   margin-bottom: 8px;
 }
 
+.game-header .game-region {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
 .game-status {
   text-align: center;
 }

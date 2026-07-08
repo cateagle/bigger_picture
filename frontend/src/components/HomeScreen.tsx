@@ -1,4 +1,4 @@
-import type { User } from '../api/types'
+import type { Region, User } from '../api/types'
 import './HomeScreen.css'
 
 export type GameId = 'overlap' | 'annotate' | 'verify'
@@ -42,18 +42,25 @@ const GAMES: GameCard[] = [
 export default function HomeScreen({
   onPlay,
   user,
+  region,
+  onChangeRegion,
   onLogout,
 }: {
   onPlay: (id: GameId) => void
   user: User
+  region: Region
+  onChangeRegion: () => void
   onLogout: () => void
 }) {
   return (
     <div className="home-screen">
       <div className="home-account-bar">
         <span>
-          Signed in as <strong>{user.username}</strong>
+          Signed in as <strong>{user.username}</strong> · Region: <strong>{region.title}</strong>
         </span>
+        <button type="button" className="back-link" onClick={onChangeRegion}>
+          Change region
+        </button>
         <button type="button" className="back-link" onClick={onLogout}>
           Log out
         </button>

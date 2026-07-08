@@ -1,0 +1,54 @@
+.region-select-screen {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.region-select-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.region-select-header h1 {
+  margin: 0;
+  font-size: 2.25rem;
+}
+
+.region-select-header p {
+  margin: 0 auto;
+  max-width: 46em;
+}
+
+.region-select-eyebrow {
+  margin: 0 auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.region-globe-container {
+  width: 100%;
+  height: min(60vh, 520px);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--pane-border);
+  background: #000;
+}
+
+.region-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.region-list-item {
+  border-radius: 999px;
+}

@@ -33,6 +33,20 @@ export interface DatasetSummary {
   image_pair_count: number
 }
 
+/** GeoJSON polygon geometry, stored under `Region.metadata.mesh`. */
+export interface RegionMesh {
+  type: 'Polygon' | 'MultiPolygon'
+  coordinates: number[][][] | number[][][][]
+}
+
+/** Mirrors `RegionResponse` from `backend/src/models/dataset.py`. */
+export interface Region {
+  uuid: string
+  title: string
+  description: string | null
+  metadata: ({ mesh?: RegionMesh } & Record<string, unknown>) | null
+}
+
 export interface ImagePair {
   pairId: string
   imageA: string

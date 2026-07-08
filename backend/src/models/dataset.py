@@ -28,6 +28,10 @@ class RegionResponse(BaseModel):
     description: str | None
 
 
+class RegionListResponse(BaseModel):
+    regions: list[RegionResponse]
+
+
 class CameraResponse(BaseModel):
     uuid: UUID
     created_at: int

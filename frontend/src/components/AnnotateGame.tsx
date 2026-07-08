@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { fetchImagePair, submitAnnotation } from '../api/annotationApi'
-import type { Correspondence, ImagePair, NormalizedPoint } from '../api/types'
+import type { Correspondence, ImagePair, NormalizedPoint, Region } from '../api/types'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 import './AnnotateGame.css'
@@ -18,7 +18,7 @@ function pointFromClick(e: ReactMouseEvent<HTMLImageElement>): NormalizedPoint {
   }
 }
 
-export default function AnnotateGame({ onBack }: { onBack: () => void }) {
+export default function AnnotateGame({ region, onBack }: { region: Region; onBack: () => void }) {
   const [pair, setPair] = useState<ImagePair | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -101,6 +101,7 @@ export default function AnnotateGame({ onBack }: { onBack: () => void }) {
           Click a point in the left image, then click the same physical spot in the right image.
           Repeat for at least {MIN_CORRESPONDENCES} points, then submit.
         </p>
+        <p className="game-region">Region: {region.title}</p>
       </header>
 
       {loading && <p className="game-status">Loading image pair…</p>}

@@ -4,13 +4,15 @@ import OverlapGame from './components/OverlapGame'
 import VerifyGame from './components/VerifyGame'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
+import RegionSelectScreen from './components/RegionSelectScreen'
 import type { GameId } from './components/HomeScreen'
 import { logout, me } from './api/authApi'
-import type { User } from './api/types'
+import type { Region, User } from './api/types'
 
 function App() {
   const [screen, setScreen] = useState<GameId | 'home'>('home')
   const [user, setUser] = useState<User | null | undefined>(undefined)
+  const [selectedRegion, setSelectedRegion] = useState<Region | null>(null)
 
   useEffect(() => {
     me()
@@ -22,6 +24,7 @@ function App() {
     logout().finally(() => {
       setUser(null)
       setScreen('home')
+      setSelectedRegion(null)
     })
   }
 
@@ -33,19 +36,31 @@ function App() {
     return <LoginScreen onLoggedIn={setUser} />
   }
 
+  if (selectedRegion === null) {
+    return <RegionSelectScreen onSelect={setSelectedRegion} />
+  }
+
   if (screen === 'overlap') {
-    return <OverlapGame onBack={() => setScreen('home')} />
+    return <OverlapGame region={selectedRegion} onBack={() => setScreen('home')} />
   }
 
   if (screen === 'annotate') {
-    return <AnnotateGame onBack={() => setScreen('home')} />
+    return <AnnotateGame region={selectedRegion} onBack={() => setScreen('home')} />
   }
 
   if (screen === 'verify') {
-    return <VerifyGame onBack={() => setScreen('home')} />
+    return <VerifyGame region={selectedRegion} onBack={() => setScreen('home')} />
   }
 
-  return <HomeScreen onPlay={setScreen} user={user} onLogout={handleLogout} />
+  return (
+    <HomeScreen
+      onPlay={setScreen}
+      user={user}
+      region={selectedRegion}
+      onChangeRegion={() => setSelectedRegion(null)}
+      onLogout={handleLogout}
+    />
+  )
 }
 
 export default App
