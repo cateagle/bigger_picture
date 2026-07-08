@@ -10,7 +10,7 @@ A browser-playable citizen-science game that crowdsources ground-truth annotatio
 2. **Annotating** (`/annotate`, frontend `AnnotateGame`) — click matched point pairs between two images known to overlap. This is the ground-truth signal; conceptually the multiplayer version of the point-picking workflow in `compute_homographies.py` (the original single-user OpenCV prototype at the repo root — homography/fundamental-matrix estimation from `pts1`/`pts2` is meant to move server-side eventually).
 3. **Verification** (`/verify`, frontend `VerifyGame`) — peer review of another player's Stage 2 annotation.
 
-Only Stage 2 (Annotating) is wired to the real backend end-to-end. Stage 1 and 3 are playable in the frontend but still run against mocked data (`frontend/src/api/overlapApi.ts`, `verifyApi.ts`) — the backend has no candidate-pair-serving or review-queue endpoints yet. Check `frontend/src/api/*Api.ts` for which calls are mocked vs. real before assuming an endpoint exists.
+Stages 1 and 2 (Overlap, Annotating) are wired to the real backend end-to-end, including fetching the next candidate/pair to work on (`GET /api/v1/annotate/candidate/next/{dive_uuid}`, `GET /api/v1/annotate/points/next/{dive_uuid}`; the frontend resolves a region to a dive_uuid via `GET /api/v1/annotate/dives?region=...`). Only Stage 3 (Verification) is still playable against mocked data (`frontend/src/api/verifyApi.ts`) — the backend has no review-queue endpoint yet. Check `frontend/src/api/*Api.ts` for which calls are mocked vs. real before assuming an endpoint exists.
 
 Repo layout: `frontend/` (React SPA), `backend/` (FastAPI + SQLite), `docker-compose.yml` (runs both locally), `compute_homographies.py` (standalone prototype, unrelated to the two services' build/test setup).
 
@@ -63,6 +63,6 @@ docker compose up   # backend on :8000, frontend on :5173 with hot reload
 
 - Not React Router — `App.tsx` holds `screen` state (`'home' | 'overlap' | 'annotate' | 'verify'`) and switches components directly; there's no URL-based routing.
 - Auth state (`User | null | undefined`) also lives in `App.tsx`: `undefined` = still checking `/auth/me`, `null` = show `LoginScreen`, otherwise render the home/game screens.
-- `src/api/` is one file per backend domain (`authApi`, `annotationApi`, `datasetApi`, `adminApi`) plus `overlapApi`/`verifyApi`, which are currently mocked (see `mockDelay.ts`) since those backend endpoints don't exist yet — don't assume calls in those two files hit the real API.
+- `src/api/` is one file per backend domain (`authApi`, `annotationApi`, `overlapApi`, `datasetApi`, `adminApi`, `diveApi`, `regionApi`) plus `verifyApi`, which is currently mocked (see `mockDelay.ts`) since the backend has no review-queue endpoint yet — don't assume calls in that file hit the real API.
 - `src/api/client.ts`'s `apiFetch` is the single fetch wrapper: always sends cookies (`credentials: 'include'`, since the auth cookie is httponly and can't be attached manually), throws `ApiError` (with FastAPI's `{"detail": ...}` shape) on non-2xx.
 - `VITE_API_BASE_URL` (from `.env`, copy from `.env.example`) points the frontend at the backend; defaults to `http://localhost:8000`.
