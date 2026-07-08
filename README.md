@@ -65,7 +65,7 @@ bigger_picture/
 └── README.md
 ```
 
-- **Frontend**: a single-page React app. Renders the three game modes and collects player input. Stage 2 (Annotating) talks to the real backend for its label list, auth, and dataset summary endpoints; Stage 1 (Finding Overlap) and Stage 3 (Verification) are playable end-to-end but still run against mocked data in the frontend since the backend has no candidate-pair or review-queue endpoints yet.
+- **Frontend**: a single-page React app. Renders the three game modes, an admin area, and a team/about screen, and collects player input. Stages 1 and 2 (Finding Overlap, Annotating) talk to the real backend end-to-end, including fetching the next candidate/pair to work on; Stage 3 (Verification) is playable but still runs against mocked data in the frontend since the backend has no review-queue endpoint yet.
 - **Backend**: serves auth (self-service signup via a session cookie, no password), dataset summary, and label list endpoints today. Still to come: endpoints for serving overlap candidate pairs, submitting annotations, and serving/deciding verification items, plus scoring/consensus and picking which image pair to serve next. See [`backend/README.md`](./backend/README.md) for details.
 - **Local deployment**: `docker-compose.yml` runs both the `frontend` and `backend` services so the whole stack can be started with `docker compose up`.
 
@@ -74,6 +74,7 @@ bigger_picture/
 - **Stack**: [Vite](https://vite.dev/) + [React](https://react.dev/) + TypeScript.
 - **Location**: [`frontend/`](./frontend).
 - All three game screens (Finding Overlap, Annotating, Verification) are implemented and playable from the home screen's stage picker.
+- The account bar (top of the home/region-select screens) also links to an admin area (regions/labels/users CRUD, restricted to non-`annotator` roles) and a `Team` page listing project contributors.
 
 ### Running the frontend
 
@@ -94,15 +95,16 @@ npm install
 npm run dev
 ```
 
-The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) for auth, dataset summary, and label list requests to succeed; the frontend's mocked Stage 1/3 endpoints work with no backend running.
+The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) for everything except Stage 3 (Verification) to work — Stages 1 and 2 fetch real regions/dives/candidates/pairs from it; only Stage 3's mocked endpoints work with no backend running.
 
 ## Status
 
 - ✅ Concept and three-stage game design documented (this README).
 - ✅ Repository split into `frontend`/`backend`, Docker Compose deployment for both services.
-- ✅ Frontend: all three game screens built, with routing between them from the home screen.
-- ✅ Frontend API client wired to the real backend (auth, dataset summary, labels), with a `VITE_API_BASE_URL` env var for the backend location.
+- ✅ Frontend: all three game screens built, with routing between them from the home screen, plus an admin area and a team page.
+- ✅ Frontend API client wired to the real backend (auth, dataset summary, labels, regions, dives) with a `VITE_API_BASE_URL` env var for the backend location.
 - ✅ Backend: FastAPI + SQLite, with auth, dataset, and admin endpoints.
-- ⬜ Backend: candidate-pair, annotation-submission, and verification-queue endpoints (Stage 1 and Stage 3 are still mocked in the frontend pending these).
+- ✅ Stages 1 and 2 (Finding Overlap, Annotating) wired end-to-end, including fetching the next candidate/pair to work on.
+- ⬜ Backend: review-queue endpoints for Stage 3 (Verification is still mocked in the frontend pending these).
 - ⬜ Dataset ingestion pipeline for the marine images themselves.
 - ⬜ Gamification mechanics (scoring, consensus, leaderboards) — design only, not implemented.
