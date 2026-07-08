@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -76,3 +76,22 @@ class PointAnnotationResponse(BaseModel):
     created_by: UUID
     reviewed_at: Optional[int]
     reviewed_by: Optional[UUID]
+
+
+class NextPairImageResponse(BaseModel):
+    uuid: UUID
+    filename: str
+    filepath: str
+    dive_id: UUID
+    status: str | None
+    size_x: int
+    size_y: int
+    metadata: Any | None
+
+
+class NextPairResponse(BaseModel):
+    image1: NextPairImageResponse
+    image2: NextPairImageResponse
+    difficulty: int | None
+    priority: int | None
+    status: str | None

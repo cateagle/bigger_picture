@@ -97,7 +97,7 @@ def dataset(client, seed_user, login_as):
         == 201
     )
     label = _make_label(client)
-    return {"scientist": sci, "images": imgs, "label": label}
+    return {"scientist": sci, "images": imgs, "label": label, "dive": dive}
 
 
 @pytest.fixture
@@ -455,3 +455,139 @@ def test_review_missing_is_404(client, dataset, annotator, login_as):
     login_as(dataset["scientist"])
     resp = client.post(f"/api/v1/annotate/points/review/{_new_uuid()}/approve")
     assert resp.status_code == 404, resp.text
+
+
+# ------------------------- next -------------------------
+
+
+def _set_pair_fields(client, image_a, image_b, difficulty=None, priority=None, created_at=None):
+    engine = client.app.state.engine
+    id_a = uuid.UUID(image_a).bytes
+    id_b = uuid.UUID(image_b).bytes
+    with engine.begin() as conn:
+        img1 = conn.execute(text("SELECT id FROM images WHERE uuid = :u"), {"u": id_a}).scalar_one()
+        img2 = conn.execute(text("SELECT id FROM images WHERE uuid = :u"), {"u": id_b}).scalar_one()
+        lo, hi = sorted((img1, img2))
+        updates = {}
+        if difficulty is not None:
+            updates["difficulty"] = difficulty
+        if priority is not None:
+            updates["priority"] = priority
+        if created_at is not None:
+            updates["created_at"] = created_at
+        if updates:
+            set_clause = ", ".join(f"{k} = :{k}" for k in updates)
+            conn.execute(
+                text(f"UPDATE image_pairs SET {set_clause} WHERE image1_id = :lo AND image2_id = :hi"),
+                {**updates, "lo": lo, "hi": hi},
+            )
+
+
+def test_next_default_n_returns_one(client, dataset, annotator):
+    imgs = dataset["images"]
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 1
+    pair = body[0]
+    assert {pair["image1"]["uuid"], pair["image2"]["uuid"]} <= set(imgs)
+    assert pair["status"] == "open"
+
+
+def test_next_n_two_orders_by_priority_then_age(client, dataset, annotator):
+    imgs = dataset["images"]
+    _set_pair_fields(client, imgs[0], imgs[1], priority=None, created_at=200)
+    _set_pair_fields(client, imgs[1], imgs[2], priority=5, created_at=100)
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 2
+    # priority=5 pair (imgs[1]/imgs[2]) sorts first since non-null priority beats null.
+    assert {body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]} == {imgs[1], imgs[2]}
+    assert {body[1]["image1"]["uuid"], body[1]["image2"]["uuid"]} == {imgs[0], imgs[1]}
+
+
+def test_next_excludes_pair_annotated_by_caller(client, dataset, annotator):
+    imgs = dataset["images"]
+    _create_annotation(client, [imgs[0], imgs[1]])
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    for pair in body:
+        assert {pair["image1"]["uuid"], pair["image2"]["uuid"]} != {imgs[0], imgs[1]}
+
+
+def test_next_includes_pair_annotated_by_other_user(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    _create_annotation(client, [imgs[0], imgs[1]])
+    other = seed_user(username="other-next", role="annotator", expert_level=1)
+    login_as(other)
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    pairs = [{p["image1"]["uuid"], p["image2"]["uuid"]} for p in body]
+    assert {imgs[0], imgs[1]} in pairs
+
+
+def test_next_excludes_non_open_pair(client, dataset, annotator):
+    imgs = dataset["images"]
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    pairs = [{p["image1"]["uuid"], p["image2"]["uuid"]} for p in resp.json()]
+    assert {imgs[2], imgs[3]} not in pairs
+
+
+def test_next_excludes_pair_above_expert_level(client, dataset, annotator):
+    imgs = dataset["images"]
+    _set_pair_fields(client, imgs[0], imgs[1], difficulty=annotator.expert_level + 1)
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    pairs = [{p["image1"]["uuid"], p["image2"]["uuid"]} for p in resp.json()]
+    assert {imgs[0], imgs[1]} not in pairs
+
+
+def test_next_includes_pair_at_or_below_expert_level(client, dataset, annotator):
+    imgs = dataset["images"]
+    _set_pair_fields(client, imgs[0], imgs[1], difficulty=annotator.expert_level)
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    pairs = [{p["image1"]["uuid"], p["image2"]["uuid"]} for p in resp.json()]
+    assert {imgs[0], imgs[1]} in pairs
+
+
+def test_next_excludes_pair_from_other_dive(client, dataset, annotator, login_as):
+    login_as(dataset["scientist"])
+    other_dive = _make_dive(client, title="other-dive")
+    other_imgs = [_make_image(client, other_dive, f"other-img{i}.png") for i in range(2)]
+    _open_pair(client, other_imgs[0], other_imgs[1])
+    login_as(annotator)
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    pairs = [{p["image1"]["uuid"], p["image2"]["uuid"]} for p in resp.json()]
+    assert {other_imgs[0], other_imgs[1]} not in pairs
+
+
+def test_next_unknown_dive_is_404(client, dataset, annotator):
+    resp = client.get(f"/api/v1/annotate/points/next/{_new_uuid()}")
+    assert resp.status_code == 404, resp.text
+
+
+def test_next_n_zero_is_422(client, dataset, annotator):
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/0")
+    assert resp.status_code == 422, resp.text
+
+
+def test_next_no_matches_is_empty_list(client, dataset, annotator):
+    imgs = dataset["images"]
+    _create_annotation(client, [imgs[0], imgs[1]])
+    _create_annotation(client, [imgs[1], imgs[2]])
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/10")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
