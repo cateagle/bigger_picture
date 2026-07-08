@@ -9,6 +9,14 @@ export function signup(username: string): Promise<User> {
   })
 }
 
+/** Looks up an existing user by username (no password) and sets the session cookie. */
+export function login(username: string): Promise<User> {
+  return apiFetch<User>('/api/v1/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  })
+}
+
 /** Resolves the identity behind the current session cookie, if any. */
 export function me(): Promise<User> {
   return apiFetch<User>('/api/v1/auth/me')

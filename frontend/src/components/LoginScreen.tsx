@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { signup } from '../api/authApi'
+import { login, signup } from '../api/authApi'
 import { ApiError } from '../api/client'
 import type { User } from '../api/types'
 import './LoginScreen.css'
@@ -17,11 +17,17 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
 
     setSubmitting(true)
     setError(null)
-    signup(trimmed)
+    login(trimmed)
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 404) {
+          return signup(trimmed)
+        }
+        throw err
+      })
       .then(onLoggedIn)
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 409) {
-          setError('That username is already taken. Log in from the browser where you first signed up with it.')
+          setError('That username was just taken by someone else. Please try a different one.')
         } else {
           setError('Could not sign in. Please try again.')
         }
@@ -33,7 +39,10 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
     <div className="login-screen">
       <div className="login-card">
         <h1>Bigger Picture</h1>
-        <p>Pick a username to start playing — no password needed, this browser stays signed in.</p>
+        <p>
+          Enter a username to continue — no password needed. Existing usernames log you back in;
+          new ones create an account. This browser stays signed in.
+        </p>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -47,7 +56,7 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
           />
           {error && <p className="login-error">{error}</p>}
           <button type="submit" className="btn btn-primary" disabled={submitting || !username.trim()}>
-            {submitting ? 'Signing in…' : 'Start playing'}
+            {submitting ? 'Signing in…' : 'Continue'}
           </button>
         </form>
       </div>
