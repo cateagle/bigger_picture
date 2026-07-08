@@ -55,6 +55,11 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
       .finally(() => setSubmitting(false))
   }
 
+  const handleSkip = () => {
+    if (!pair || !diveUuid || submitting) return
+    loadNextPair(diveUuid)
+  }
+
   return (
     <div className="game-screen">
       <header className="game-header">
@@ -93,6 +98,9 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
             <span className="game-count">
               {reviewedCount} pair{reviewedCount === 1 ? '' : 's'} reviewed
             </span>
+            <button type="button" className="btn" onClick={handleSkip} disabled={submitting}>
+              Skip
+            </button>
             <button type="button" className="btn" onClick={() => handleDecision(false)} disabled={submitting}>
               Different scene
             </button>

@@ -93,6 +93,11 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
     setPending(null)
   }
 
+  const handleSkip = () => {
+    if (!pair || !diveUuid || submitting) return
+    loadNextPair(diveUuid)
+  }
+
   const handleSubmit = () => {
     if (!pair || !diveUuid || correspondences.length < MIN_CORRESPONDENCES) return
     const imageA = imageARef.current
@@ -194,6 +199,9 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
             <span className="game-count">
               {correspondences.length} point{correspondences.length === 1 ? '' : 's'} matched
             </span>
+            <button type="button" className="btn" onClick={handleSkip} disabled={submitting}>
+              Skip
+            </button>
             <button
               type="button"
               className="btn"
