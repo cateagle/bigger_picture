@@ -10,7 +10,7 @@ interface TeamMember {
  * since there's no dedicated contributors list elsewhere in the repo.
  */
 const TEAM: TeamMember[] = [
-  { name: 'Sascha Mahmood', githubHandle: 'smahmood' },
+  { name: 'Sascha Mahmood', githubHandle: 'savenger' },
   { name: 'paschoentag', githubHandle: 'paschoentag' },
   { name: 'cateagle', githubHandle: 'cateagle' },
   { name: 'Paul C. Busch', githubHandle: 'chaosbit' },
