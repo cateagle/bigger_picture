@@ -370,6 +370,10 @@ class ImageResponse(BaseModel):
     )
 
 
+class ImageListResponse(BaseModel):
+    images: list[ImageResponse] = Field(description="Images belonging to the given dive.")
+
+
 class ImagePairRef(BaseModel):
     """A pair of images, referenced by their uuids."""
 
@@ -401,6 +405,12 @@ class CandidatePairResponse(BaseModel):
     )
 
 
+class CandidatePairListResponse(BaseModel):
+    candidates: list[CandidatePairResponse] = Field(
+        description="Candidate pairs whose images both belong to the given dive."
+    )
+
+
 class ImagePairResponse(BaseModel):
     """A pair of images available for point annotation."""
 
@@ -425,6 +435,10 @@ class ImagePairResponse(BaseModel):
     status: str | None = Field(
         description='Lifecycle status of the image pair (hidden, open, review_pending, finalized, or deleted). Always "hidden" on creation.'
     )
+
+
+class ImagePairListResponse(BaseModel):
+    pairs: list[ImagePairResponse] = Field(description="Image pairs whose images both belong to the given dive.")
 
 
 class DatasetImportCounts(BaseModel):

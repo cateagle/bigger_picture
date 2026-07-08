@@ -1,0 +1,27 @@
+.dataset-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dataset-admin-pickers {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dataset-admin-pickers .admin-form-field {
+  flex: 1 1 240px;
+}
+
+.dataset-admin-section h3 {
+  margin: 0 0 8px;
+}
+
+.dataset-admin-thumb {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}

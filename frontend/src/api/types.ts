@@ -55,6 +55,32 @@ export interface Dive {
   region: string
 }
 
+/** Mirrors `ImageResponse` from `backend/src/models/dataset.py`, as returned by `GET /api/v1/dataset/images`. */
+export interface DatasetImage {
+  uuid: string
+  filename: string
+  filepath: string
+  status: string | null
+  size_x: number
+  size_y: number
+}
+
+/** Mirrors `CandidatePairResponse` from `backend/src/models/dataset.py`, as returned by `GET /api/v1/dataset/candidates`. */
+export interface CandidatePairSummary {
+  image_a: string
+  image_b: string
+  status: string | null
+}
+
+/** Mirrors `ImagePairResponse` from `backend/src/models/dataset.py`, as returned by `GET /api/v1/dataset/pairs`. */
+export interface ImagePairSummary {
+  image_a: string
+  image_b: string
+  difficulty: number | null
+  priority: number | null
+  status: string | null
+}
+
 export interface ImagePair {
   pairId: string
   imageA: string

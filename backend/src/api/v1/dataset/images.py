@@ -2,6 +2,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -9,7 +10,7 @@ from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata, encode_metadata
 from src.constants import IMAGE_STATUS_INT, INT_IMAGE_STATUS, ImageStatus
 from src.db import get_db
-from src.models.dataset import ImageCreateRequest, ImageResponse, ImageUpdateRequest
+from src.models.dataset import ImageCreateRequest, ImageListResponse, ImageResponse, ImageUpdateRequest
 from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
@@ -52,6 +53,24 @@ def _resolve_dive_id(db: Session, dive_uuid: UUID) -> int:
     if dive_id is None:
         raise HTTPException(status_code=404, detail="Dive not found")
     return dive_id
+
+
+@router.get(
+    "",
+    response_model=ImageListResponse,
+    summary="List Images In Dive",
+    description="""
+Return the images belonging to the given dive, ordered by creation time. Requires the scientist role.
+
+Fails with 404 if the dive does not exist.
+""",
+)
+def list_images(dive: UUID, db: Session = Depends(get_db)):
+    dive_id = _resolve_dive_id(db, dive)
+    images = db.execute(
+        select(Image).where(Image.dive_id == dive_id).order_by(Image.created_at)
+    ).scalars().all()
+    return ImageListResponse(images=[_to_response(image, db) for image in images])
 
 
 @router.post(
