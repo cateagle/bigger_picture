@@ -62,11 +62,12 @@ bigger_picture/
 ├── frontend/              # React + TypeScript SPA — the game itself
 ├── backend/               # FastAPI + SQLite API, auth, and persistence
 ├── compute_homographies.py  # original single-user annotation prototype (OpenCV)
+├── scripts/              # dataset ingestion & seeding CLIs (see "Dataset ingestion")
 └── README.md
 ```
 
 - **Frontend**: a single-page React app. Renders the three game modes and collects player input. Stage 2 (Annotating) talks to the real backend for its label list, auth, and dataset summary endpoints; Stage 1 (Finding Overlap) and Stage 3 (Verification) are playable end-to-end but still run against mocked data in the frontend since the backend has no candidate-pair or review-queue endpoints yet.
-- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset summary, and label list endpoints today. Still to come: endpoints for serving overlap candidate pairs, submitting annotations, and serving/deciding verification items, plus scoring/consensus and picking which image pair to serve next. See [`backend/README.md`](./backend/README.md) for details.
+- **Backend**: serves auth (self-service signup + login via a session cookie, no password), the dataset CRUD/import surface (dives, regions, cameras, images, candidate & image pairs, labels, summary), and the annotation flow — serving the next candidate/pair to work on, submitting overlap and point annotations, and peer review/approval. Still to come: scoring/consensus and smarter selection of what to serve next. See [`backend/README.md`](./backend/README.md) for details.
 - **Local deployment**: `docker-compose.yml` runs both the `frontend` and `backend` services so the whole stack can be started with `docker compose up`.
 
 ## Frontend
@@ -96,13 +97,31 @@ npm run dev
 
 The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) for auth, dataset summary, and label list requests to succeed; the frontend's mocked Stage 1/3 endpoints work with no backend running.
 
+## Dataset ingestion (`scripts/`)
+
+Command-line tools for getting marine images and their pairs into the backend. They drive the REST API (so they respect auth and validation) and authenticate as a `scientist`/`admin` user — the Docker Compose setup seeds an `admin` user on startup (`SEED_ADMIN_USERNAME`), which the scripts log in as by default.
+
+- **`sort_images.py`** — scans an image folder, assigns each image a uuid, and pairs each image with its next N neighbours. Writes `images.csv` (`filename,uuid`) and `image_pairs.csv` (uuid pairs); re-runs reuse existing uuids so they stay stable.
+- **`upload_dataset.py`** — uploads the images and creates the pairs for a chosen dive from those two CSVs, and with `--publish` flips them to `open` so they become available for annotation. Idempotent: a local `*.state.json` ledger lets reruns skip work already done.
+- **`seed_examples.py`** — one-shot seeding of the bundled example datasets under `scripts/example_data/` (`dive1`, `north_sea`): ensures each dive and its region exist, prepares the CSVs, uploads, and publishes.
+- **`reset.py`** — deletes the SQLite database and all `*.state.json` ledgers for a clean slate.
+
+Quick start (with the stack running via `docker compose up`):
+
+```sh
+python3 scripts/seed_examples.py             # seed dive1 + north_sea
+python3 scripts/seed_examples.py north_sea   # just one dataset
+```
+
 ## Status
 
 - ✅ Concept and three-stage game design documented (this README).
 - ✅ Repository split into `frontend`/`backend`, Docker Compose deployment for both services.
 - ✅ Frontend: all three game screens built, with routing between them from the home screen.
 - ✅ Frontend API client wired to the real backend (auth, dataset summary, labels), with a `VITE_API_BASE_URL` env var for the backend location.
-- ✅ Backend: FastAPI + SQLite, with auth, dataset, and admin endpoints.
-- ⬜ Backend: candidate-pair, annotation-submission, and verification-queue endpoints (Stage 1 and Stage 3 are still mocked in the frontend pending these).
-- ⬜ Dataset ingestion pipeline for the marine images themselves.
+- ✅ Backend: FastAPI + SQLite, with auth, dataset, annotation/review, and admin endpoints.
+- ✅ Backend: candidate-pair, point-annotation, and peer-review endpoints (serving the next item, submitting, and approving/failing).
+- ✅ Dataset ingestion CLIs (`scripts/`) to upload images + pairs, seed the example datasets, and reset local state.
+- ⬜ Frontend: wire Stage 1 (Finding Overlap) and Stage 3 (Verification) to the real candidate/review endpoints — still mocked today.
+- ⬜ Scoring/consensus and selection of which item to serve next.
 - ⬜ Gamification mechanics (scoring, consensus, leaderboards) — design only, not implemented.
