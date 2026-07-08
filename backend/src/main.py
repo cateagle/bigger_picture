@@ -53,6 +53,15 @@ def create_app(*, database_path: str | None = None) -> FastAPI:
     )
     app.mount("/assets", StaticFiles(directory=config.ASSETS_DIR), name="assets")
     app.include_router(api_router, prefix="/api")
+
+    # Mounted last so it doesn't shadow /assets or /api: Starlette matches
+    # routes in registration order, and Mount("/") would otherwise catch
+    # every path. Only mounted if present, since an unbuilt frontend (fresh
+    # checkout, backend-only dev, pytest) is a normal state, not an error.
+    frontend_dist = Path(config.FRONTEND_DIST_DIR)
+    if frontend_dist.is_dir():
+        app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+
     return app
 
 
