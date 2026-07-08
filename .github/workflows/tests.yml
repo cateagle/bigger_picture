@@ -25,5 +25,16 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen
 
+      # -v lists every test (id + PASSED/FAILED) in the step log; the JUnit XML
+      # feeds the summary step below. --color=yes keeps pass/fail readable in
+      # the GitHub log viewer, which renders ANSI but isn't a TTY.
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest -v --color=yes --junitxml=pytest-report.xml
+
+      # Renders a pass/fail table on the run's Summary page, so results are
+      # visible without expanding any step. Runs even when tests fail.
+      - name: Publish test summary
+        if: always()
+        uses: test-summary/action@v2
+        with:
+          paths: backend/pytest-report.xml
