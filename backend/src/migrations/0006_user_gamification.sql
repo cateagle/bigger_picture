@@ -26,11 +26,11 @@ CREATE TABLE IF NOT EXISTS level_requirements (
 );
 
 WITH RECURSIVE levels(level, min_exp) AS (
-    SELECT 1, 100
+    SELECT 1, 25
     UNION ALL
-    SELECT level + 1, min_exp + (level + 1) * 100
+    SELECT level + 1, min_exp + (level + 1) * 5
     FROM levels
-    WHERE level < 100
+    WHERE level < 1000
 )
 INSERT INTO level_requirements (level, min_exp)
 SELECT level, min_exp
