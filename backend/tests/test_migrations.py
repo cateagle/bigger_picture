@@ -15,6 +15,7 @@ def test_applies_cleanly_and_is_idempotent(tmp_path):
         "0003_annotation_views.sql",
         "0004_status_descriptions.sql",
         "0005_candidate_vote_uniqueness.sql",
+        "0006_user_gamification.sql",
     ]
 
     applied_again = run_migrations(db_path)
@@ -104,3 +105,32 @@ def test_applies_pending_migrations_when_database_is_partially_migrated(tmp_path
     # Now run migrations with all migrations available - should apply 0002 and 0003 and following ones.
     applied = run_migrations(db_path, migrations_dir=migrations_dir)
     assert 3 <= len(applied)
+
+
+def test_exp_update_derives_expert_level(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    run_migrations(db_path)
+
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO users (uuid, created_at, created_by, username, role, expert_level) "
+            "VALUES (?, 0, 1, 'leveler', 'annotator', 0)",
+            (b"9" * 16,),
+        )
+        conn.commit()
+
+        def _expert_level(exp: int) -> int:
+            conn.execute("UPDATE users SET exp = ? WHERE uuid = ?", (exp, b"9" * 16))
+            conn.commit()
+            return conn.execute(
+                "SELECT expert_level FROM users WHERE uuid = ?", (b"9" * 16,)
+            ).fetchone()[0]
+
+        assert _expert_level(0) == 0
+        assert _expert_level(99) == 0
+        assert _expert_level(100) == 1
+        assert _expert_level(299) == 1
+        assert _expert_level(300) == 2
+    finally:
+        conn.close()

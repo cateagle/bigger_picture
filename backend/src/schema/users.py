@@ -18,6 +18,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False)
     expert_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    exp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    story: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 def create_self_referencing_user(engine: Engine, *, username: str, role: str, expert_level: int = 0) -> User:
@@ -35,6 +37,12 @@ def create_self_referencing_user(engine: Engine, *, username: str, role: str, ex
     defer_foreign_keys` reading back as enabled), while the same statements
     against a raw DBAPI connection defer correctly. Raises the DBAPI's
     `sqlite3.IntegrityError` (e.g. on duplicate username) after rolling back.
+
+    `expert_level` is normally derived from `exp` by the `trg_update_expert_level`
+    trigger, so a caller-requested `expert_level` here is backed by seeding
+    `exp` to that level's `min_exp` threshold - otherwise the very next exp
+    change anywhere in the app would recompute (and likely collapse) this
+    user's expert_level down to whatever their near-zero exp actually earns.
     """
     uuid_bytes = uuid_module.uuid4().bytes
     created_at_ms = int(time.time() * 1000)
@@ -44,10 +52,16 @@ def create_self_referencing_user(engine: Engine, *, username: str, role: str, ex
         cursor = raw.cursor()
         cursor.execute("BEGIN")
         cursor.execute("PRAGMA defer_foreign_keys = ON")
+        exp = 0
+        if expert_level > 0:
+            cursor.execute("SELECT min_exp FROM level_requirements WHERE level = ?", (expert_level,))
+            row = cursor.fetchone()
+            if row is not None:
+                exp = row[0]
         cursor.execute(
-            "INSERT INTO users (uuid, created_at, created_by, username, role, expert_level) "
-            "VALUES (?, ?, 0, ?, ?, ?)",
-            (uuid_bytes, created_at_ms, username, role, expert_level),
+            "INSERT INTO users (uuid, created_at, created_by, username, role, expert_level, exp) "
+            "VALUES (?, ?, 0, ?, ?, ?, ?)",
+            (uuid_bytes, created_at_ms, username, role, expert_level, exp),
         )
         new_id = cursor.lastrowid
         cursor.execute("UPDATE users SET created_by = ? WHERE id = ?", (new_id, new_id))
@@ -66,6 +80,8 @@ def create_self_referencing_user(engine: Engine, *, username: str, role: str, ex
         username=username,
         role=role,
         expert_level=expert_level,
+        exp=exp,
+        story=None,
     )
 
 

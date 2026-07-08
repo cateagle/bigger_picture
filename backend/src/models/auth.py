@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -38,8 +39,25 @@ class UserResponse(BaseModel):
         description="Permission level of the user (annotator, scientist, or admin)."
     )
     expert_level: int = Field(
-        description="Annotation-weight used to gate review permissions; unrelated to role."
+        description="Annotation-weight used to gate review permissions; unrelated to role. Read-only, derived from exp."
     )
+    exp: int = Field(description="Total experience points the user has earned.")
     created_at: int = Field(
         description="Unix epoch time in milliseconds when the user was created."
     )
+
+
+class StoryUpdateRequest(BaseModel):
+    """Request used to overwrite the caller's own story progression."""
+
+    model_config = ConfigDict(json_schema_extra={"example": {"story": {"chapter": 2}}})
+
+    story: Any | None = Field(
+        description="Arbitrary JSON object describing the caller's story progression. Send null to clear it."
+    )
+
+
+class StoryResponse(BaseModel):
+    """The caller's own story progression."""
+
+    story: Any | None = Field(description="Arbitrary caller-supplied JSON object, or null.")

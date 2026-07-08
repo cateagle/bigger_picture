@@ -17,6 +17,9 @@ CANDIDATE_CONSENSUS_MIN_SHARE = float(os.environ.get("CANDIDATE_CONSENSUS_MIN_SH
 CANDIDATE_CONSENSUS_EXPERT_LEVEL = int(os.environ.get("CANDIDATE_CONSENSUS_EXPERT_LEVEL", "3"))
 CANDIDATE_CONSENSUS_EXPERT_WEIGHT = int(os.environ.get("CANDIDATE_CONSENSUS_EXPERT_WEIGHT", "2"))
 
+POINT_ANNOTATION_REVIEW_EXP = int(os.environ.get("POINT_ANNOTATION_REVIEW_EXP", "1"))
+CANDIDATE_ANNOTATION_REVIEW_EXP = int(os.environ.get("CANDIDATE_ANNOTATION_REVIEW_EXP", "5"))
+
 # Username of an admin to create automatically the first time the database is
 # initialized (empty users table). Leave blank to disable auto-seeding and
 # create the first admin manually via `python -m src.bootstrap_admin`.

@@ -31,6 +31,7 @@ def list_users(db: Session = Depends(get_db)):
                 username=user.username,
                 role=user.role,
                 expert_level=user.expert_level,
+                exp=user.exp,
             )
             for user in users
         ]
