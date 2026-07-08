@@ -128,9 +128,9 @@ def test_exp_update_derives_expert_level(tmp_path):
             ).fetchone()[0]
 
         assert _expert_level(0) == 0
-        assert _expert_level(99) == 0
-        assert _expert_level(100) == 1
-        assert _expert_level(299) == 1
-        assert _expert_level(300) == 2
+        assert _expert_level(24) == 0
+        assert _expert_level(25) == 1
+        assert _expert_level(34) == 1
+        assert _expert_level(35) == 2
     finally:
         conn.close()

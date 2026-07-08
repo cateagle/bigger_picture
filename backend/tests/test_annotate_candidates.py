@@ -533,7 +533,7 @@ def test_next_default_n_returns_one(client, dataset, annotator):
     assert candidate["status"] == "open"
 
 
-def test_next_n_two_orders_by_age(client, dataset, annotator):
+def test_next_n_two_returns_both_regardless_of_age(client, dataset, annotator):
     imgs = dataset["images"]
     _set_candidate_created_at(client, imgs[0], imgs[1], 200)
     _set_candidate_created_at(client, imgs[1], imgs[2], 100)
@@ -542,8 +542,36 @@ def test_next_n_two_orders_by_age(client, dataset, annotator):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert len(body) == 2
+    returned = {frozenset({c["image1"]["uuid"], c["image2"]["uuid"]}) for c in body}
+    assert returned == {frozenset({imgs[0], imgs[1]}), frozenset({imgs[1], imgs[2]})}
+
+
+def test_next_pool_size_limits_by_age(client, dataset, annotator, monkeypatch):
+    imgs = dataset["images"]
+    _set_candidate_created_at(client, imgs[0], imgs[1], 200)
+    _set_candidate_created_at(client, imgs[1], imgs[2], 100)
+    monkeypatch.setattr(config, "NEXT_ITEM_POOL_SIZE", 1)
+
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/1")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 1
+    # With pool_size=1, only the older candidate (created_at=100) can ever be sampled.
     assert {body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]} == {imgs[1], imgs[2]}
-    assert {body[1]["image1"]["uuid"], body[1]["image2"]["uuid"]} == {imgs[0], imgs[1]}
+
+
+def test_next_n_returns_random_order_across_requests(client, dataset, annotator):
+    imgs = dataset["images"]
+    _set_candidate_created_at(client, imgs[0], imgs[1], 200)
+    _set_candidate_created_at(client, imgs[1], imgs[2], 100)
+
+    first_seen = set()
+    for _ in range(30):
+        resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/2")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        first_seen.add(frozenset({body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]}))
+    assert first_seen == {frozenset({imgs[0], imgs[1]}), frozenset({imgs[1], imgs[2]})}
 
 
 def test_next_excludes_candidate_annotated_by_caller(client, dataset, annotator):
@@ -628,7 +656,7 @@ def test_review_next_default_n_returns_one(client, dataset, annotator, seed_user
     assert body[0]["status"] == "review_pending"
 
 
-def test_review_next_n_two_orders_by_age(client, dataset, annotator, seed_user, login_as):
+def test_review_next_n_two_returns_both_regardless_of_age(client, dataset, annotator, seed_user, login_as):
     imgs = dataset["images"]
     u1 = _create_annotation(client, imgs)
     u2 = _create_annotation(client, [imgs[1], imgs[2]])
@@ -640,7 +668,42 @@ def test_review_next_n_two_orders_by_age(client, dataset, annotator, seed_user, 
 
     resp = client.get(f"/api/v1/annotate/candidate/review/next/{dataset['dive']}/2")
     assert resp.status_code == 200, resp.text
-    assert [a["uuid"] for a in resp.json()] == [u2, u1]
+    assert {a["uuid"] for a in resp.json()} == {u1, u2}
+
+
+def test_review_next_pool_size_limits_by_age(client, dataset, annotator, seed_user, login_as, monkeypatch):
+    imgs = dataset["images"]
+    u1 = _create_annotation(client, imgs)
+    u2 = _create_annotation(client, [imgs[1], imgs[2]])
+    _age_annotation(client, u1, created_at=200)
+    _age_annotation(client, u2, created_at=100)
+    monkeypatch.setattr(config, "NEXT_ITEM_POOL_SIZE", 1)
+
+    senior = seed_user(username="senior-rn3", role="annotator", expert_level=3)
+    login_as(senior)
+
+    resp = client.get(f"/api/v1/annotate/candidate/review/next/{dataset['dive']}/1")
+    assert resp.status_code == 200, resp.text
+    # With pool_size=1, only the older annotation (u2, created_at=100) can ever be sampled.
+    assert [a["uuid"] for a in resp.json()] == [u2]
+
+
+def test_review_next_n_returns_random_order_across_requests(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u1 = _create_annotation(client, imgs)
+    u2 = _create_annotation(client, [imgs[1], imgs[2]])
+    _age_annotation(client, u1, created_at=200)
+    _age_annotation(client, u2, created_at=100)
+
+    senior = seed_user(username="senior-rn4", role="annotator", expert_level=3)
+    login_as(senior)
+
+    first_seen = set()
+    for _ in range(30):
+        resp = client.get(f"/api/v1/annotate/candidate/review/next/{dataset['dive']}/2")
+        assert resp.status_code == 200, resp.text
+        first_seen.add(resp.json()[0]["uuid"])
+    assert first_seen == {u1, u2}
 
 
 def test_review_next_excludes_annotation_created_by_caller(client, dataset, annotator):

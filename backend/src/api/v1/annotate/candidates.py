@@ -34,6 +34,7 @@ from src.schema.images import Image
 from src.schema.users import User
 from src.services.experience import grant_exp
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
+from src.services.random_pool import sample_pool
 from src.util import now_ms
 
 router = APIRouter()
@@ -285,9 +286,9 @@ def _apply_review(annotation: CandidateAnnotation, caller: User, status_id: int,
     response_model=list[CandidateAnnotationResponse],
     summary="Get Next Candidate Pair Annotations to Review",
     description="""
-Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -297,9 +298,9 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
     response_model=list[CandidateAnnotationResponse],
     summary="Get Next Candidate Pair Annotations to Review",
     description="""
-Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -338,9 +339,8 @@ def get_next_review_candidates(
         .join(Image2, CandidatePair.image2_id == Image2.id)
         .where(*conditions)
         .order_by(CandidateAnnotation.created_at.asc())
-        .limit(n)
     )
-    annotations = db.execute(stmt).scalars().all()
+    annotations = sample_pool(db, stmt, n)
     return [_to_response(annotation, db) for annotation in annotations]
 
 
@@ -413,9 +413,9 @@ def _to_next_candidate_response(candidate: CandidatePair, db: Session) -> NextCa
     response_model=list[NextCandidateResponse],
     summary="Get Next Candidate Pairs",
     description="""
-Return up to n open candidate pairs from the given dive that the caller has not yet annotated, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n open candidate pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. n defaults to 1 and must be at least 1; there is no upper bound.
+Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible candidates, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -425,9 +425,9 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
     response_model=list[NextCandidateResponse],
     summary="Get Next Candidate Pairs",
     description="""
-Return up to n open candidate pairs from the given dive that the caller has not yet annotated, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n open candidate pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. n defaults to 1 and must be at least 1; there is no upper bound.
+Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible candidates, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -458,7 +458,6 @@ def get_next_candidates(dive_uuid: UUID, request: Request, n: int = 1, db: Sessi
             CandidatePair.id.notin_(annotated_candidate_ids),
         )
         .order_by(CandidatePair.created_at.asc())
-        .limit(n)
     )
-    candidates = db.execute(stmt).scalars().all()
+    candidates = sample_pool(db, stmt, n)
     return [_to_next_candidate_response(candidate, db) for candidate in candidates]
