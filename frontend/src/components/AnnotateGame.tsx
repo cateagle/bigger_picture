@@ -28,7 +28,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [correspondences, setCorrespondences] = useState<Correspondence[]>([])
-  const [pendingA, setPendingA] = useState<NormalizedPoint | null>(null)
+  const [pending, setPending] = useState<{ side: 'A' | 'B'; point: NormalizedPoint } | null>(null)
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
 
@@ -45,7 +45,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
     setLoading(true)
     setError(null)
     setCorrespondences([])
-    setPendingA(null)
+    setPending(null)
     fetchNextImagePair(forDiveUuid)
       .then((next) => {
         setPair(next)
@@ -63,21 +63,24 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
     }
   }, [diveUuid, loadNextPair])
 
-  const handleClickA = (e: ReactMouseEvent<HTMLImageElement>) => {
+  const handleClickImage = (side: 'A' | 'B') => (e: ReactMouseEvent<HTMLImageElement>) => {
     if (submitting) return
-    setPendingA(pointFromClick(e))
-  }
+    const point = pointFromClick(e)
 
-  const handleClickB = (e: ReactMouseEvent<HTMLImageElement>) => {
-    if (submitting || !pendingA) return
-    const pointB = pointFromClick(e)
-    setCorrespondences((prev) => [...prev, { pointA: pendingA, pointB }])
-    setPendingA(null)
+    if (pending && pending.side !== side) {
+      const pointA = pending.side === 'A' ? pending.point : point
+      const pointB = pending.side === 'B' ? pending.point : point
+      setCorrespondences((prev) => [...prev, { pointA, pointB }])
+      setPending(null)
+      return
+    }
+
+    setPending({ side, point })
   }
 
   const handleUndo = () => {
-    if (pendingA) {
-      setPendingA(null)
+    if (pending) {
+      setPending(null)
       return
     }
     setCorrespondences((prev) => prev.slice(0, -1))
@@ -85,7 +88,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
 
   const handleClear = () => {
     setCorrespondences([])
-    setPendingA(null)
+    setPending(null)
   }
 
   const handleSubmit = () => {
@@ -118,7 +121,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
           For years, a yellow eel learns every rock and reed of its river home by heart.
         </p>
         <p>
-          Click a point in the left image, then click the same physical spot in the right image.
+          Click a point in either image, then click the same physical spot in the other image.
           Repeat for at least {MIN_CORRESPONDENCES} points, then submit.
         </p>
         <p className="game-region">Region: {region.title}</p>
@@ -141,33 +144,47 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
                 ref={imageARef}
                 src={pair.imageA}
                 alt="Image A"
-                onClick={handleClickA}
-                className={`clickable${pendingA ? ' awaiting-match' : ''}`}
+                onClick={handleClickImage('A')}
+                className={`clickable${pending?.side === 'A' ? ' awaiting-match' : ''}`}
               />
               {correspondences.map((c, i) => (
                 <Marker key={`a-${i}`} point={c.pointA} color={markerColor(i)} label={i + 1} />
               ))}
-              {pendingA && (
+              {pending?.side === 'A' && (
                 <div
                   className="marker marker-pending"
-                  style={{ left: `${pendingA.x * 100}%`, top: `${pendingA.y * 100}%` }}
+                  style={{ left: `${pending.point.x * 100}%`, top: `${pending.point.y * 100}%` }}
                 >
                   {correspondences.length + 1}
                 </div>
               )}
             </div>
             <div className="image-pane">
-              <img ref={imageBRef} src={pair.imageB} alt="Image B" onClick={handleClickB} className="clickable" />
+              <img
+                ref={imageBRef}
+                src={pair.imageB}
+                alt="Image B"
+                onClick={handleClickImage('B')}
+                className={`clickable${pending?.side === 'B' ? ' awaiting-match' : ''}`}
+              />
               {correspondences.map((c, i) => (
                 <Marker key={`b-${i}`} point={c.pointB} color={markerColor(i)} label={i + 1} />
               ))}
+              {pending?.side === 'B' && (
+                <div
+                  className="marker marker-pending"
+                  style={{ left: `${pending.point.x * 100}%`, top: `${pending.point.y * 100}%` }}
+                >
+                  {correspondences.length + 1}
+                </div>
+              )}
             </div>
           </div>
 
           <p className="game-hint">
-            {pendingA
-              ? 'Now click the matching point in the right image.'
-              : 'Click a point in the left image to start a new match.'}
+            {pending
+              ? `Now click the matching point in the ${pending.side === 'A' ? 'right' : 'left'} image.`
+              : 'Click a point in either image to start a new match.'}
           </p>
 
           <footer className="game-footer">
@@ -178,7 +195,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
               type="button"
               className="btn"
               onClick={handleUndo}
-              disabled={submitting || (correspondences.length === 0 && !pendingA)}
+              disabled={submitting || (correspondences.length === 0 && !pending)}
             >
               Undo
             </button>
@@ -186,7 +203,7 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
               type="button"
               className="btn"
               onClick={handleClear}
-              disabled={submitting || (correspondences.length === 0 && !pendingA)}
+              disabled={submitting || (correspondences.length === 0 && !pending)}
             >
               Clear
             </button>
