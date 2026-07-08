@@ -66,8 +66,8 @@ bigger_picture/
 └── README.md
 ```
 
-- **Frontend**: a single-page React app. Renders the three game modes, an admin area, and a team/about screen, and collects player input. Stages 1 and 2 (Finding Overlap, Annotating) talk to the real backend end-to-end, including fetching the next candidate/pair to work on; Stage 3 (Verification) is playable but still runs against mocked data in the frontend since the backend has no review-queue endpoint yet.
-- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset summary, and label list endpoints today. Still to come: endpoints for serving overlap candidate pairs, submitting annotations, and serving/deciding verification items, plus scoring/consensus and picking which image pair to serve next. See [`backend/README.md`](./backend/README.md) for details.
+- **Frontend**: a single-page React app. Renders the three game modes, an admin area, and a team/about screen, and collects player input. All three stages talk to the real backend end-to-end, including fetching the next thing to work on (candidate pair, image pair, or pending review).
+- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset CRUD (regions, dives, images, pairs), and the overlap/annotation/verification queues and submission endpoints for all three stages. Still to come: scoring/consensus and gamification mechanics. See [`backend/README.md`](./backend/README.md) for details.
 - **Local deployment**: `docker-compose.yml` runs both the `frontend` and `backend` services so the whole stack can be started with `docker compose up`.
 
 ## Frontend
@@ -96,7 +96,7 @@ npm install
 npm run dev
 ```
 
-The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) for everything except Stage 3 (Verification) to work — Stages 1 and 2 fetch real regions/dives/candidates/pairs from it; only Stage 3's mocked endpoints work with no backend running.
+The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) — all three stages fetch real regions/dives/candidates/pairs/reviews from it; nothing in the frontend works against mocked data anymore.
 
 ## Dataset ingestion (`scripts/`)
 
@@ -121,7 +121,6 @@ python3 scripts/seed_examples.py north_sea   # just one dataset
 - ✅ Frontend: all three game screens built, with routing between them from the home screen, plus an admin area and a team page.
 - ✅ Frontend API client wired to the real backend (auth, dataset summary, labels, regions, dives) with a `VITE_API_BASE_URL` env var for the backend location.
 - ✅ Backend: FastAPI + SQLite, with auth, dataset, and admin endpoints.
-- ✅ Stages 1 and 2 (Finding Overlap, Annotating) wired end-to-end, including fetching the next candidate/pair to work on.
-- ⬜ Backend: review-queue endpoints for Stage 3 (Verification is still mocked in the frontend pending these).
-- ⬜ Dataset ingestion pipeline for the marine images themselves.
+- ✅ All three stages (Finding Overlap, Annotating, Verification) wired end-to-end, including fetching the next thing to work on for each.
+- ✅ Dataset ingestion: `scripts/` CLIs and a bulk zip-upload endpoint for getting marine images and pairs into the backend.
 - ⬜ Gamification mechanics (scoring, consensus, leaderboards) — design only, not implemented.

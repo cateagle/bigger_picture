@@ -25,6 +25,7 @@ from src.models.annotate import (
     PointAnnotationCorrectionRequest,
     PointAnnotationCreateRequest,
     PointAnnotationResponse,
+    PointAnnotationReviewResponse,
 )
 from src.schema.dives import Dive
 from src.schema.image_pairs import ImagePair
@@ -274,12 +275,37 @@ def _apply_review(
     return _to_response(annotation, db)
 
 
+def _to_review_response(annotation: PointAnnotation, db: Session) -> PointAnnotationReviewResponse:
+    pair = db.get(ImagePair, annotation.pair_id)
+    image_a = db.get(Image, pair.image1_id)
+    image_b = db.get(Image, pair.image2_id)
+    label_uuid = None
+    if annotation.label_id is not None:
+        label = db.get(Label, annotation.label_id)
+        if label is not None:
+            label_uuid = UUID(bytes=label.uuid)
+    status_enum = INT_ANNOTATION_STATUS.get(annotation.status_id)
+    return PointAnnotationReviewResponse(
+        uuid=UUID(bytes=annotation.uuid),
+        image_a=_to_next_image_response(image_a, db),
+        image_b=_to_next_image_response(image_b, db),
+        label_id=label_uuid,
+        x1=annotation.x1,
+        y1=annotation.y1,
+        x2=annotation.x2,
+        y2=annotation.y2,
+        expert_level=annotation.expert_level,
+        status=str(status_enum) if status_enum is not None else str(annotation.status_id),
+        created_at=annotation.created_at,
+    )
+
+
 @router.get(
     "/review/next/{dive_uuid}",
-    response_model=list[PointAnnotationResponse],
+    response_model=list[PointAnnotationReviewResponse],
     summary="Get Next Point Annotations to Review",
     description="""
-Return up to n point annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
+Return up to n point annotations from the given dive that are pending review and were not created by the caller, with full image details for rendering. Requires the annotator role (or any higher role).
 
 The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
 
@@ -288,10 +314,10 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 )
 @router.get(
     "/review/next/{dive_uuid}/{n}",
-    response_model=list[PointAnnotationResponse],
+    response_model=list[PointAnnotationReviewResponse],
     summary="Get Next Point Annotations to Review",
     description="""
-Return up to n point annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
+Return up to n point annotations from the given dive that are pending review and were not created by the caller, with full image details for rendering. Requires the annotator role (or any higher role).
 
 The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
 
@@ -335,7 +361,7 @@ def get_next_reviews(
         .limit(n)
     )
     annotations = db.execute(stmt).scalars().all()
-    return [_to_response(annotation, db) for annotation in annotations]
+    return [_to_review_response(annotation, db) for annotation in annotations]
 
 
 @router.post(
