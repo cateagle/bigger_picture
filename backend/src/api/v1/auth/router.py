@@ -38,7 +38,17 @@ def _set_session_cookie(response: Response, user: User) -> None:
     )
 
 
-@router.post("/signup", response_model=UserResponse, status_code=201)
+@router.post(
+    "/signup",
+    response_model=UserResponse,
+    status_code=201,
+    summary="Sign Up",
+    description="""
+Create a new self-service account with the given username and start a session for it. Always creates the account with the annotator role; role cannot be chosen or elevated at signup.
+
+Sets a session cookie on success. Fails with 409 if the username is already taken (case-insensitively).
+""",
+)
 def signup(payload: SignupRequest, request: Request, response: Response):
     engine = request.app.state.engine
     try:
@@ -50,7 +60,16 @@ def signup(payload: SignupRequest, request: Request, response: Response):
     return _to_response(user)
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post(
+    "/login",
+    response_model=UserResponse,
+    summary="Log In",
+    description="""
+Start a session for an existing account, identified by username alone; there is no password.
+
+Sets a session cookie on success. Fails with 404 if the username is not registered.
+""",
+)
 def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = lookup_user_by_username(db, payload.username)
     if user is None:
@@ -60,13 +79,29 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
     return _to_response(user)
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get Current User",
+    description="""
+Return the user for the current session cookie.
+
+Fails with 401 if there is no valid session.
+""",
+)
 def me(user: User | None = Depends(get_current_user)):
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return _to_response(user)
 
 
-@router.post("/logout", status_code=204)
+@router.post(
+    "/logout",
+    status_code=204,
+    summary="Log Out",
+    description="""
+Clear the session cookie. Always succeeds, even if no session was active.
+""",
+)
 def logout(response: Response):
     response.delete_cookie(config.COOKIE_NAME, path="/")
