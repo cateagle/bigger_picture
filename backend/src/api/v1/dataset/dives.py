@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata, encode_metadata
-from src.constants import UNKNOWN_CAMERA_UUID
 from src.db import get_db
 from src.models.dataset import (
     DiveCreateRequest,
@@ -19,8 +18,13 @@ from src.schema.cameras import Camera
 from src.schema.dives import Dive
 from src.schema.regions import Region
 from src.schema.users import User
+from src.services.dives import create_dive as _create_dive_row
+from src.services.dives import resolve_camera_id as _resolve_camera_id_or_none
+from src.services.dives import resolve_or_default_camera_id
+from src.services.dives import resolve_region_id as _resolve_region_id_or_none
+from src.services.errors import ConflictError
 from src.services.lookups import get_by_uuid
-from src.util import apply_partial_update, now_ms
+from src.util import apply_partial_update
 
 router = APIRouter()
 
@@ -42,50 +46,25 @@ def _to_response(dive: Dive, db: Session) -> DiveResponse:
 
 
 def _resolve_region_id(db: Session, region_uuid: UUID) -> int:
-    region = get_by_uuid(db, Region, region_uuid.bytes)
-    if region is None:
+    region_id = _resolve_region_id_or_none(db, region_uuid)
+    if region_id is None:
         raise HTTPException(status_code=404, detail="Region not found")
-    return region.id
+    return region_id
 
 
 def _resolve_camera_id(db: Session, camera_uuid: UUID) -> int:
-    camera = get_by_uuid(db, Camera, camera_uuid.bytes)
-    if camera is None:
+    camera_id = _resolve_camera_id_or_none(db, camera_uuid)
+    if camera_id is None:
         raise HTTPException(status_code=404, detail="Camera not found")
-    return camera.id
+    return camera_id
 
 
 def _resolve_or_default_camera_id(
     db: Session, camera_uuid: UUID | None, creator_id: int
 ) -> int:
-    """Resolve `camera_uuid`, falling back to the well-known "Unknown Camera" row when unset.
-
-    The fallback row is normally seeded on startup (see
-    `src.schema.cameras.seed_unknown_camera`), but is created here on demand
-    if it's somehow still missing, attributed to the requesting user.
-    """
     if camera_uuid is not None:
         return _resolve_camera_id(db, camera_uuid)
-
-    camera = get_by_uuid(db, Camera, UNKNOWN_CAMERA_UUID.bytes)
-    if camera is not None:
-        return camera.id
-
-    camera = Camera(
-        uuid=UNKNOWN_CAMERA_UUID.bytes,
-        created_at=now_ms(),
-        created_by=creator_id,
-        title="Unknown Camera",
-    )
-    db.add(camera)
-    try:
-        db.flush()
-    except IntegrityError:
-        db.rollback()
-        camera = get_by_uuid(db, Camera, UNKNOWN_CAMERA_UUID.bytes)
-        if camera is None:
-            raise
-    return camera.id
+    return resolve_or_default_camera_id(db, None, creator_id)
 
 
 @router.get(
@@ -142,22 +121,21 @@ def create_dive(
     region_id = _resolve_region_id(db, payload.region)
     camera_id = _resolve_or_default_camera_id(db, payload.camera, user.id)
 
-    dive = Dive(
-        uuid=payload.uuid.bytes,
-        created_at=now_ms(),
-        created_by=user.id,
-        title=payload.title,
-        metadata_json=encode_metadata(payload.metadata),
-        description=payload.description,
-        region_id=region_id,
-        camera_id=camera_id,
-    )
-    db.add(dive)
     try:
-        db.commit()
-    except IntegrityError:
+        dive = _create_dive_row(
+            db,
+            uuid=payload.uuid,
+            title=payload.title,
+            metadata=payload.metadata,
+            description=payload.description,
+            region_id=region_id,
+            camera_id=camera_id,
+            creator_id=user.id,
+        )
+    except ConflictError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Dive already exists")
+    db.commit()
     db.refresh(dive)
     return _to_response(dive, db)
 

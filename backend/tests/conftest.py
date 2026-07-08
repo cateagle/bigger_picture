@@ -12,6 +12,7 @@ def app(tmp_path, monkeypatch):
     # Drive the app's StaticFiles mount and `resolve_asset_path` off the same
     # global so there's a single source of truth for the assets directory.
     monkeypatch.setattr(config, "ASSETS_DIR", str(tmp_path / "assets"))
+    monkeypatch.setattr(config, "IMPORT_DIR", str(tmp_path / "import"))
     return create_app(database_path=db_path)
 
 
@@ -19,6 +20,12 @@ def app(tmp_path, monkeypatch):
 def assets_dir(tmp_path):
     """The assets directory the app is built against (see the `app` fixture)."""
     return str(tmp_path / "assets")
+
+
+@pytest.fixture
+def import_dir(tmp_path):
+    """The import working directory the app is built against (see the `app` fixture)."""
+    return str(tmp_path / "import")
 
 
 @pytest.fixture

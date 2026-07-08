@@ -1,9 +1,20 @@
 import time
+import uuid as uuid_module
 
 
 def now_ms() -> int:
     """Current unix time in milliseconds."""
     return int(time.time() * 1000)
+
+
+def new_uuid() -> uuid_module.UUID:
+    """Generate a fresh random uuid4.
+
+    Used when an import CSV row's uuid column is the literal "new", since no
+    server-side uuid generator otherwise exists - every other endpoint
+    requires the client to supply a uuid.
+    """
+    return uuid_module.uuid4()
 
 
 def apply_partial_update(
