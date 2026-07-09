@@ -5,7 +5,9 @@ import type { CandidatePair, Region, User } from '../api/types'
 import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
+import { GameStatsBar } from './GameStatsBar'
 import { LevelBadge } from './LevelBadge'
+import { useGameStats } from './useGameStats'
 
 export default function OverlapGame({
   region,
@@ -27,6 +29,7 @@ export default function OverlapGame({
   const [error, setError] = useState<string | null>(null)
   const [reviewedCount, setReviewedCount] = useState(0)
   const [gridSize, setGridSize] = useState<GridSize>(0)
+  const { stats, window: statsWindow, bump } = useGameStats('overlap')
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -64,6 +67,7 @@ export default function OverlapGame({
     submitOverlapDecision(pair, overlaps)
       .then(() => {
         setReviewedCount((count) => count + 1)
+        bump({ pairs_marked: 1, ...(overlaps ? { overlaps_found: 1 } : {}) })
         loadNextPair(diveUuid)
         onUserRefresh()
       })
@@ -85,6 +89,7 @@ export default function OverlapGame({
           </button>
           <LevelBadge exp={user.exp} />
         </div>
+        <GameStatsBar game="overlap" stats={stats} window={statsWindow} />
         <h1>Glass Eel League — Finding Overlap</h1>
         <p className="game-flavor">
           A glass eel drifts in from the open ocean, scanning the coastline for familiar water.
