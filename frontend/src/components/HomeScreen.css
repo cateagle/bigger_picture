@@ -146,6 +146,27 @@
   margin-bottom: 1rem;
 }
 
+.read-more-button {
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #444;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.read-more-button:hover {
+  text-decoration: underline;
+}
+
+.game-card-longtext {
+  margin: 0.5rem 0 1rem;
+  line-height: 1.5;
+  font-style: italic;
+  flex-grow: 0;
+}
+
 .game-card h2 {
   margin: 0;
   font-size: 1.25rem;
