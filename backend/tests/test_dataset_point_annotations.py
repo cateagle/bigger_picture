@@ -1,4 +1,5 @@
 import base64
+import csv
 import io
 import uuid
 
@@ -159,3 +160,41 @@ def test_list_annotations_role_gating_annotator_forbidden(client, seed_user, log
     login_as(seed_user(username="ann4", role="annotator"))
     resp = client.get(f"/api/v1/dataset/annotations?dive={_new_uuid()}")
     assert resp.status_code == 403
+
+
+def test_export_annotations_csv_returns_raw_user_rows(client, scientist, seed_user, login_as):
+    dive = _make_dive(client, title="dive-export")
+    a = _make_image(client, dive, "ea.png")
+    b = _make_image(client, dive, "eb.png")
+    _open_pair(client, a, b)
+
+    user1 = seed_user(username="ann-export-1", role="annotator", expert_level=1)
+    user2 = seed_user(username="ann-export-2", role="annotator", expert_level=3)
+
+    login_as(user1)
+    _create_annotation(client, a, b, x1=10, y1=20, x2=30, y2=40)
+    login_as(user2)
+    _create_annotation(client, a, b, x1=11, y1=21, x2=31, y2=41)
+
+    login_as(scientist)
+    resp = client.get(f"/api/v1/dataset/annotations/export?dive={dive}")
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"].startswith("text/csv")
+    assert "attachment;" in resp.headers["content-disposition"]
+
+    rows = list(csv.DictReader(io.StringIO(resp.text)))
+    assert len(rows) == 2
+    assert {row["created_by_username"] for row in rows} == {"ann-export-1", "ann-export-2"}
+    assert {row["image_a_filename"] for row in rows} == {"ea.png"}
+    assert {row["image_b_filename"] for row in rows} == {"eb.png"}
+
+
+def test_export_annotations_csv_role_gating_annotator_forbidden(client, seed_user, login_as):
+    login_as(seed_user(username="ann-export-blocked", role="annotator"))
+    resp = client.get("/api/v1/dataset/annotations/export")
+    assert resp.status_code == 403
+
+
+def test_export_annotations_csv_unknown_dive_is_404(client, scientist):
+    resp = client.get(f"/api/v1/dataset/annotations/export?dive={_new_uuid()}")
+    assert resp.status_code == 404
