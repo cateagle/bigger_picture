@@ -1,19 +1,20 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, aliased
 
 from src.api.deps import require_current_user
 from src.constants import INT_PAIR_STATUS, PAIR_STATUS_INT, PairStatus
 from src.db import get_db
-from src.models.dataset import ImagePairRef, ImagePairResponse
+from src.models.dataset import ImagePairListResponse, ImagePairRef, ImagePairResponse
+from src.schema.dives import Dive
 from src.schema.image_pairs import ImagePair
 from src.schema.images import Image
 from src.schema.users import User
-from src.services.lookups import resolve_sorted_image_pair
-from src.util import now_ms
+from src.services.errors import ConflictError, SameDiveError
+from src.services.image_pairs import create_image_pair as _create_image_pair_row
+from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
 
 router = APIRouter()
 
@@ -31,6 +32,8 @@ def _to_response(pair: ImagePair, db: Session) -> ImagePairResponse:
         created_by=UUID(bytes=creator.uuid),
         image_a=UUID(bytes=image_a.uuid),
         image_b=UUID(bytes=image_b.uuid),
+        image_a_filename=image_a.filename,
+        image_b_filename=image_b.filename,
         difficulty=pair.difficulty,
         priority=pair.priority,
         status=status,
@@ -47,6 +50,41 @@ def _resolve_pair_ids(db: Session, image_a: UUID, image_b: UUID) -> tuple[int, i
     return ids
 
 
+@router.get(
+    "",
+    response_model=ImagePairListResponse,
+    summary="List Image Pairs In Dive",
+    description="""
+Return a page of the image pairs whose images both belong to the given dive, ordered by creation time. Requires the scientist role.
+
+Fails with 404 if the dive does not exist.
+""",
+)
+def list_image_pairs(
+    dive: UUID,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    dive_row = get_by_uuid(db, Dive, dive.bytes)
+    if dive_row is None:
+        raise HTTPException(status_code=404, detail="Dive not found")
+
+    Image1 = aliased(Image)
+    Image2 = aliased(Image)
+    base_query = (
+        select(ImagePair)
+        .join(Image1, ImagePair.image1_id == Image1.id)
+        .join(Image2, ImagePair.image2_id == Image2.id)
+        .where(Image1.dive_id == dive_row.id, Image2.dive_id == dive_row.id)
+    )
+    total = db.execute(select(func.count()).select_from(base_query.subquery())).scalar_one()
+    pairs = db.execute(
+        base_query.order_by(ImagePair.created_at).limit(page_size).offset((page - 1) * page_size)
+    ).scalars().all()
+    return ImagePairListResponse(pairs=[_to_response(pair, db) for pair in pairs], total=total)
+
+
 @router.post(
     "/create",
     response_model=ImagePairResponse,
@@ -59,7 +97,7 @@ The order of image_a and image_b does not matter. The backend reorders them and 
 
 The pair is always created with status "hidden" and null difficulty/priority.
 
-Fails with 404 if either image does not exist, 422 if image_a and image_b are the same image, or 409 if an image pair for this image combination already exists.
+Fails with 404 if either image does not exist, 422 if image_a and image_b are the same image or belong to different dives, or 409 if an image pair for this image combination already exists.
 """,
 )
 def create_image_pair(
@@ -68,19 +106,21 @@ def create_image_pair(
     user = require_current_user(request)
     ids = _resolve_pair_ids(db, payload.image_a, payload.image_b)
 
-    pair = ImagePair(
-        created_at=now_ms(),
-        created_by=user.id,
-        image1_id=ids[0],
-        image2_id=ids[1],
-        status_id=PAIR_STATUS_INT[PairStatus.HIDDEN],
-    )
-    db.add(pair)
     try:
-        db.commit()
-    except IntegrityError:
+        pair = _create_image_pair_row(
+            db,
+            image1_id=ids[0],
+            image2_id=ids[1],
+            status_id=PAIR_STATUS_INT[PairStatus.HIDDEN],
+            creator_id=user.id,
+        )
+    except SameDiveError:
+        db.rollback()
+        raise HTTPException(status_code=422, detail="Images must belong to the same dive")
+    except ConflictError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Image pair already exists")
+    db.commit()
     db.refresh(pair)
     return _to_response(pair, db)
 

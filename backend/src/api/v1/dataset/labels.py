@@ -10,8 +10,10 @@ from src.db import get_db
 from src.models.dataset import LabelResponse
 from src.schema.labels import Label
 from src.schema.users import User
+from src.services.errors import ConflictError
+from src.services.labels import create_label as _create_label_row
 from src.services.lookups import get_by_uuid
-from src.util import apply_partial_update, now_ms
+from src.util import apply_partial_update
 
 router = APIRouter()
 
@@ -115,20 +117,19 @@ Fails with 409 if a label with this uuid already exists, or if the scope and tit
 def create_label(payload: LabelCreateRequest, request: Request, db: Session = Depends(get_db)):
     user = require_current_user(request)
 
-    label = Label(
-        uuid=payload.uuid.bytes,
-        created_at=now_ms(),
-        created_by=user.id,
-        scope=payload.scope,
-        title=payload.title,
-        description=payload.description,
-    )
-    db.add(label)
     try:
-        db.commit()
-    except IntegrityError:
+        label = _create_label_row(
+            db,
+            uuid=payload.uuid,
+            scope=payload.scope,
+            title=payload.title,
+            description=payload.description,
+            creator_id=user.id,
+        )
+    except ConflictError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Label already exists")
+    db.commit()
     db.refresh(label)
     return _to_response(label, db)
 

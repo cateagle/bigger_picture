@@ -1,9 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextCandidatePair, submitOverlapDecision } from '../api/overlapApi'
-import type { CandidatePair, Region } from '../api/types'
+import type { CandidatePair, Region, User } from '../api/types'
+import { GridOverlay } from './GridOverlay'
+import type { GridSize } from './gridSize'
+import { gridToggleLabel, nextGridSize } from './gridSize'
+import { LevelBadge } from './LevelBadge'
 
-export default function OverlapGame({ region, onBack }: { region: Region; onBack: () => void }) {
+export default function OverlapGame({
+  region,
+  user,
+  onUserRefresh,
+  onBack,
+}: {
+  region: Region
+  user: User
+  onUserRefresh: () => void
+  onBack: () => void
+}) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
   const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
   const [pair, setPair] = useState<CandidatePair | null>(null)
@@ -12,6 +26,7 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reviewedCount, setReviewedCount] = useState(0)
+  const [gridSize, setGridSize] = useState<GridSize>(0)
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -50,17 +65,26 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
       .then(() => {
         setReviewedCount((count) => count + 1)
         loadNextPair(diveUuid)
+        onUserRefresh()
       })
       .catch(() => setError('Could not submit your answer. Please try again.'))
       .finally(() => setSubmitting(false))
   }
 
+  const handleSkip = () => {
+    if (!pair || !diveUuid || submitting) return
+    loadNextPair(diveUuid)
+  }
+
   return (
     <div className="game-screen">
       <header className="game-header">
-        <button type="button" className="back-link" onClick={onBack}>
-          ← Back to games
-        </button>
+        <div className="game-header-top">
+          <button type="button" className="back-link" onClick={onBack}>
+            ← Back to games
+          </button>
+          <LevelBadge exp={user.exp} />
+        </div>
         <h1>Glass Eel League — Finding Overlap</h1>
         <p className="game-flavor">
           A glass eel drifts in from the open ocean, scanning the coastline for familiar water.
@@ -80,12 +104,20 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
 
       {pair && !loading && (
         <>
+          <div className="image-toolbar">
+            <button type="button" className="btn" onClick={() => setGridSize(nextGridSize(gridSize))}>
+              {gridToggleLabel(gridSize)}
+            </button>
+          </div>
+
           <div className="image-pane-row">
             <div className="image-pane">
               <img src={pair.imageA} alt="Candidate scene A" />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
             </div>
             <div className="image-pane">
               <img src={pair.imageB} alt="Candidate scene B" />
+              {gridSize !== 0 && <GridOverlay size={gridSize} />}
             </div>
           </div>
 
@@ -93,6 +125,9 @@ export default function OverlapGame({ region, onBack }: { region: Region; onBack
             <span className="game-count">
               {reviewedCount} pair{reviewedCount === 1 ? '' : 's'} reviewed
             </span>
+            <button type="button" className="btn" onClick={handleSkip} disabled={submitting}>
+              Skip
+            </button>
             <button type="button" className="btn" onClick={() => handleDecision(false)} disabled={submitting}>
               Different scene
             </button>

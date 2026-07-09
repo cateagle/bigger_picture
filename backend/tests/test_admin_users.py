@@ -31,7 +31,7 @@ def test_admin_creates_user_defaults(client, seed_user, login_as):
         assert row.created_at > 0
 
 
-def test_admin_creates_user_with_role_and_expert_level(client, seed_user, login_as):
+def test_admin_creates_user_with_role_ignores_expert_level(client, seed_user, login_as):
     _admin(seed_user, login_as)
     resp = client.post(
         "/api/v1/admin/users/create",
@@ -40,7 +40,8 @@ def test_admin_creates_user_with_role_and_expert_level(client, seed_user, login_
     assert resp.status_code == 201
     body = resp.json()
     assert body["role"] == "scientist"
-    assert body["expert_level"] == 3
+    assert body["expert_level"] == 0
+    assert body["exp"] == 0
 
 
 def test_create_duplicate_username_conflicts(client, seed_user, login_as):
@@ -89,10 +90,10 @@ def test_update_explicit_null_is_noop(client, seed_user, login_as):
     body = resp.json()
     assert body["username"] == "keep"
     assert body["role"] == "scientist"
-    assert body["expert_level"] == 2
+    assert body["expert_level"] == 0
 
 
-def test_update_sets_role_and_expert_level(client, seed_user, login_as):
+def test_update_sets_role_but_ignores_expert_level(client, seed_user, login_as):
     _admin(seed_user, login_as)
     u = _new_uuid()
     client.post("/api/v1/admin/users/create", json={"uuid": u, "username": "promote"})
@@ -103,7 +104,7 @@ def test_update_sets_role_and_expert_level(client, seed_user, login_as):
     assert resp.status_code == 200
     body = resp.json()
     assert body["role"] == "scientist"
-    assert body["expert_level"] == 5
+    assert body["expert_level"] == 0
 
 
 def test_update_unknown_uuid_is_404(client, seed_user, login_as):

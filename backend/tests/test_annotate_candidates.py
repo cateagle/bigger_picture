@@ -7,6 +7,7 @@ from PIL import Image as PILImage
 from sqlalchemy import text
 
 from src import config
+from src.constants import CANDIDATE_STATUS_INT, CandidateStatus
 
 
 def _new_uuid() -> str:
@@ -169,6 +170,22 @@ def test_create_uuid_conflict_is_409(client, dataset, annotator):
     resp = client.post(
         "/api/v1/annotate/candidate/create",
         json={"uuid": u, "image_a": imgs[1], "image_b": imgs[2], "no_overlap": True},
+    )
+    assert resp.status_code == 409, resp.text
+
+
+def test_create_second_vote_by_same_user_for_same_candidate_is_409(client, dataset, annotator):
+    imgs = dataset["images"]
+    assert (
+        client.post(
+            "/api/v1/annotate/candidate/create",
+            json={"uuid": _new_uuid(), "image_a": imgs[0], "image_b": imgs[1], "no_overlap": True},
+        ).status_code
+        == 201
+    )
+    resp = client.post(
+        "/api/v1/annotate/candidate/create",
+        json={"uuid": _new_uuid(), "image_a": imgs[0], "image_b": imgs[1], "no_overlap": False},
     )
     assert resp.status_code == 409, resp.text
 
@@ -358,6 +375,85 @@ def test_scientist_can_fail_regardless_of_expert(client, dataset, annotator, see
     assert resp.json()["status"] == "review_failed"
 
 
+def test_weighted_overlap_consensus_promotes_candidate_and_opens_pair(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+
+    voters = [
+        seed_user(username="vote1", role="annotator", expert_level=1),
+        seed_user(username="vote2", role="annotator", expert_level=1),
+        seed_user(username="vote3", role="annotator", expert_level=3),
+        seed_user(username="vote4", role="annotator", expert_level=3),
+        seed_user(username="vote5", role="annotator", expert_level=3),
+        seed_user(username="vote6", role="annotator", expert_level=3),
+    ]
+
+    for voter in voters:
+        login_as(voter)
+        resp = client.post(
+            "/api/v1/annotate/candidate/create",
+            json={"uuid": _new_uuid(), "image_a": imgs[0], "image_b": imgs[1], "no_overlap": False},
+        )
+        assert resp.status_code == 201, resp.text
+
+    engine = client.app.state.engine
+    with engine.begin() as conn:
+        candidate_status = conn.execute(
+            text(
+                "SELECT cp.status_id FROM candidate_pairs cp "
+                "JOIN images i1 ON i1.id = cp.image1_id "
+                "JOIN images i2 ON i2.id = cp.image2_id "
+                "WHERE i1.uuid = :a AND i2.uuid = :b"
+            ),
+            {"a": uuid.UUID(imgs[0]).bytes, "b": uuid.UUID(imgs[1]).bytes},
+        ).scalar_one()
+
+    assert candidate_status == CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]
+
+
+def test_weighted_no_overlap_consensus_closes_candidate_without_pair(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+
+    voters = [
+        seed_user(username="no1", role="annotator", expert_level=3),
+        seed_user(username="no2", role="annotator", expert_level=3),
+        seed_user(username="no3", role="annotator", expert_level=3),
+        seed_user(username="no4", role="annotator", expert_level=3),
+        seed_user(username="no5", role="annotator", expert_level=3),
+    ]
+
+    for voter in voters:
+        login_as(voter)
+        resp = client.post(
+            "/api/v1/annotate/candidate/create",
+            json={"uuid": _new_uuid(), "image_a": imgs[1], "image_b": imgs[2], "no_overlap": True},
+        )
+        assert resp.status_code == 201, resp.text
+
+    engine = client.app.state.engine
+    with engine.begin() as conn:
+        candidate_status = conn.execute(
+            text(
+                "SELECT cp.status_id FROM candidate_pairs cp "
+                "JOIN images i1 ON i1.id = cp.image1_id "
+                "JOIN images i2 ON i2.id = cp.image2_id "
+                "WHERE i1.uuid = :a AND i2.uuid = :b"
+            ),
+            {"a": uuid.UUID(imgs[1]).bytes, "b": uuid.UUID(imgs[2]).bytes},
+        ).scalar_one()
+        pair_count = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM image_pairs ip "
+                "JOIN images i1 ON i1.id = ip.image1_id "
+                "JOIN images i2 ON i2.id = ip.image2_id "
+                "WHERE i1.uuid = :a AND i2.uuid = :b"
+            ),
+            {"a": uuid.UUID(imgs[1]).bytes, "b": uuid.UUID(imgs[2]).bytes},
+        ).scalar_one()
+
+    assert candidate_status == CANDIDATE_STATUS_INT[CandidateStatus.NO_OVERLAP]
+    assert pair_count == 0
+
+
 def test_review_non_pending_is_409(client, dataset, annotator, seed_user, login_as):
     imgs = dataset["images"]
     u = _create_annotation(client, imgs)
@@ -372,6 +468,41 @@ def test_review_missing_is_404(client, dataset, annotator, login_as):
     login_as(dataset["scientist"])
     resp = client.post(f"/api/v1/annotate/candidate/review/{_new_uuid()}/approve")
     assert resp.status_code == 404, resp.text
+
+
+# ------------------------- review exp -------------------------
+
+
+def _get_exp(client, user_uuid: bytes) -> int:
+    engine = client.app.state.engine
+    with engine.begin() as conn:
+        return conn.execute(text("SELECT exp FROM users WHERE uuid = :u"), {"u": user_uuid}).scalar_one()
+
+
+def test_review_approve_grants_exp_to_reviewer_and_creator(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator: annotator
+    senior = seed_user(username="senior-exp", role="annotator", expert_level=3)
+    login_as(senior)
+    senior_before = _get_exp(client, senior.uuid)
+    creator_before = _get_exp(client, annotator.uuid)
+    resp = client.post(f"/api/v1/annotate/candidate/review/{u}/approve")
+    assert resp.status_code == 200, resp.text
+    assert _get_exp(client, senior.uuid) == senior_before + config.CANDIDATE_ANNOTATION_REVIEW_EXP
+    assert _get_exp(client, annotator.uuid) == creator_before + config.CANDIDATE_ANNOTATION_REVIEW_EXP
+
+
+def test_review_fail_grants_exp_to_reviewer_only(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator: annotator
+    senior = seed_user(username="senior-exp2", role="annotator", expert_level=3)
+    login_as(senior)
+    senior_before = _get_exp(client, senior.uuid)
+    creator_before = _get_exp(client, annotator.uuid)
+    resp = client.post(f"/api/v1/annotate/candidate/review/{u}/fail")
+    assert resp.status_code == 200, resp.text
+    assert _get_exp(client, senior.uuid) == senior_before + config.CANDIDATE_ANNOTATION_REVIEW_EXP
+    assert _get_exp(client, annotator.uuid) == creator_before
 
 
 # ------------------------- next -------------------------
@@ -402,7 +533,7 @@ def test_next_default_n_returns_one(client, dataset, annotator):
     assert candidate["status"] == "open"
 
 
-def test_next_n_two_orders_by_age(client, dataset, annotator):
+def test_next_n_two_returns_both_regardless_of_age(client, dataset, annotator):
     imgs = dataset["images"]
     _set_candidate_created_at(client, imgs[0], imgs[1], 200)
     _set_candidate_created_at(client, imgs[1], imgs[2], 100)
@@ -411,8 +542,36 @@ def test_next_n_two_orders_by_age(client, dataset, annotator):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert len(body) == 2
+    returned = {frozenset({c["image1"]["uuid"], c["image2"]["uuid"]}) for c in body}
+    assert returned == {frozenset({imgs[0], imgs[1]}), frozenset({imgs[1], imgs[2]})}
+
+
+def test_next_pool_size_limits_by_age(client, dataset, annotator, monkeypatch):
+    imgs = dataset["images"]
+    _set_candidate_created_at(client, imgs[0], imgs[1], 200)
+    _set_candidate_created_at(client, imgs[1], imgs[2], 100)
+    monkeypatch.setattr(config, "NEXT_ITEM_POOL_SIZE", 1)
+
+    resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/1")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 1
+    # With pool_size=1, only the older candidate (created_at=100) can ever be sampled.
     assert {body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]} == {imgs[1], imgs[2]}
-    assert {body[1]["image1"]["uuid"], body[1]["image2"]["uuid"]} == {imgs[0], imgs[1]}
+
+
+def test_next_n_returns_random_order_across_requests(client, dataset, annotator):
+    imgs = dataset["images"]
+    _set_candidate_created_at(client, imgs[0], imgs[1], 200)
+    _set_candidate_created_at(client, imgs[1], imgs[2], 100)
+
+    first_seen = set()
+    for _ in range(30):
+        resp = client.get(f"/api/v1/annotate/candidate/next/{dataset['dive']}/2")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        first_seen.add(frozenset({body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]}))
+    assert first_seen == {frozenset({imgs[0], imgs[1]}), frozenset({imgs[1], imgs[2]})}
 
 
 def test_next_excludes_candidate_annotated_by_caller(client, dataset, annotator):
@@ -497,7 +656,7 @@ def test_review_next_default_n_returns_one(client, dataset, annotator, seed_user
     assert body[0]["status"] == "review_pending"
 
 
-def test_review_next_n_two_orders_by_age(client, dataset, annotator, seed_user, login_as):
+def test_review_next_n_two_returns_both_regardless_of_age(client, dataset, annotator, seed_user, login_as):
     imgs = dataset["images"]
     u1 = _create_annotation(client, imgs)
     u2 = _create_annotation(client, [imgs[1], imgs[2]])
@@ -509,7 +668,42 @@ def test_review_next_n_two_orders_by_age(client, dataset, annotator, seed_user, 
 
     resp = client.get(f"/api/v1/annotate/candidate/review/next/{dataset['dive']}/2")
     assert resp.status_code == 200, resp.text
-    assert [a["uuid"] for a in resp.json()] == [u2, u1]
+    assert {a["uuid"] for a in resp.json()} == {u1, u2}
+
+
+def test_review_next_pool_size_limits_by_age(client, dataset, annotator, seed_user, login_as, monkeypatch):
+    imgs = dataset["images"]
+    u1 = _create_annotation(client, imgs)
+    u2 = _create_annotation(client, [imgs[1], imgs[2]])
+    _age_annotation(client, u1, created_at=200)
+    _age_annotation(client, u2, created_at=100)
+    monkeypatch.setattr(config, "NEXT_ITEM_POOL_SIZE", 1)
+
+    senior = seed_user(username="senior-rn3", role="annotator", expert_level=3)
+    login_as(senior)
+
+    resp = client.get(f"/api/v1/annotate/candidate/review/next/{dataset['dive']}/1")
+    assert resp.status_code == 200, resp.text
+    # With pool_size=1, only the older annotation (u2, created_at=100) can ever be sampled.
+    assert [a["uuid"] for a in resp.json()] == [u2]
+
+
+def test_review_next_n_returns_random_order_across_requests(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u1 = _create_annotation(client, imgs)
+    u2 = _create_annotation(client, [imgs[1], imgs[2]])
+    _age_annotation(client, u1, created_at=200)
+    _age_annotation(client, u2, created_at=100)
+
+    senior = seed_user(username="senior-rn4", role="annotator", expert_level=3)
+    login_as(senior)
+
+    first_seen = set()
+    for _ in range(30):
+        resp = client.get(f"/api/v1/annotate/candidate/review/next/{dataset['dive']}/2")
+        assert resp.status_code == 200, resp.text
+        first_seen.add(resp.json()[0]["uuid"])
+    assert first_seen == {u1, u2}
 
 
 def test_review_next_excludes_annotation_created_by_caller(client, dataset, annotator):

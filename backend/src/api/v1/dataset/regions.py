@@ -12,8 +12,10 @@ from src.db import get_db
 from src.models.dataset import RegionResponse
 from src.schema.regions import Region
 from src.schema.users import User
+from src.services.errors import ConflictError
 from src.services.lookups import get_by_uuid
-from src.util import apply_partial_update, now_ms
+from src.services.regions import create_region as _create_region_row
+from src.util import apply_partial_update
 
 router = APIRouter()
 
@@ -117,20 +119,19 @@ def create_region(
 ):
     user = require_current_user(request)
 
-    region = Region(
-        uuid=payload.uuid.bytes,
-        created_at=now_ms(),
-        created_by=user.id,
-        title=payload.title,
-        metadata_json=encode_metadata(payload.metadata),
-        description=payload.description,
-    )
-    db.add(region)
     try:
-        db.commit()
-    except IntegrityError:
+        region = _create_region_row(
+            db,
+            uuid=payload.uuid,
+            title=payload.title,
+            metadata=payload.metadata,
+            description=payload.description,
+            creator_id=user.id,
+        )
+    except ConflictError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Region already exists")
+    db.commit()
     db.refresh(region)
     return _to_response(region, db)
 

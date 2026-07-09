@@ -36,12 +36,13 @@ UUID_NAMESPACE = uuid.UUID("0b3e5f9a-1c2d-4e6f-8a9b-0c1d2e3f4a5b")
 # Each dataset lives in EXAMPLES_DIR/<name>/images and gets its own dive/region.
 # `generate` controls whether the CSVs are produced from the image folder with
 # sort_images, or already ship with the dataset and are used as-is.
-Dataset = namedtuple("Dataset", "name dive_title region_title files_csv pairs_csv generate")
+Dataset = namedtuple("Dataset", "name dive_title region_title files_csv pairs_csv generate pair_kind")
 DATASETS = [
-    # dive1 ships ready-made CSVs (images.csv + pairs.csv); use them as-is.
-    Dataset("dive1", "Dive 1", "Dive 1 Region", "images.csv", "pairs.csv", False),
-    # north_sea has only images; generate the CSVs from the folder.
-    Dataset("north_sea", "North Sea", "North Sea Region", "images.csv", "image_pairs.csv", True),
+    # dive1 ships ready-made CSVs (images.csv + pairs.csv); seed as Stage 1
+    # candidate (overlap) pairs.
+    Dataset("dive1", "Dive 1", "Dive 1 Region", "images.csv", "pairs.csv", False, "candidate"),
+    # north_sea has only images; generate CSVs and seed as Stage 2 image pairs.
+    Dataset("north_sea", "North Sea", "North Sea Region", "images.csv", "image_pairs.csv", True, "image"),
 ]
 
 
@@ -158,6 +159,7 @@ def seed_dataset(ds: Dataset, args, base_url, client) -> None:
         "--files-csv", str(files_csv),
         "--pairs-csv", str(pairs_csv),
         "--dive-uuid", dive_uuid,
+        "--pair-kind", ds.pair_kind,
         # Flip the uploaded images and pairs to `open` so they're immediately
         # available for annotation instead of sitting in the default `hidden`.
         "--publish",

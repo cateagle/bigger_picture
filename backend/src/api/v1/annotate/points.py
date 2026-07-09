@@ -9,12 +9,13 @@ from src import config
 from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata
 from src.constants import (
-    ANNOTATION_STATUS_INT,
+    ANNOTATION_APPROVED,
+    ANNOTATION_REVIEW_FAILED,
+    ANNOTATION_REVIEW_PENDING,
     INT_ANNOTATION_STATUS,
     INT_IMAGE_STATUS,
     INT_PAIR_STATUS,
     PAIR_STATUS_INT,
-    AnnotationStatus,
     PairStatus,
     Role,
 )
@@ -25,6 +26,7 @@ from src.models.annotate import (
     PointAnnotationCorrectionRequest,
     PointAnnotationCreateRequest,
     PointAnnotationResponse,
+    PointAnnotationReviewResponse,
 )
 from src.schema.dives import Dive
 from src.schema.image_pairs import ImagePair
@@ -32,14 +34,13 @@ from src.schema.images import Image
 from src.schema.labels import Label
 from src.schema.point_annotations import PointAnnotation
 from src.schema.users import User
+from src.services.experience import grant_exp
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
+from src.services.random_pool import sample_pool
 from src.util import now_ms
 
 router = APIRouter()
 
-STATUS_REVIEW_PENDING = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_PENDING]
-STATUS_REVIEW_FAILED = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_FAILED]
-STATUS_APPROVED = ANNOTATION_STATUS_INT[AnnotationStatus.APPROVED]
 PAIR_OPEN = PAIR_STATUS_INT[PairStatus.OPEN]
 
 
@@ -123,7 +124,7 @@ def _build_annotation(
         y2=payload.y2,
         expert_level=user.expert_level,
         confidence=None,
-        status_id=STATUS_REVIEW_PENDING,
+        status_id=ANNOTATION_REVIEW_PENDING,
     )
 
 
@@ -218,7 +219,7 @@ def correct_annotation(
 
     if annotation.created_by != user.id:
         raise HTTPException(status_code=403, detail="Not the annotation creator")
-    if annotation.status_id != STATUS_REVIEW_PENDING:
+    if annotation.status_id != ANNOTATION_REVIEW_PENDING:
         raise HTTPException(status_code=409, detail="Annotation is not pending review")
     if now_ms() - annotation.created_at >= config.SELF_CORRECTION_TIME_LIMIT_MS:
         raise HTTPException(status_code=403, detail="Correction window expired")
@@ -244,7 +245,7 @@ def _load_pending_for_review(db: Session, annotation_uuid: UUID) -> PointAnnotat
     ).scalar_one_or_none()
     if annotation is None:
         raise HTTPException(status_code=404, detail="Annotation not found")
-    if annotation.status_id != STATUS_REVIEW_PENDING:
+    if annotation.status_id != ANNOTATION_REVIEW_PENDING:
         raise HTTPException(status_code=409, detail="Annotation is not pending review")
     return annotation
 
@@ -269,31 +270,60 @@ def _apply_review(
     annotation.status_id = status_id
     annotation.reviewed_by = caller.id
     annotation.reviewed_at = now_ms()
+    grant_exp(db, db.get(User, caller.id), config.POINT_ANNOTATION_REVIEW_EXP)
+    if status_id == ANNOTATION_APPROVED:
+        creator = db.get(User, annotation.created_by)
+        grant_exp(db, creator, config.POINT_ANNOTATION_REVIEW_EXP)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)
 
 
+def _to_review_response(annotation: PointAnnotation, db: Session) -> PointAnnotationReviewResponse:
+    pair = db.get(ImagePair, annotation.pair_id)
+    image_a = db.get(Image, pair.image1_id)
+    image_b = db.get(Image, pair.image2_id)
+    label_uuid = None
+    if annotation.label_id is not None:
+        label = db.get(Label, annotation.label_id)
+        if label is not None:
+            label_uuid = UUID(bytes=label.uuid)
+    status_enum = INT_ANNOTATION_STATUS.get(annotation.status_id)
+    return PointAnnotationReviewResponse(
+        uuid=UUID(bytes=annotation.uuid),
+        image_a=_to_next_image_response(image_a, db),
+        image_b=_to_next_image_response(image_b, db),
+        label_id=label_uuid,
+        x1=annotation.x1,
+        y1=annotation.y1,
+        x2=annotation.x2,
+        y2=annotation.y2,
+        expert_level=annotation.expert_level,
+        status=str(status_enum) if status_enum is not None else str(annotation.status_id),
+        created_at=annotation.created_at,
+    )
+
+
 @router.get(
     "/review/next/{dive_uuid}",
-    response_model=list[PointAnnotationResponse],
+    response_model=list[PointAnnotationReviewResponse],
     summary="Get Next Point Annotations to Review",
     description="""
-Return up to n point annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
+Return up to n point annotations from the given dive that are pending review and were not created by the caller, with full image details for rendering. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
 )
 @router.get(
     "/review/next/{dive_uuid}/{n}",
-    response_model=list[PointAnnotationResponse],
+    response_model=list[PointAnnotationReviewResponse],
     summary="Get Next Point Annotations to Review",
     description="""
-Return up to n point annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
+Return up to n point annotations from the given dive that are pending review and were not created by the caller, with full image details for rendering. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Results are ordered by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by the parent pair's priority descending (nulls last), then by the annotation's creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -317,7 +347,7 @@ def get_next_reviews(
     Image2 = aliased(Image)
 
     conditions = [
-        PointAnnotation.status_id == STATUS_REVIEW_PENDING,
+        PointAnnotation.status_id == ANNOTATION_REVIEW_PENDING,
         PointAnnotation.created_by != user.id,
         Image1.dive_id == dive.id,
         Image2.dive_id == dive.id,
@@ -332,10 +362,9 @@ def get_next_reviews(
         .join(Image2, ImagePair.image2_id == Image2.id)
         .where(*conditions)
         .order_by(ImagePair.priority.desc().nullslast(), PointAnnotation.created_at.asc())
-        .limit(n)
     )
-    annotations = db.execute(stmt).scalars().all()
-    return [_to_response(annotation, db) for annotation in annotations]
+    annotations = sample_pool(db, stmt, n)
+    return [_to_review_response(annotation, db) for annotation in annotations]
 
 
 @router.post(
@@ -354,7 +383,7 @@ def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(g
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
-    return _apply_review(annotation, caller, STATUS_REVIEW_FAILED, db)
+    return _apply_review(annotation, caller, ANNOTATION_REVIEW_FAILED, db)
 
 
 @router.post(
@@ -375,7 +404,7 @@ def review_approve(
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
-    return _apply_review(annotation, caller, STATUS_APPROVED, db)
+    return _apply_review(annotation, caller, ANNOTATION_APPROVED, db)
 
 
 def _to_next_image_response(image: Image, db: Session) -> NextPairImageResponse:
@@ -413,7 +442,7 @@ def _to_next_pair_response(pair: ImagePair, db: Session) -> NextPairResponse:
     description="""
 Return up to n open image pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-A pair is only returned if its difficulty is null or at most the caller's expert_level. Results are ordered by priority descending (nulls last), then by creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+A pair is only returned if its difficulty is null or at most the caller's expert_level. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible pairs, prioritized by priority descending (nulls last), then by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -425,7 +454,7 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
     description="""
 Return up to n open image pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-A pair is only returned if its difficulty is null or at most the caller's expert_level. Results are ordered by priority descending (nulls last), then by creation time ascending. n defaults to 1 and must be at least 1; there is no upper bound.
+A pair is only returned if its difficulty is null or at most the caller's expert_level. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible pairs, prioritized by priority descending (nulls last), then by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -462,7 +491,6 @@ def get_next_pairs(
             ImagePair.id.notin_(annotated_pair_ids),
         )
         .order_by(ImagePair.priority.desc().nullslast(), ImagePair.created_at.asc())
-        .limit(n)
     )
-    pairs = db.execute(stmt).scalars().all()
+    pairs = sample_pool(db, stmt, n)
     return [_to_next_pair_response(pair, db) for pair in pairs]

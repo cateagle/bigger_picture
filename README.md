@@ -4,7 +4,7 @@ A browser-playable citizen-science game that crowdsources ground-truth annotatio
 
 Instead of paying experts to manually annotate overlapping image pairs, we turn the annotation process into a short, low-friction game. Anyone can play a round in their browser, and each round produces a small piece of labeled data (an overlap decision, a set of matched points, or a verification vote). Aggregated across many players, these micro-contributions add up to a full annotated dataset.
 
-This repository is split into a `frontend` (React/TypeScript SPA) and a `backend` (FastAPI + SQLite API and persistence). The two are wired together with Docker Compose so the whole stack can be run locally with one command.
+This repository is split into a `frontend` (React/TypeScript SPA) and a `backend` (FastAPI + SQLite API and persistence). It can be run as a single production container, as a two-container Docker Compose dev setup, or directly on the host with npm and Python — see ["Running the stack"](#running-the-stack).
 
 ## Background
 
@@ -58,7 +58,8 @@ Not fully designed yet, but the intended direction:
 
 ```
 bigger_picture/
-├── docker-compose.yml     # orchestrates the stack for local deployment
+├── Dockerfile             # single-container production build (frontend embedded in backend)
+├── docker-compose.yml     # orchestrates the two-container dev stack
 ├── frontend/              # React + TypeScript SPA — the game itself
 ├── backend/               # FastAPI + SQLite API, auth, and persistence
 ├── compute_homographies.py  # original single-user annotation prototype (OpenCV)
@@ -66,9 +67,65 @@ bigger_picture/
 └── README.md
 ```
 
-- **Frontend**: a single-page React app. Renders the three game modes, an admin area, and a team/about screen, and collects player input. Stages 1 and 2 (Finding Overlap, Annotating) talk to the real backend end-to-end, including fetching the next candidate/pair to work on; Stage 3 (Verification) is playable but still runs against mocked data in the frontend since the backend has no review-queue endpoint yet.
-- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset summary, and label list endpoints today. Still to come: endpoints for serving overlap candidate pairs, submitting annotations, and serving/deciding verification items, plus scoring/consensus and picking which image pair to serve next. See [`backend/README.md`](./backend/README.md) for details.
+- **Frontend**: a single-page React app. Renders the three game modes, an admin area, and a team/about screen, and collects player input. All three stages talk to the real backend end-to-end, including fetching the next thing to work on (candidate pair, image pair, or pending review).
+- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset CRUD (regions, dives, images, pairs), and the overlap/annotation/verification queues and submission endpoints for all three stages. Still to come: scoring/consensus and gamification mechanics. See [`backend/README.md`](./backend/README.md) for details.
 - **Local deployment**: `docker-compose.yml` runs both the `frontend` and `backend` services so the whole stack can be started with `docker compose up`.
+- **Production deployment**: a root-level `Dockerfile` builds the frontend and embeds the static output directly into the FastAPI backend image, so the whole app ships as one container running only `uvicorn`.
+
+## Running the stack
+
+Three ways to run this, depending on what you're doing:
+
+### Production: single container
+
+The root [`Dockerfile`](./Dockerfile) multi-stage builds the frontend, copies the static build into the backend image as the last step, and serves it directly from FastAPI — no Node, no Vite dev server, no separate frontend process in the final image.
+
+```sh
+docker build -t bigger-picture -f Dockerfile .
+docker run --rm -p 8000:8000 bigger-picture
+```
+
+Open http://localhost:8000 — the frontend is served at `/` by the same process as the API, so requests are same-origin and CORS doesn't come into play.
+
+### Local development: Docker Compose
+
+```sh
+docker compose up
+```
+
+Runs `frontend/Dockerfile` and `backend/Dockerfile` as two containers with your local checkout bind-mounted in: frontend dev server with hot reload on http://localhost:5173, backend on http://localhost:8000. This is the day-to-day two-origin dev setup (frontend calls the backend via `VITE_API_BASE_URL`, backend allows that origin via CORS).
+
+### Local development: without Docker
+
+Needs Node 22+ and Python 3.12+, plus [uv](https://docs.astral.sh/uv/) for the backend. If you use [devenv](https://devenv.sh) (this repo has a `devenv.nix`), `devenv shell` provisions all of that for you — prefix any command below with `devenv shell --`. Devenv is entirely optional; the commands are identical either way, just installed differently.
+
+**Backend** (from `backend/`):
+
+```sh
+uv sync
+uv run uvicorn src.main:app --reload
+```
+
+**Frontend** (from `frontend/`, separate terminal):
+
+```sh
+cp .env.example .env   # VITE_API_BASE_URL, defaults to http://localhost:8000
+npm install
+npm run dev
+```
+
+Same two-origin setup as Docker Compose (`:5173` / `:8000`), just running directly on the host instead of in containers.
+
+To try the *embedded* build locally — same-origin, no Vite dev server, what the production container does — without needing Docker at all:
+
+```sh
+cd frontend && npm run build:embedded   # writes frontend/dist, built for same-origin use
+cd ../backend && uv run uvicorn src.main:app
+```
+
+Open http://localhost:8000. The backend picks up `frontend/dist` automatically (no env vars needed) and serves it the same way the production container does.
+
+See [`backend/README.md`](./backend/README.md) for backend-specific details (auth model, config, migrations).
 
 ## Frontend
 
@@ -79,24 +136,7 @@ bigger_picture/
 
 ### Running the frontend
 
-With Docker Compose (recommended, matches how the whole project will eventually run):
-
-```sh
-docker compose up
-```
-
-This starts both the frontend (http://localhost:5173, hot reload against your local `frontend/` checkout) and the backend (http://localhost:8000).
-
-Without Docker, directly with Node (22+ recommended):
-
-```sh
-cd frontend
-cp .env.example .env   # VITE_API_BASE_URL - defaults to http://localhost:8000
-npm install
-npm run dev
-```
-
-The backend needs to be running separately (see [`backend/README.md`](./backend/README.md)) for everything except Stage 3 (Verification) to work — Stages 1 and 2 fetch real regions/dives/candidates/pairs from it; only Stage 3's mocked endpoints work with no backend running.
+See ["Running the stack"](#running-the-stack) above for all three ways to run the frontend (production container, Docker Compose, or directly with npm) — in every case the backend needs to be running too; all three stages fetch real regions/dives/candidates/pairs/reviews from it, nothing in the frontend works against mocked data.
 
 ## Dataset ingestion (`scripts/`)
 
@@ -121,7 +161,6 @@ python3 scripts/seed_examples.py north_sea   # just one dataset
 - ✅ Frontend: all three game screens built, with routing between them from the home screen, plus an admin area and a team page.
 - ✅ Frontend API client wired to the real backend (auth, dataset summary, labels, regions, dives) with a `VITE_API_BASE_URL` env var for the backend location.
 - ✅ Backend: FastAPI + SQLite, with auth, dataset, and admin endpoints.
-- ✅ Stages 1 and 2 (Finding Overlap, Annotating) wired end-to-end, including fetching the next candidate/pair to work on.
-- ⬜ Backend: review-queue endpoints for Stage 3 (Verification is still mocked in the frontend pending these).
-- ⬜ Dataset ingestion pipeline for the marine images themselves.
+- ✅ All three stages (Finding Overlap, Annotating, Verification) wired end-to-end, including fetching the next thing to work on for each.
+- ✅ Dataset ingestion: `scripts/` CLIs and a bulk zip-upload endpoint for getting marine images and pairs into the backend.
 - ⬜ Gamification mechanics (scoring, consensus, leaderboards) — design only, not implemented.

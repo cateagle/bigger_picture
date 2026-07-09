@@ -22,6 +22,7 @@ def _to_response(user: User) -> UserResponse:
         username=user.username,
         role=Role(user.role),
         expert_level=user.expert_level,
+        exp=user.exp,
         created_at=user.created_at,
     )
 
@@ -32,7 +33,9 @@ def _to_response(user: User) -> UserResponse:
     status_code=201,
     summary="Create User",
     description="""
-Create a new user with the given uuid, username, role, and expert_level. Requires the admin role.
+Create a new user with the given uuid, username, and role. Requires the admin role.
+
+expert_level is read-only, derived from exp; any value supplied for it is ignored and the new user always starts at expert_level 0.
 
 Fails with 409 if the uuid or username (case-insensitively) is already taken.
 """,
@@ -46,7 +49,6 @@ def create_user(payload: UserCreateRequest, request: Request, db: Session = Depe
         created_by=admin.id,
         username=payload.username,
         role=str(payload.role),
-        expert_level=payload.expert_level,
     )
     db.add(user)
     try:
@@ -65,7 +67,7 @@ def create_user(payload: UserCreateRequest, request: Request, db: Session = Depe
     description="""
 Partially update an existing user, identified by uuid. Requires the admin role.
 
-Only the fields supplied in the request are changed; omitted fields are left as-is. Sending an explicit null for username, role, or expert_level is also a no-op.
+Only the fields supplied in the request are changed; omitted fields are left as-is. Sending an explicit null for username or role is also a no-op. expert_level is read-only, derived from exp; any value supplied for it (null or not) is ignored.
 
 Fails with 404 if the uuid is not found, or 409 if the new username is already taken (case-insensitively).
 """,
@@ -80,7 +82,7 @@ def update_user(payload: UserUpdateRequest, request: Request, db: Session = Depe
     updates = apply_partial_update(
         payload,
         nullable_columns=set(),
-        field_map={"username": "username", "role": "role", "expert_level": "expert_level"},
+        field_map={"username": "username", "role": "role"},
     )
     if "role" in updates:
         updates["role"] = str(updates["role"])

@@ -1,0 +1,7 @@
+uuid;source_path;filename;filepath;dive_uuid;dive_title;status;metadata;difficulty;priority
+dd9c02f4-eef3-4806-a5fa-302e56676954;dive-a/frame_0001.jpg;;;;Dive 2024-05-12 Site A;;;;
+3d2d6a96-a537-4eb2-801c-babdaab57bc4;dive-a/frame_0002.jpg;Site A - frame 2;;;Dive 2024-05-12 Site A;open;{"iso": 200};2;5
+41f6aea3-cbf8-48f9-ac01-ec7afdbacb2b;dive-a/frame_0003.jpg;;dive-a-highlights/frame_0003.jpg;;Dive 2024-05-12 Site A;;;;
+new;dive-b/frame_0001.jpg;;;;Dive 2024-05-14 Site B;;;;
+new;dive-c/frame_0001.jpg;Site C overview;;a87c4623-7678-4b29-8522-6ab33b93cf3c;;review_pending;;4;
+new;dive-c/frame_0002.jpg;;;a87c4623-7678-4b29-8522-6ab33b93cf3c;;;;;

@@ -9,12 +9,13 @@ from src import config
 from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata
 from src.constants import (
-    ANNOTATION_STATUS_INT,
+    ANNOTATION_APPROVED,
+    ANNOTATION_REVIEW_FAILED,
+    ANNOTATION_REVIEW_PENDING,
     CANDIDATE_STATUS_INT,
     INT_ANNOTATION_STATUS,
     INT_CANDIDATE_STATUS,
     INT_IMAGE_STATUS,
-    AnnotationStatus,
     CandidateStatus,
     Role,
 )
@@ -31,15 +32,15 @@ from src.schema.candidate_pairs import CandidatePair
 from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
+from src.services.experience import grant_exp
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
+from src.services.random_pool import sample_pool
 from src.util import now_ms
 
 router = APIRouter()
 
-STATUS_REVIEW_PENDING = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_PENDING]
-STATUS_REVIEW_FAILED = ANNOTATION_STATUS_INT[AnnotationStatus.REVIEW_FAILED]
-STATUS_APPROVED = ANNOTATION_STATUS_INT[AnnotationStatus.APPROVED]
 CANDIDATE_OPEN = CANDIDATE_STATUS_INT[CandidateStatus.OPEN]
+COUNTED_ANNOTATION_STATUSES = {ANNOTATION_REVIEW_PENDING, ANNOTATION_APPROVED}
 
 
 def _to_response(annotation: CandidateAnnotation, db: Session) -> CandidateAnnotationResponse:
@@ -92,8 +93,47 @@ def _build_annotation(payload: CandidateAnnotationCreateRequest, user: User, can
         candidate_id=candidate.id,
         no_overlap=bool(payload.no_overlap),
         expert_level=user.expert_level,
-        status_id=STATUS_REVIEW_PENDING,
+        status_id=ANNOTATION_REVIEW_PENDING,
     )
+
+
+def _vote_weight(annotation: CandidateAnnotation) -> int:
+    if annotation.expert_level >= config.CANDIDATE_CONSENSUS_EXPERT_LEVEL:
+        return config.CANDIDATE_CONSENSUS_EXPERT_WEIGHT
+    return 1
+
+
+def _recompute_candidate_consensus(candidate: CandidatePair, actor: User, db: Session) -> None:
+    if candidate.status_id != CANDIDATE_OPEN:
+        return
+
+    annotations = db.execute(
+        select(CandidateAnnotation).where(CandidateAnnotation.candidate_id == candidate.id)
+    ).scalars().all()
+    counted = [annotation for annotation in annotations if annotation.status_id in COUNTED_ANNOTATION_STATUSES]
+    if not counted:
+        return
+
+    overlap_weight = sum(_vote_weight(annotation) for annotation in counted if not annotation.no_overlap)
+    no_overlap_weight = sum(_vote_weight(annotation) for annotation in counted if annotation.no_overlap)
+    total_weight = overlap_weight + no_overlap_weight
+    if total_weight < config.CANDIDATE_CONSENSUS_MIN_WEIGHT:
+        return
+
+    overlap_share = overlap_weight / total_weight
+    no_overlap_share = no_overlap_weight / total_weight
+    reviewed_at = now_ms()
+
+    if overlap_share >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
+        candidate.status_id = CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]
+        candidate.reviewed_by = actor.id
+        candidate.reviewed_at = reviewed_at
+        return
+
+    if no_overlap_share >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
+        candidate.status_id = CANDIDATE_STATUS_INT[CandidateStatus.NO_OVERLAP]
+        candidate.reviewed_by = actor.id
+        candidate.reviewed_at = reviewed_at
 
 
 @router.post(
@@ -119,6 +159,8 @@ def create_annotation(
     annotation = _build_annotation(payload, user, candidate)
     db.add(annotation)
     try:
+        db.flush()
+        _recompute_candidate_consensus(candidate, user, db)
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -154,11 +196,13 @@ def batch_create_annotations(
 
     try:
         db.flush()
+        for annotation in annotations:
+            candidate = db.get(CandidatePair, annotation.candidate_id)
+            _recompute_candidate_consensus(candidate, user, db)
+        db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Annotation already exists")
-
-    db.commit()
     return {"created": len(annotations)}
 
 
@@ -189,12 +233,14 @@ def correct_annotation(
 
     if annotation.created_by != user.id:
         raise HTTPException(status_code=403, detail="Not the annotation creator")
-    if annotation.status_id != STATUS_REVIEW_PENDING:
+    if annotation.status_id != ANNOTATION_REVIEW_PENDING:
         raise HTTPException(status_code=409, detail="Annotation is not pending review")
     if now_ms() - annotation.created_at >= config.SELF_CORRECTION_TIME_LIMIT_MS:
         raise HTTPException(status_code=403, detail="Correction window expired")
 
     annotation.no_overlap = bool(payload.no_overlap)
+    candidate = db.get(CandidatePair, annotation.candidate_id)
+    _recompute_candidate_consensus(candidate, user, db)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)
@@ -206,7 +252,7 @@ def _load_pending_for_review(db: Session, annotation_uuid: UUID) -> CandidateAnn
     ).scalar_one_or_none()
     if annotation is None:
         raise HTTPException(status_code=404, detail="Annotation not found")
-    if annotation.status_id != STATUS_REVIEW_PENDING:
+    if annotation.status_id != ANNOTATION_REVIEW_PENDING:
         raise HTTPException(status_code=409, detail="Annotation is not pending review")
     return annotation
 
@@ -224,6 +270,12 @@ def _apply_review(annotation: CandidateAnnotation, caller: User, status_id: int,
     annotation.status_id = status_id
     annotation.reviewed_by = caller.id
     annotation.reviewed_at = now_ms()
+    grant_exp(db, db.get(User, caller.id), config.CANDIDATE_ANNOTATION_REVIEW_EXP)
+    if status_id == ANNOTATION_APPROVED:
+        creator = db.get(User, annotation.created_by)
+        grant_exp(db, creator, config.CANDIDATE_ANNOTATION_REVIEW_EXP)
+    candidate = db.get(CandidatePair, annotation.candidate_id)
+    _recompute_candidate_consensus(candidate, caller, db)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)
@@ -234,9 +286,9 @@ def _apply_review(annotation: CandidateAnnotation, caller: User, status_id: int,
     response_model=list[CandidateAnnotationResponse],
     summary="Get Next Candidate Pair Annotations to Review",
     description="""
-Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -246,9 +298,9 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
     response_model=list[CandidateAnnotationResponse],
     summary="Get Next Candidate Pair Annotations to Review",
     description="""
-Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n candidate pair annotations from the given dive that are pending review and were not created by the caller. Requires the annotator role (or any higher role).
 
-The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. n defaults to 1 and must be at least 1; there is no upper bound.
+The caller must either hold the scientist or admin role, or have an expert_level that meets the configured minimum and is strictly greater than an annotation's expert_level for that annotation to be eligible; callers who satisfy neither condition always get an empty list. Unlike point annotation pairs, candidate pairs have no priority to sort by. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible annotations, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -272,7 +324,7 @@ def get_next_review_candidates(
     Image2 = aliased(Image)
 
     conditions = [
-        CandidateAnnotation.status_id == STATUS_REVIEW_PENDING,
+        CandidateAnnotation.status_id == ANNOTATION_REVIEW_PENDING,
         CandidateAnnotation.created_by != user.id,
         Image1.dive_id == dive.id,
         Image2.dive_id == dive.id,
@@ -287,9 +339,8 @@ def get_next_review_candidates(
         .join(Image2, CandidatePair.image2_id == Image2.id)
         .where(*conditions)
         .order_by(CandidateAnnotation.created_at.asc())
-        .limit(n)
     )
-    annotations = db.execute(stmt).scalars().all()
+    annotations = sample_pool(db, stmt, n)
     return [_to_response(annotation, db) for annotation in annotations]
 
 
@@ -309,7 +360,7 @@ def review_fail(annotation_uuid: UUID, request: Request, db: Session = Depends(g
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
-    return _apply_review(annotation, caller, STATUS_REVIEW_FAILED, db)
+    return _apply_review(annotation, caller, ANNOTATION_REVIEW_FAILED, db)
 
 
 @router.post(
@@ -328,7 +379,7 @@ def review_approve(annotation_uuid: UUID, request: Request, db: Session = Depend
     caller = require_current_user(request)
     annotation = _load_pending_for_review(db, annotation_uuid)
     _authorize_review(caller, annotation)
-    return _apply_review(annotation, caller, STATUS_APPROVED, db)
+    return _apply_review(annotation, caller, ANNOTATION_APPROVED, db)
 
 
 def _to_next_image_response(image: Image, db: Session) -> NextPairImageResponse:
@@ -362,9 +413,9 @@ def _to_next_candidate_response(candidate: CandidatePair, db: Session) -> NextCa
     response_model=list[NextCandidateResponse],
     summary="Get Next Candidate Pairs",
     description="""
-Return up to n open candidate pairs from the given dive that the caller has not yet annotated, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n open candidate pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. n defaults to 1 and must be at least 1; there is no upper bound.
+Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible candidates, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -374,9 +425,9 @@ Fails with 404 if the dive does not exist, or 422 if n is less than 1.
     response_model=list[NextCandidateResponse],
     summary="Get Next Candidate Pairs",
     description="""
-Return up to n open candidate pairs from the given dive that the caller has not yet annotated, ordered by creation time ascending. Requires the annotator role (or any higher role).
+Return up to n open candidate pairs from the given dive that the caller has not yet annotated. Requires the annotator role (or any higher role).
 
-Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. n defaults to 1 and must be at least 1; there is no upper bound.
+Unlike point annotation pairs, candidate pairs have no difficulty or priority gating. Up to n items are randomly selected from a pool of up to max(n, NEXT_ITEM_POOL_SIZE) eligible candidates, prioritized by creation time ascending; the returned order is random. n defaults to 1 and must be at least 1; there is no upper bound.
 
 Fails with 404 if the dive does not exist, or 422 if n is less than 1.
 """,
@@ -407,7 +458,6 @@ def get_next_candidates(dive_uuid: UUID, request: Request, n: int = 1, db: Sessi
             CandidatePair.id.notin_(annotated_candidate_ids),
         )
         .order_by(CandidatePair.created_at.asc())
-        .limit(n)
     )
-    candidates = db.execute(stmt).scalars().all()
+    candidates = sample_pool(db, stmt, n)
     return [_to_next_candidate_response(candidate, db) for candidate in candidates]

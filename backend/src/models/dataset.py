@@ -80,6 +80,110 @@ class RegionListResponse(BaseModel):
     regions: list[RegionResponse] = Field(description="All regions in the system.")
 
 
+class FunFactResponse(BaseModel):
+    """A fun fact that can be shown to users."""
+
+    uuid: UUID = Field(description="Unique identifier of the fun fact.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the fun fact was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who created the fun fact."
+    )
+    title: str = Field(description="Display name of the fun fact. Must be unique.")
+    fact: Any = Field(description="Arbitrary caller-supplied JSON object describing the fact.")
+    min_level: int = Field(
+        description="Minimum expert_level a user must have to be shown this fact."
+    )
+    region: UUID | None = Field(
+        description="Unique identifier of the region this fact is scoped to, or null if it applies to all regions."
+    )
+
+
+class FunFactListResponse(BaseModel):
+    fun_facts: list[FunFactResponse] = Field(description="Fun facts, for the requested page.")
+    total: int = Field(description="Total number of fun facts, across all pages.")
+
+
+class FunFactCreateRequest(BaseModel):
+    """Request used to create a new fun fact."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "title": "Octopuses have three hearts",
+                "fact": {"text": "Octopuses have three hearts and blue blood."},
+                "min_level": 0,
+                "region": None,
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier to assign to the new fun fact.")
+
+    title: str = Field(
+        min_length=1,
+        max_length=127,
+        description="Display name of the fun fact. Must be unique.",
+    )
+
+    fact: Any = Field(description="Arbitrary JSON object describing the fact.")
+
+    min_level: int = Field(
+        default=0,
+        description="Minimum expert_level a user must have to be shown this fact.",
+    )
+
+    region: UUID | None = Field(
+        default=None,
+        description="Unique identifier of the region to scope this fact to. Omit or send null to apply to all regions.",
+    )
+
+
+class FunFactUpdateRequest(BaseModel):
+    """Request used to partially update an existing fun fact.
+
+    Only the fields explicitly supplied are changed; omitted fields are left
+    untouched. Sending an explicit null for title, fact, or min_level is also
+    a no-op, since none of these columns are nullable. Sending an explicit
+    null for region clears it (the fact then applies to all regions).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uuid": "8f8b65dc-fbf2-4dfb-bff2-f34072bb97e2",
+                "min_level": 2,
+            }
+        }
+    )
+
+    uuid: UUID = Field(description="Unique identifier of the fun fact to update.")
+
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=127,
+        description="New display name. Must be unique. Omit to leave unchanged.",
+    )
+
+    fact: Any | None = Field(
+        default=None,
+        description="New fact payload. Omit to leave unchanged.",
+    )
+
+    min_level: int | None = Field(
+        default=None,
+        description="New minimum expert_level. Omit to leave unchanged.",
+    )
+
+    region: UUID | None = Field(
+        default=None,
+        description="New region to scope this fact to. Send null to clear it, or omit to leave unchanged.",
+    )
+
+
 class CameraResponse(BaseModel):
     """A camera that a dive can be recorded with."""
 
@@ -370,6 +474,11 @@ class ImageResponse(BaseModel):
     )
 
 
+class ImageListResponse(BaseModel):
+    images: list[ImageResponse] = Field(description="Images belonging to the given dive, for the requested page.")
+    total: int = Field(description="Total number of images belonging to the dive, across all pages.")
+
+
 class ImagePairRef(BaseModel):
     """A pair of images, referenced by their uuids."""
 
@@ -396,9 +505,18 @@ class CandidatePairResponse(BaseModel):
     image_b: UUID = Field(
         description="Unique identifier of the other image in the pair. Order of image_a and image_b does not matter."
     )
+    image_a_filename: str = Field(description="Display filename of image_a.")
+    image_b_filename: str = Field(description="Display filename of image_b.")
     status: str | None = Field(
         description='Lifecycle status of the candidate pair (hidden, open, no_overlap, has_overlap, or deleted). Always "hidden" on creation.'
     )
+
+
+class CandidatePairListResponse(BaseModel):
+    candidates: list[CandidatePairResponse] = Field(
+        description="Candidate pairs whose images both belong to the given dive, for the requested page."
+    )
+    total: int = Field(description="Total number of matching candidate pairs, across all pages.")
 
 
 class ImagePairResponse(BaseModel):
@@ -416,6 +534,8 @@ class ImagePairResponse(BaseModel):
     image_b: UUID = Field(
         description="Unique identifier of the other image in the pair. Order of image_a and image_b does not matter."
     )
+    image_a_filename: str = Field(description="Display filename of image_a.")
+    image_b_filename: str = Field(description="Display filename of image_b.")
     difficulty: int | None = Field(
         description="Minimum expert_level a user must have to be offered this pair for annotation. Null means no gating."
     )
@@ -424,4 +544,31 @@ class ImagePairResponse(BaseModel):
     )
     status: str | None = Field(
         description='Lifecycle status of the image pair (hidden, open, review_pending, finalized, or deleted). Always "hidden" on creation.'
+    )
+
+
+class ImagePairListResponse(BaseModel):
+    pairs: list[ImagePairResponse] = Field(
+        description="Image pairs whose images both belong to the given dive, for the requested page."
+    )
+    total: int = Field(description="Total number of matching image pairs, across all pages.")
+
+
+class DatasetImportCounts(BaseModel):
+    """Number of rows created per entity type by a zip import."""
+
+    labels: int = Field(description="Number of labels created.")
+    cameras: int = Field(description="Number of cameras created.")
+    regions: int = Field(description="Number of regions created.")
+    dives: int = Field(description="Number of dives created.")
+    images: int = Field(description="Number of images created.")
+    candidate_pairs: int = Field(description="Number of candidate pairs created.")
+    image_pairs: int = Field(description="Number of image pairs created.")
+
+
+class DatasetImportResponse(BaseModel):
+    """Result of a successful zip import."""
+
+    created: DatasetImportCounts = Field(
+        description="Per-entity created counts. Newly minted uuids (from rows using uuid \"new\") are not echoed back - reference them by title in later rows of the same import instead."
     )

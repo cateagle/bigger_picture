@@ -1,4 +1,5 @@
 import type { Region, User } from '../api/types'
+import { LevelBadge } from './LevelBadge'
 import './HomeScreen.css'
 
 export type GameId = 'overlap' | 'annotate' | 'verify'
@@ -46,6 +47,7 @@ export default function HomeScreen({
   onChangeRegion,
   onOpenAdmin,
   onOpenTeam,
+  onOpenStats,
   onLogout,
 }: {
   onPlay: (id: GameId) => void
@@ -54,6 +56,7 @@ export default function HomeScreen({
   onChangeRegion: () => void
   onOpenAdmin: () => void
   onOpenTeam: () => void
+  onOpenStats: () => void
   onLogout: () => void
 }) {
   return (
@@ -62,6 +65,7 @@ export default function HomeScreen({
         <span>
           Signed in as <strong>{user.username}</strong> · Region: <strong>{region.title}</strong>
         </span>
+        <LevelBadge exp={user.exp} />
         <button type="button" className="back-link" onClick={onChangeRegion}>
           Change region
         </button>
@@ -70,6 +74,9 @@ export default function HomeScreen({
             Admin
           </button>
         )}
+        <button type="button" className="back-link" onClick={onOpenStats}>
+          My Stats
+        </button>
         <button type="button" className="back-link" onClick={onOpenTeam}>
           Team
         </button>

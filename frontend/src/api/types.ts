@@ -7,6 +7,7 @@ export interface User {
   username: string
   role: Role
   expert_level: number
+  exp: number
   created_at: number
 }
 
@@ -24,6 +25,15 @@ export interface Label {
   scope: string
   title: string
   description: string | null
+}
+
+/** Mirrors `FunFactResponse` from `backend/src/models/dataset.py`. */
+export interface FunFact {
+  uuid: string
+  title: string
+  fact: unknown
+  min_level: number
+  region: string | null
 }
 
 /** Mirrors `DatasetSummaryResponse` from `backend/src/models/dataset.py`. */
@@ -53,6 +63,45 @@ export interface Dive {
   title: string
   description: string | null
   region: string
+}
+
+/** Mirrors `ImageResponse` from `backend/src/models/dataset.py`, as returned by `GET /api/v1/dataset/images`. */
+export interface DatasetImage {
+  uuid: string
+  filename: string
+  filepath: string
+  status: string | null
+  size_x: number
+  size_y: number
+}
+
+/** Mirrors `CandidatePairResponse` from `backend/src/models/dataset.py`, as returned by `GET /api/v1/dataset/candidates`. */
+export interface CandidatePairSummary {
+  image_a: string
+  image_b: string
+  image_a_filename: string
+  image_b_filename: string
+  status: string | null
+}
+
+/** Mirrors `ImagePairResponse` from `backend/src/models/dataset.py`, as returned by `GET /api/v1/dataset/pairs`. */
+export interface ImagePairSummary {
+  image_a: string
+  image_b: string
+  image_a_filename: string
+  image_b_filename: string
+  difficulty: number | null
+  priority: number | null
+  status: string | null
+}
+
+/** Mirrors `PointAnnotationResponse` from `backend/src/models/annotate.py`, as returned by `GET /api/v1/dataset/annotations`. */
+export interface AnnotationSummary {
+  uuid: string
+  image_a: string
+  image_b: string
+  expert_level: number
+  status: string
 }
 
 export interface ImagePair {

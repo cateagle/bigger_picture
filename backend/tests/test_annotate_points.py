@@ -457,6 +457,41 @@ def test_review_missing_is_404(client, dataset, annotator, login_as):
     assert resp.status_code == 404, resp.text
 
 
+# ------------------------- review exp -------------------------
+
+
+def _get_exp(client, user_uuid: bytes) -> int:
+    engine = client.app.state.engine
+    with engine.begin() as conn:
+        return conn.execute(text("SELECT exp FROM users WHERE uuid = :u"), {"u": user_uuid}).scalar_one()
+
+
+def test_review_approve_grants_exp_to_reviewer_and_creator(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator: annotator
+    senior = seed_user(username="senior-exp", role="annotator", expert_level=3)
+    login_as(senior)
+    senior_before = _get_exp(client, senior.uuid)
+    creator_before = _get_exp(client, annotator.uuid)
+    resp = client.post(f"/api/v1/annotate/points/review/{u}/approve")
+    assert resp.status_code == 200, resp.text
+    assert _get_exp(client, senior.uuid) == senior_before + config.POINT_ANNOTATION_REVIEW_EXP
+    assert _get_exp(client, annotator.uuid) == creator_before + config.POINT_ANNOTATION_REVIEW_EXP
+
+
+def test_review_fail_grants_exp_to_reviewer_only(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u = _create_annotation(client, imgs)  # creator: annotator
+    senior = seed_user(username="senior-exp2", role="annotator", expert_level=3)
+    login_as(senior)
+    senior_before = _get_exp(client, senior.uuid)
+    creator_before = _get_exp(client, annotator.uuid)
+    resp = client.post(f"/api/v1/annotate/points/review/{u}/fail")
+    assert resp.status_code == 200, resp.text
+    assert _get_exp(client, senior.uuid) == senior_before + config.POINT_ANNOTATION_REVIEW_EXP
+    assert _get_exp(client, annotator.uuid) == creator_before
+
+
 # ------------------------- next -------------------------
 
 
@@ -494,7 +529,7 @@ def test_next_default_n_returns_one(client, dataset, annotator):
     assert pair["status"] == "open"
 
 
-def test_next_n_two_orders_by_priority_then_age(client, dataset, annotator):
+def test_next_n_two_returns_both_regardless_of_priority(client, dataset, annotator):
     imgs = dataset["images"]
     _set_pair_fields(client, imgs[0], imgs[1], priority=None, created_at=200)
     _set_pair_fields(client, imgs[1], imgs[2], priority=5, created_at=100)
@@ -503,9 +538,36 @@ def test_next_n_two_orders_by_priority_then_age(client, dataset, annotator):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert len(body) == 2
-    # priority=5 pair (imgs[1]/imgs[2]) sorts first since non-null priority beats null.
+    returned = {frozenset({pair["image1"]["uuid"], pair["image2"]["uuid"]}) for pair in body}
+    assert returned == {frozenset({imgs[0], imgs[1]}), frozenset({imgs[1], imgs[2]})}
+
+
+def test_next_pool_size_limits_by_priority_then_age(client, dataset, annotator, monkeypatch):
+    imgs = dataset["images"]
+    _set_pair_fields(client, imgs[0], imgs[1], priority=None, created_at=200)
+    _set_pair_fields(client, imgs[1], imgs[2], priority=5, created_at=100)
+    monkeypatch.setattr(config, "NEXT_ITEM_POOL_SIZE", 1)
+
+    resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/1")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 1
+    # With pool_size=1, only the top-ordered pair (priority=5) can ever be sampled.
     assert {body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]} == {imgs[1], imgs[2]}
-    assert {body[1]["image1"]["uuid"], body[1]["image2"]["uuid"]} == {imgs[0], imgs[1]}
+
+
+def test_next_n_returns_random_order_across_requests(client, dataset, annotator):
+    imgs = dataset["images"]
+    _set_pair_fields(client, imgs[0], imgs[1], priority=None, created_at=200)
+    _set_pair_fields(client, imgs[1], imgs[2], priority=5, created_at=100)
+
+    first_seen = set()
+    for _ in range(30):
+        resp = client.get(f"/api/v1/annotate/points/next/{dataset['dive']}/2")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        first_seen.add(frozenset({body[0]["image1"]["uuid"], body[0]["image2"]["uuid"]}))
+    assert first_seen == {frozenset({imgs[0], imgs[1]}), frozenset({imgs[1], imgs[2]})}
 
 
 def test_next_excludes_pair_annotated_by_caller(client, dataset, annotator):
@@ -610,7 +672,7 @@ def test_review_next_default_n_returns_one(client, dataset, annotator, seed_user
     assert body[0]["status"] == "review_pending"
 
 
-def test_review_next_n_two_orders_by_priority_then_age(client, dataset, annotator, seed_user, login_as):
+def test_review_next_n_two_returns_both_regardless_of_priority(client, dataset, annotator, seed_user, login_as):
     imgs = dataset["images"]
     u1 = _create_annotation(client, imgs)
     u2 = _create_annotation(client, [imgs[1], imgs[2]])
@@ -623,8 +685,43 @@ def test_review_next_n_two_orders_by_priority_then_age(client, dataset, annotato
     resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}/2")
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    # priority=5 pair (u2) sorts first since non-null priority beats null.
-    assert [a["uuid"] for a in body] == [u2, u1]
+    assert {a["uuid"] for a in body} == {u1, u2}
+
+
+def test_review_next_pool_size_limits_by_priority_then_age(client, dataset, annotator, seed_user, login_as, monkeypatch):
+    imgs = dataset["images"]
+    u1 = _create_annotation(client, imgs)
+    u2 = _create_annotation(client, [imgs[1], imgs[2]])
+    _set_pair_fields(client, imgs[0], imgs[1], created_at=200)
+    _set_pair_fields(client, imgs[1], imgs[2], priority=5, created_at=100)
+    monkeypatch.setattr(config, "NEXT_ITEM_POOL_SIZE", 1)
+
+    senior = seed_user(username="senior-rn3", role="annotator", expert_level=3)
+    login_as(senior)
+
+    resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}/1")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # With pool_size=1, only the top-ordered annotation (priority=5 pair, u2) can ever be sampled.
+    assert [a["uuid"] for a in body] == [u2]
+
+
+def test_review_next_n_returns_random_order_across_requests(client, dataset, annotator, seed_user, login_as):
+    imgs = dataset["images"]
+    u1 = _create_annotation(client, imgs)
+    u2 = _create_annotation(client, [imgs[1], imgs[2]])
+    _set_pair_fields(client, imgs[0], imgs[1], created_at=200)
+    _set_pair_fields(client, imgs[1], imgs[2], priority=5, created_at=100)
+
+    senior = seed_user(username="senior-rn4", role="annotator", expert_level=3)
+    login_as(senior)
+
+    first_seen = set()
+    for _ in range(30):
+        resp = client.get(f"/api/v1/annotate/points/review/next/{dataset['dive']}/2")
+        assert resp.status_code == 200, resp.text
+        first_seen.add(resp.json()[0]["uuid"])
+    assert first_seen == {u1, u2}
 
 
 def test_review_next_excludes_annotation_created_by_caller(client, dataset, annotator):

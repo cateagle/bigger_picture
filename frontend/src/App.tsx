@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import AdminScreen from './components/AdminScreen'
 import AnnotateGame from './components/AnnotateGame'
 import OverlapGame from './components/OverlapGame'
@@ -6,6 +6,7 @@ import VerifyGame from './components/VerifyGame'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
+import MyStatsScreen from './components/MyStatsScreen'
 import RegionSelectScreen from './components/RegionSelectScreen'
 import TeamScreen from './components/TeamScreen'
 import type { GameId } from './components/HomeScreen'
@@ -13,7 +14,7 @@ import { logout, me } from './api/authApi'
 import type { Region, User } from './api/types'
 
 function App() {
-  const [screen, setScreen] = useState<GameId | 'home' | 'admin' | 'team'>('home')
+  const [screen, setScreen] = useState<GameId | 'home' | 'admin' | 'team' | 'stats'>('home')
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null)
 
@@ -21,6 +22,13 @@ function App() {
     me()
       .then(setUser)
       .catch(() => setUser(null))
+  }, [])
+
+  /** Re-fetches the logged-in user so exp/level stay current after game actions. */
+  const refreshUser = useCallback(() => {
+    me()
+      .then(setUser)
+      .catch(() => {})
   }, [])
 
   const handleLogout = () => {
@@ -40,6 +48,8 @@ function App() {
     content = <AdminScreen user={user} onBack={() => setScreen('home')} />
   } else if (screen === 'team') {
     content = <TeamScreen onBack={() => setScreen('home')} />
+  } else if (screen === 'stats') {
+    content = <MyStatsScreen user={user} onBack={() => setScreen('home')} />
   } else if (selectedRegion === null) {
     content = (
       <RegionSelectScreen
@@ -47,15 +57,22 @@ function App() {
         onSelect={setSelectedRegion}
         onOpenAdmin={() => setScreen('admin')}
         onOpenTeam={() => setScreen('team')}
+        onOpenStats={() => setScreen('stats')}
         onLogout={handleLogout}
       />
     )
   } else if (screen === 'overlap') {
-    content = <OverlapGame region={selectedRegion} onBack={() => setScreen('home')} />
+    content = (
+      <OverlapGame region={selectedRegion} user={user} onUserRefresh={refreshUser} onBack={() => setScreen('home')} />
+    )
   } else if (screen === 'annotate') {
-    content = <AnnotateGame region={selectedRegion} onBack={() => setScreen('home')} />
+    content = (
+      <AnnotateGame region={selectedRegion} user={user} onUserRefresh={refreshUser} onBack={() => setScreen('home')} />
+    )
   } else if (screen === 'verify') {
-    content = <VerifyGame region={selectedRegion} onBack={() => setScreen('home')} />
+    content = (
+      <VerifyGame region={selectedRegion} user={user} onUserRefresh={refreshUser} onBack={() => setScreen('home')} />
+    )
   } else {
     content = (
       <HomeScreen
@@ -65,6 +82,7 @@ function App() {
         onChangeRegion={() => setSelectedRegion(null)}
         onOpenAdmin={() => setScreen('admin')}
         onOpenTeam={() => setScreen('team')}
+        onOpenStats={() => setScreen('stats')}
         onLogout={handleLogout}
       />
     )
