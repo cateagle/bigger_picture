@@ -25,6 +25,10 @@
   margin: 0;
 }
 
+.dataset-admin-toolbar-global {
+  margin-bottom: 8px;
+}
+
 .dataset-admin-section h3 {
   margin: 0 0 8px;
 }

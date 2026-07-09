@@ -85,3 +85,62 @@ export function downloadAnnotationsCsv(diveUuid: string): Promise<void> {
     `point_annotations_${diveUuid}.csv`,
   )
 }
+
+/**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/full. Exports every content
+ * table as CSV (internal ids dropped, foreign keys resolved to uuids) plus images/ and
+ * helper_images/ folders, packaged as a zip.
+ */
+export function downloadFullDatasetZip(): Promise<void> {
+  return downloadFile('/api/v1/dataset/export/full', 'dataset_export_full.zip')
+}
+
+/**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/points-flat?dive={uuid}.
+ * Exports the point-annotation flat view (one row per annotation, joined to pair/image/dive/label
+ * context) as CSV, optionally filtered to one dive.
+ */
+export function downloadPointAnnotationsFlatCsv(diveUuid?: string): Promise<void> {
+  const qs = diveUuid ? `?dive=${diveUuid}` : ''
+  return downloadFile(
+    `/api/v1/dataset/export/points-flat${qs}`,
+    `point_annotations_flat${diveUuid ? `_${diveUuid}` : ''}.csv`,
+  )
+}
+
+/**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/candidates-flat?dive={uuid}.
+ * Exports the candidate-annotation flat view as CSV, optionally filtered to one dive.
+ */
+export function downloadCandidateAnnotationsFlatCsv(diveUuid?: string): Promise<void> {
+  const qs = diveUuid ? `?dive=${diveUuid}` : ''
+  return downloadFile(
+    `/api/v1/dataset/export/candidates-flat${qs}`,
+    `candidate_annotations_flat${diveUuid ? `_${diveUuid}` : ''}.csv`,
+  )
+}
+
+/**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/fun-facts. Exports fun_facts as
+ * CSV only (no images).
+ */
+export function downloadFunFactsCsv(): Promise<void> {
+  return downloadFile('/api/v1/dataset/export/fun-facts', 'fun_facts.csv')
+}
+
+/**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/fun-facts-zip. Exports
+ * fun_facts as CSV plus a helper_images/ folder with only the images referenced by an exported
+ * fun fact.
+ */
+export function downloadFunFactsZip(): Promise<void> {
+  return downloadFile('/api/v1/dataset/export/fun-facts-zip', 'fun_facts.zip')
+}
+
+/**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/dive?dive={uuid}. Exports
+ * points.csv + candidates.csv + all of the dive's images as a zip.
+ */
+export function downloadDiveZip(diveUuid: string): Promise<void> {
+  return downloadFile(`/api/v1/dataset/export/dive?dive=${diveUuid}`, `dive_export_${diveUuid}.zip`)
+}
