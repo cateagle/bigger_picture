@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.api.v1.admin.backups import router as backups_router
 from src.api.v1.admin.users import router as users_router
 from src.db import get_db
 from src.models.admin import UserListResponse, UserSummary
@@ -12,6 +13,7 @@ from src.schema.users import User
 router = APIRouter()
 
 router.include_router(users_router, prefix="/users")
+router.include_router(backups_router, prefix="/backups")
 
 
 @router.get(
