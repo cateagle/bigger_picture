@@ -8,11 +8,10 @@ export function listUsers(): Promise<UserSummary[]> {
 
 /**
  * Admin only - real endpoint: POST /api/v1/admin/users/create.
- * `password` is required when role is scientist/admin, and must be omitted
- * when role is annotator (annotator accounts never have a password).
+ * `password` is required for every new user, regardless of role.
  */
 export function createUser(
-  input: { username: string; role: Role; expert_level: number; password?: string },
+  input: { username: string; role: Role; expert_level: number; password: string },
 ): Promise<UserSummary> {
   return apiFetch<UserSummary>('/api/v1/admin/users/create', {
     method: 'POST',

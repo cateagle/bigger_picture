@@ -39,7 +39,7 @@ export default function AccountBar({
       <LevelBadge exp={user.exp} />
       <DailyQuestsMenuLink onClick={onOpenQuests} />
       <BurgerMenu
-        showAdmin={user.role !== 'annotator'}
+        adminLabel={user.role === 'annotator' ? 'Password' : 'Admin'}
         onOpenAdmin={onOpenAdmin}
         onOpenStats={onOpenStats}
         onOpenLeaderboard={onOpenLeaderboard}
