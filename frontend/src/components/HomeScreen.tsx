@@ -4,6 +4,7 @@ import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextCandidatePair } from '../api/overlapApi'
 import type { Region, User } from '../api/types'
 import { fetchNextPendingVerification } from '../api/verifyApi'
+import DailyQuestsMenuLink from './DailyQuestsMenuLink'
 import { LevelBadge } from './LevelBadge'
 import './HomeScreen.css'
 import glass_eel_2 from '../../images/glass_eel_2.png'
@@ -131,9 +132,7 @@ export default function HomeScreen({
         <button type="button" className="back-link" onClick={onOpenStats}>
           My Stats
         </button>
-        <button type="button" className="back-link" onClick={onOpenQuests}>
-          Daily Quests
-        </button>
+        <DailyQuestsMenuLink onClick={onOpenQuests} />
         <button type="button" className="back-link" onClick={onOpenTeam}>
           Team
         </button>
