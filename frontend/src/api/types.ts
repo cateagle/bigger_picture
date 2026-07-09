@@ -27,6 +27,13 @@ export interface Label {
   description: string | null
 }
 
+/** Mirrors `HelperImageResponse` from `backend/src/models/dataset.py`. */
+export interface HelperImage {
+  uuid: string
+  filename: string
+  filepath: string
+}
+
 /** Mirrors `FunFactResponse` from `backend/src/models/dataset.py`. */
 export interface FunFact {
   uuid: string
@@ -34,8 +41,7 @@ export interface FunFact {
   fact: unknown
   min_level: number
   region: string | null
-  /** Relative asset filepath, once the backend's image-upload support lands. Not present today. */
-  image?: string | null
+  image: HelperImage | null
 }
 
 /** Mirrors `DatasetSummaryResponse` from `backend/src/models/dataset.py`. */

@@ -11,15 +11,15 @@ export function fetchFunFacts(): Promise<FunFact[]> {
 /**
  * Scientist/admin only - real endpoint: POST /api/v1/dataset/fun-facts/create.
  *
- * `image` is base64-encoded image data, mirroring `ImageCreateRequest.image` on the dataset
- * images endpoint. Optional - anticipates the backend's upcoming image-upload support, not
- * live yet.
+ * `image` is base64-encoded raw image bytes, deduplicated by content into a helper image on the
+ * backend; `image_filename` is required whenever `image` is set.
  */
 export function createFunFact(input: {
   title: string
   fact: unknown
   region?: string | null
   image?: string | null
+  image_filename?: string | null
 }): Promise<FunFact> {
   return apiFetch<FunFact>('/api/v1/dataset/fun-facts/create', {
     method: 'POST',
@@ -27,25 +27,25 @@ export function createFunFact(input: {
   })
 }
 
-/** Scientist/admin only - real endpoint: POST /api/v1/dataset/fun-facts/update. */
+/**
+ * Scientist/admin only - real endpoint: POST /api/v1/dataset/fun-facts/update.
+ *
+ * At most one of `image` (with `image_filename`) or `clear_image` may be set per call: upload new
+ * bytes and attach them, or detach the current image. Omit both to leave the image unchanged.
+ */
 export function updateFunFact(
   uuid: string,
-  input: { title?: string; fact?: unknown; region?: string | null },
+  input: {
+    title?: string
+    fact?: unknown
+    region?: string | null
+    image?: string | null
+    image_filename?: string | null
+    clear_image?: boolean
+  },
 ): Promise<FunFact> {
   return apiFetch<FunFact>('/api/v1/dataset/fun-facts/update', {
     method: 'POST',
     body: JSON.stringify({ uuid, ...input }),
-  })
-}
-
-/**
- * Scientist/admin only - anticipates a not-yet-implemented endpoint:
- * POST /api/v1/dataset/fun-facts/image. Replaces the image on an existing fact, independent of
- * its title/fact/region. `image` is base64-encoded image data.
- */
-export function updateFunFactImage(uuid: string, image: string): Promise<FunFact> {
-  return apiFetch<FunFact>('/api/v1/dataset/fun-facts/image', {
-    method: 'POST',
-    body: JSON.stringify({ uuid, image }),
   })
 }

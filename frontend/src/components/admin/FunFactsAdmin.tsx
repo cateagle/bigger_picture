@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { ApiError, assetUrl } from '../../api/client'
-import { createFunFact, fetchFunFacts, updateFunFact, updateFunFactImage } from '../../api/funFactApi'
+import { createFunFact, fetchFunFacts, updateFunFact } from '../../api/funFactApi'
 import { fetchRegions } from '../../api/regionApi'
 import type { FunFact, Region } from '../../api/types'
 import '../admin/AdminPanels.css'
@@ -30,6 +30,7 @@ export default function FunFactsAdmin() {
   const [factJson, setFactJson] = useState('')
   const [regionUuid, setRegionUuid] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [removeImage, setRemoveImage] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -61,6 +62,7 @@ export default function FunFactsAdmin() {
     setFactJson('')
     setRegionUuid('')
     setImageFile(null)
+    setRemoveImage(false)
     setFormError(null)
   }
 
@@ -70,11 +72,19 @@ export default function FunFactsAdmin() {
     setFactJson(JSON.stringify(fact.fact, null, 2))
     setRegionUuid(fact.region ?? '')
     setImageFile(null)
+    setRemoveImage(false)
     setFormError(null)
   }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setImageFile(e.target.files?.[0] ?? null)
+    const file = e.target.files?.[0] ?? null
+    setImageFile(file)
+    if (file) setRemoveImage(false)
+  }
+
+  const handleRemoveImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setRemoveImage(e.target.checked)
+    if (e.target.checked) setImageFile(null)
   }
 
   const handleSubmit = (e: FormEvent) => {
@@ -95,14 +105,19 @@ export default function FunFactsAdmin() {
     const region = regionUuid === '' ? null : regionUuid
 
     const run = async () => {
-      const image = imageFile ? await fileToBase64(imageFile) : null
+      const imagePayload = imageFile
+        ? { image: await fileToBase64(imageFile), image_filename: imageFile.name }
+        : {}
+
       if (editing) {
-        await updateFunFact(editing.uuid, { title, fact: factValue, region })
-        if (image) {
-          await updateFunFactImage(editing.uuid, image)
-        }
+        await updateFunFact(editing.uuid, {
+          title,
+          fact: factValue,
+          region,
+          ...(removeImage ? { clear_image: true } : imagePayload),
+        })
       } else {
-        await createFunFact({ title, fact: factValue, region, image })
+        await createFunFact({ title, fact: factValue, region, ...imagePayload })
       }
     }
 
@@ -126,6 +141,7 @@ export default function FunFactsAdmin() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>Image</th>
                 <th>Title</th>
                 <th>Fact</th>
                 <th>Region</th>
@@ -135,6 +151,15 @@ export default function FunFactsAdmin() {
             <tbody>
               {facts.map((fact) => (
                 <tr key={fact.uuid} className={editing?.uuid === fact.uuid ? 'admin-row-active' : ''}>
+                  <td>
+                    {fact.image && (
+                      <img
+                        src={assetUrl(fact.image.filepath)}
+                        alt={fact.image.filename}
+                        className="fun-facts-admin-thumb"
+                      />
+                    )}
+                  </td>
                   <td>{fact.title}</td>
                   <td>{JSON.stringify(fact.fact)}</td>
                   <td>{regionTitle(fact.region)}</td>
@@ -147,7 +172,7 @@ export default function FunFactsAdmin() {
               ))}
               {facts.length === 0 && (
                 <tr>
-                  <td colSpan={4}>No facts yet.</td>
+                  <td colSpan={5}>No facts yet.</td>
                 </tr>
               )}
             </tbody>
@@ -180,12 +205,30 @@ export default function FunFactsAdmin() {
           </select>
         </label>
 
+        {editing?.image && !removeImage && (
+          <img
+            src={assetUrl(editing.image.filepath)}
+            alt={editing.image.filename}
+            className="fun-facts-admin-thumb"
+          />
+        )}
+
         <label className="admin-form-field">
           {editing ? 'Replace image (optional)' : 'Image (optional)'}
-          <input type="file" accept="image/*" onChange={handleFileChange} />
+          <input
+            type="file"
+            key={editing?.uuid ?? 'new'}
+            accept="image/*"
+            onChange={handleFileChange}
+            disabled={removeImage}
+          />
         </label>
+
         {editing?.image && (
-          <img src={assetUrl(editing.image)} alt={editing.title} className="fun-facts-admin-thumb" />
+          <label className="admin-form-field-inline">
+            <input type="checkbox" checked={removeImage} onChange={handleRemoveImageChange} />
+            Remove current image
+          </label>
         )}
 
         {formError && <p className="game-status game-status-error">{formError}</p>}

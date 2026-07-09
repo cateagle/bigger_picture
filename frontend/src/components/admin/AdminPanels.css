@@ -49,6 +49,13 @@
   font-size: 0.85rem;
 }
 
+.admin-form-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
 .admin-form-field input,
 .admin-form-field select,
 .admin-form-field textarea {
