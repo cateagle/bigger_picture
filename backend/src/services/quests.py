@@ -40,62 +40,65 @@ class QuestTemplate:
 
 # The pool the daily set is drawn from. Keep `key` values stable — they're
 # stored on claim rows and referenced by the claim endpoint.
+#
+# TODO: targets/rewards below are temporarily lowered for easier manual testing.
+# Restore the larger, launch-scale numbers (see git history) before shipping.
 CATALOG: tuple[QuestTemplate, ...] = (
     QuestTemplate(
         key="pairs_confirmed_10",
         title="Overlap Scout",
-        description="Get 10 of your overlap votes confirmed today.",
+        description="Get 2 of your overlap votes confirmed today.",
         metric="pairs_confirmed",
-        target=10,
-        reward_exp=15,
+        target=2,
+        reward_exp=5,
     ),
     QuestTemplate(
         key="overlaps_confirmed_5",
         title="Match Maker",
-        description="Get 5 pairs you judged to overlap confirmed today.",
+        description="Get 2 pairs you judged to overlap confirmed today.",
         metric="overlaps_confirmed",
-        target=5,
-        reward_exp=15,
+        target=2,
+        reward_exp=5,
     ),
     QuestTemplate(
         key="points_confirmed_50",
         title="Point Master",
-        description="Get 50 of your annotated points confirmed today.",
+        description="Get 3 of your annotated points confirmed today.",
         metric="points_confirmed",
-        target=50,
-        reward_exp=25,
+        target=3,
+        reward_exp=8,
     ),
     QuestTemplate(
         key="points_confirmed_20",
         title="Steady Hand",
-        description="Get 20 of your annotated points confirmed today.",
+        description="Get 2 of your annotated points confirmed today.",
         metric="points_confirmed",
-        target=20,
-        reward_exp=12,
+        target=2,
+        reward_exp=5,
     ),
     QuestTemplate(
         key="pairs_annotated_confirmed_5",
         title="Cartographer",
-        description="Get 5 image pairs you annotated confirmed today.",
+        description="Get 2 image pairs you annotated confirmed today.",
         metric="pairs_annotated_confirmed",
-        target=5,
-        reward_exp=20,
+        target=2,
+        reward_exp=6,
     ),
     QuestTemplate(
         key="verifications_20",
         title="Quality Control",
-        description="Review 20 annotations today.",
+        description="Review 2 annotations today.",
         metric="verifications",
-        target=20,
-        reward_exp=20,
+        target=2,
+        reward_exp=6,
     ),
     QuestTemplate(
         key="verifications_10",
         title="Second Pair of Eyes",
-        description="Review 10 annotations today.",
+        description="Review 1 annotation today.",
         metric="verifications",
-        target=10,
-        reward_exp=10,
+        target=1,
+        reward_exp=3,
     ),
 )
 
