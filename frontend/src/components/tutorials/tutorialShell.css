@@ -1,0 +1,133 @@
+/* Shared backdrop/card shell and example-scene styling for tutorial overlays
+   (both the paged TutorialModal deck and bespoke walkthroughs like
+   AnnotateTutorial). Mirrors AnnotateHintsModal.css / FunFactModal.css.
+   Per-game accent is set from --accent-* via data-game on .tut-backdrop. */
+.tut-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+
+.tut-modal {
+  max-width: 560px;
+  width: 100%;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--pane-border);
+  border-top: 3px solid var(--tut-accent, var(--pane-border));
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tut-modal h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--text-h);
+}
+
+.tut-body {
+  margin: 0;
+}
+
+.tut-modal .btn-primary {
+  background: var(--tut-accent);
+  border-color: var(--tut-accent);
+}
+
+/* Example scene ---------------------------------------------------------- */
+.tut-scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--pane-border);
+}
+
+.tut-scene-svg,
+.tut-scene-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tut-point {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tut-point-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.tut-point-good .tut-point-dot {
+  background: #2f9e6f;
+}
+
+.tut-point-bad .tut-point-dot {
+  background: #d1435b;
+}
+
+.tut-point-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Placeholder scene variants, used to fake a second distinct example until
+   real photo pairs are available (see SceneVariant). */
+.tut-scene-svg-angled {
+  transform: scale(1.08) rotate(-2deg);
+  transform-origin: center;
+}
+
+.tut-scene-svg-different {
+  filter: hue-rotate(110deg) saturate(1.15);
+}
+
+.tut-feedback {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tut-feedback-ok {
+  color: #2f9e6f;
+}
+
+.tut-feedback-bad {
+  color: #d1435b;
+}
+
+.tut-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
