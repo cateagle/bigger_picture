@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createLabel, fetchLabels, updateLabel } from '../api/labelApi'
 import type { User } from '../api/types'
+import AdminImportAdmin from './admin/AdminImportAdmin'
 import DatasetAdmin from './admin/DatasetAdmin'
 import FunFactsAdmin from './admin/FunFactsAdmin'
 import PasswordSettings from './admin/PasswordSettings'
@@ -24,7 +25,7 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
   return updateLabel(uuid, input as { scope?: string; title?: string; description?: string | null })
 }
 
-type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import' | 'password'
+type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import' | 'adminImport' | 'password'
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
@@ -103,6 +104,15 @@ export default function AdminScreen({
             Bulk Import
           </button>
           {isAdmin && (
+            <button
+              type="button"
+              className={`btn${tab === 'adminImport' ? ' btn-primary' : ''}`}
+              onClick={() => setTab('adminImport')}
+            >
+              Admin Import
+            </button>
+          )}
+          {isAdmin && (
             <button type="button" className={`btn${tab === 'users' ? ' btn-primary' : ''}`} onClick={() => setTab('users')}>
               Users
             </button>
@@ -126,6 +136,7 @@ export default function AdminScreen({
       {tab === 'facts' && !isAnnotator && <FunFactsAdmin />}
       {tab === 'dataset' && !isAnnotator && <DatasetAdmin />}
       {tab === 'import' && !isAnnotator && <ZipUploadAdmin />}
+      {tab === 'adminImport' && isAdmin && <AdminImportAdmin />}
       {tab === 'users' && isAdmin && <UsersAdmin currentUserUuid={user.uuid} />}
       {tab === 'password' && <PasswordSettings />}
     </div>
