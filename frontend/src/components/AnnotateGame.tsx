@@ -6,6 +6,7 @@ import type { Correspondence, ImagePair, NormalizedPoint, Region } from '../api/
 import AnnotateHintsModal from './AnnotateHintsModal'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
+import { ZoomLens } from './ZoomLens'
 import './AnnotateGame.css'
 
 const MIN_CORRESPONDENCES = 4
@@ -31,6 +32,14 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
   const [correspondences, setCorrespondences] = useState<Correspondence[]>([])
   const [pending, setPending] = useState<{ side: 'A' | 'B'; point: NormalizedPoint } | null>(null)
   const [showHints, setShowHints] = useState(true)
+  const [zoomPoint, setZoomPoint] = useState<{
+    side: 'A' | 'B'
+    point: NormalizedPoint
+  } | null>(null)
+  const [cursorPosition, setCursorPosition] = useState<{
+    x: number
+    y: number
+  } | null>(null)
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
 
@@ -80,6 +89,30 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
     setPending({ side, point })
   }
 
+  const handleMouseMove =  (side: 'A' | 'B') =>  (e: ReactMouseEvent<HTMLImageElement>) => {
+    const point = pointFromClick(e)
+    const rect = e.currentTarget.getBoundingClientRect()
+
+    setZoomPoint({
+      side,
+      point })
+
+    // setCursorPosition({
+    //   x: e.clientX,
+    //   y: e.clientY })
+    setCursorPosition({
+      x: rect.left + point.x * rect.width,
+      y: rect.top + point.y * rect.height,
+})
+
+      
+  }
+
+  const handleMouseLeave = () => {
+    setZoomPoint(null)
+    setCursorPosition(null)
+  }
+
   const handleUndo = () => {
     if (pending) {
       setPending(null)
@@ -114,6 +147,19 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
 
   return (
     <div className="game-screen">
+      {zoomPoint && (
+        <ZoomLens
+          imageRef={
+            zoomPoint.side === 'A'
+              ? imageARef
+              : imageBRef
+          }
+          point={zoomPoint.point}
+          cursor={cursorPosition}
+          zoom={4}
+        />
+      )}
+
       {showHints && <AnnotateHintsModal onDismiss={() => setShowHints(false)} />}
       <header className="game-header">
         <button type="button" className="back-link" onClick={onBack}>
@@ -148,6 +194,8 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
                 src={pair.imageA}
                 alt="Image A"
                 onClick={handleClickImage('A')}
+                onMouseMove={handleMouseMove('A')}
+                onMouseLeave={handleMouseLeave}
                 className={`clickable${pending?.side === 'A' ? ' awaiting-match' : ''}`}
               />
               {correspondences.map((c, i) => (
@@ -168,6 +216,8 @@ export default function AnnotateGame({ region, onBack }: { region: Region; onBac
                 src={pair.imageB}
                 alt="Image B"
                 onClick={handleClickImage('B')}
+                onMouseMove={handleMouseMove('B')}
+                onMouseLeave={handleMouseLeave}
                 className={`clickable${pending?.side === 'B' ? ' awaiting-match' : ''}`}
               />
               {correspondences.map((c, i) => (
