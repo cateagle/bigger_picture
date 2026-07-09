@@ -90,7 +90,7 @@ export default function VerifyGame({
   }
 
   return (
-    <div className="game-screen">
+    <div className="game-screen" data-game="verify">
       <header className="game-header">
         <div className="game-header-top">
           <button type="button" className="back-link" onClick={onBack}>

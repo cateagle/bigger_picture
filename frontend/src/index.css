@@ -4,6 +4,11 @@
   --bg: #fff;
   --pane-border: #e1e0d9;
 
+  /* Per-league accents, shared between the game-select cards and each mini-game screen. */
+  --accent-overlap: #12798a; /* Glass eel: young, translucent, fresh from the open ocean. */
+  --accent-annotate: #9c6508; /* Yellow eel: years spent in golden, muddy river water. */
+  --accent-verify: #4c5872; /* Silver eel: steel-toned, ready for the deep-sea migration. */
+
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
 
@@ -158,6 +163,33 @@ h2 {
   gap: 16px;
 }
 
+/* Gentle per-league accent, echoing the game-select cards (see HomeScreen.css). */
+.game-screen[data-game='overlap'] {
+  --game-accent: var(--accent-overlap);
+}
+
+.game-screen[data-game='annotate'] {
+  --game-accent: var(--accent-annotate);
+}
+
+.game-screen[data-game='verify'] {
+  --game-accent: var(--accent-verify);
+}
+
+.game-screen[data-game] .game-header {
+  border-top: 3px solid var(--game-accent);
+  padding-top: 16px;
+}
+
+.game-screen[data-game] .btn-primary {
+  background: var(--game-accent);
+  border-color: var(--game-accent);
+}
+
+.game-screen[data-game] .image-pane {
+  border-color: color-mix(in srgb, var(--game-accent) 35%, var(--pane-border));
+}
+
 .game-header h1 {
   margin: 0 0 4px;
 }
@@ -169,6 +201,7 @@ h2 {
 .game-header .game-flavor {
   font-style: italic;
   margin-bottom: 8px;
+  color: var(--game-accent, var(--text));
 }
 
 .game-header .game-region {

@@ -97,7 +97,7 @@ export default function HomeScreen({
 
       <div className="game-card-row">
         {GAMES.map((game) => (
-          <article className={`game-card${game.active ? '' : ' game-card-locked'}`} key={game.id}>
+          <article className={`game-card${game.active ? '' : ' game-card-locked'}`} data-game={game.id} key={game.id}>
             <span className="game-card-league">{game.league}</span>
             <h2>{game.title}</h2>
             <p className="game-card-flavor">{game.flavor}</p>

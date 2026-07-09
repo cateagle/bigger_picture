@@ -140,7 +140,7 @@ export default function AnnotateGame({
   }
 
   return (
-    <div className="game-screen">
+    <div className="game-screen" data-game="annotate">
       {showHints && <AnnotateHintsModal onDismiss={() => setShowHints(false)} />}
       <header className="game-header">
         <div className="game-header-top">
