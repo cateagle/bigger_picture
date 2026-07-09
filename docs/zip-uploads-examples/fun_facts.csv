@@ -1,0 +1,4 @@
+uuid;title;fact;min_level;region_uuid;region_title;image_uuid
+new;Deep Sea Pressure;{"body": "At 1000m depth, pressure exceeds 100 atmospheres."};;;Reykjanes Ridge;bd5d95f9-040f-4c22-8d60-7e61d32f4aa2
+new;Bioluminescence;{"body": "Most deep-sea animals produce their own light."};2;;;af5fa30f-017f-4eca-bb91-59ae74c7e890
+0b638dab-e075-4d36-af6c-0d0d58c884f8;General Ocean Trivia;{"body": "The ocean covers over 70% of Earth's surface."};;;;

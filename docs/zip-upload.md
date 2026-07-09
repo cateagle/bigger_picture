@@ -1,29 +1,32 @@
 # Uploading a dataset as a zip file
 
 This page explains how to prepare a zip file so it can be uploaded in one step and turned into
-labels, regions, cameras, dives, images, and image pairs in the system.
+labels, regions, cameras, dives, images, image pairs, helper images, and fun facts in the system.
 
 Example files are in [`zip-uploads-examples/`](zip-uploads-examples/) and
 are referenced throughout this page.
 
 ## What goes into the zip file
 
-The zip file can contain up to seven tables (as CSV files) and one folder of pictures:
+The zip file can contain up to nine tables (as CSV files) and two folders of pictures:
 
-| File             | Contains                                                 |
-|------------------|----------------------------------------------------------|
-| `labels.csv`     | Labels that can later be attached to a point in an image |
-| `cameras.csv`    | The cameras that took the pictures                       |
-| `regions.csv`    | The general areas or sites a dive took place in          |
-| `dives.csv`      | Individual dives, each linked to a region and a camera   |
-| `images.csv`     | The pictures themselves, each linked to a dive           |
-| `candidates.csv` | Pairs of images to be checked for overlap                |
-| `pairs.csv`      | Pairs of images that are already known to overlap        |
-| `images/`        | A folder containing the actual picture files             |
+| File                | Contains                                                          |
+|---------------------|--------------------------------------------------------------------|
+| `labels.csv`        | Labels that can later be attached to a point in an image         |
+| `cameras.csv`       | The cameras that took the pictures                               |
+| `regions.csv`       | The general areas or sites a dive took place in                  |
+| `dives.csv`         | Individual dives, each linked to a region and a camera           |
+| `images.csv`        | The pictures themselves, each linked to a dive                   |
+| `candidates.csv`    | Pairs of images to be checked for overlap                        |
+| `pairs.csv`         | Pairs of images that are already known to overlap                |
+| `helper_images.csv` | Decorative images, for example ones attached to fun facts        |
+| `fun_facts.csv`     | Short facts that can be shown to users                           |
+| `images/`           | A folder containing the actual picture files for `images.csv`    |
+| `helper_images/`    | A folder containing the actual picture files for `helper_images.csv` |
 
-All seven files are optional. If you are only adding pictures to dives that already exist, you only need `images.csv` and the `images/` folder. Leave out any file you don't need.
+All nine files are optional. If you are only adding pictures to dives that already exist, you only need `images.csv` and the `images/` folder. Leave out any file you don't need.
 
-The file names must be spelled exactly as above (lower case, with the `.csv` ending), and the`images/` folder must be named exactly `images`. They all sit next to each other at the top level of the zip file, not inside another folder.
+The file names must be spelled exactly as above (lower case, with the `.csv` ending), and the `images/` and `helper_images/` folders must be named exactly that. They all sit next to each other at the top level of the zip file, not inside another folder.
 
 ## General rules for every table
 
@@ -36,7 +39,7 @@ The file names must be spelled exactly as above (lower case, with the `.csv` end
 
 ## Identifiers, and the `new` shortcut
 
-Every region, camera, dive, image, and label needs a UUID so it can be told apart from every other one, even if two of them have the exact same name. For almost every row you create, you can simply write:
+Every region, camera, dive, image, label, helper image, and fun fact needs a UUID so it can be told apart from every other one, even if two of them have the exact same name. For almost every row you create, you can simply write:
 
 ```
 new
@@ -44,7 +47,7 @@ new
 
 in the identifier column, and the system will generate an identifier for you automatically.
 
-The one case where you need to provide your own identifier is when you want to link two images together in `candidates.csv` or `pairs.csv` (see below). Because those two files can only refer to an image by its identifier, not by name, and identifiers generated with `new` are never shown back to you. In that case, invent your own identifier in the format shown in the example files, for instance:
+The one case where you need to provide your own identifier is when you want to attach a helper image to a fun fact in `fun_facts.csv` (see below) - that file can only refer to a helper image by its identifier, not by name, and identifiers generated with `new` are never shown back to you. `candidates.csv` and `pairs.csv` can link two images together the same way, by identifier, but they can also link a picture by the same `source_path` you gave it in `images.csv` instead, so you do not need to invent an identifier for images unless you prefer to. Whenever you do need your own identifier, invent one in the format shown in the example files, for instance:
 
 ```
 dd9c02f4-eef3-4806-a5fa-302e56676954
@@ -54,12 +57,14 @@ Any combination of the digits 0-9 and the letters a-f, arranged in that pattern 
 
 ## Referring to something you created elsewhere in the zip
 
-Dives need to say which region and camera they belong to, and images need to say which dive they belong to. For these links, most tables offer **two columns**: one ending in `_uuid` and one ending in `_title`. Fill in only one of them:
+Dives need to say which region and camera they belong to, images need to say which dive they belong to, and fun facts can optionally say which region they are scoped to. For these links, most tables offer **two columns**: one ending in `_uuid` and one ending in `_title`. Fill in only one of them:
 
 - Fill in the `_title` column with the exact name you gave the region, camera, or dive elsewhere in the zip (or that it already has in the system). This is the simplest option and works whether that region, camera, or dive was just created with `new` in this same upload, or already existed beforehand.
 - Fill in the `_uuid` column instead if you already know the exact identifier.
 - If you fill in both, the identifier is used and the name is ignored.
 - Leave both empty only where the table below says that is allowed.
+
+`candidates.csv` and `pairs.csv` offer a variant of this same idea: instead of a `_title` column, they offer an `image_source_a`/`image_source_b` column, keyed off the `source_path` you gave the picture in `images.csv` rather than off a name. The same rule applies if you fill in both `image_a` and `image_source_a`, the identifier is used and the `source_path` is ignored. See the `candidates.csv` section below for details.
 
 ## What happens when you upload the zip file
 
@@ -71,12 +76,14 @@ The tables are read in a fixed order:
 5. images
 6. candidates
 7. pairs
+8. helper images
+9. fun facts
 
-This means a dive can refer to a region from `regions.csv` in the same zip, but a region cannot refer to a dive, because regions are read first.
+This means a dive can refer to a region from `regions.csv` in the same zip, but a region cannot refer to a dive, because regions are read first. Likewise, a fun fact can refer to a helper image from `helper_images.csv` in the same zip, because helper images are read first.
 
 The upload is all or nothing: if anything in the zip file cannot be understood. A name that does not match anything, a picture that is missing, a misspelled column, nothing at all is added and you are told exactly which file and which row caused the problem. Partial uploads never happen.
 
-Once the upload succeeds, you get back a count of how many labels, cameras, regions, dives, images, candidate pairs, and image pairs were created. Identifiers that were generated automatically with `new` are not listed individually, so if you plan to look a specific row up again afterwards, give it its own name (title) or your own identifier rather than relying on `new`.
+Once the upload succeeds, you get back a count of how many labels, cameras, regions, dives, images, candidate pairs, image pairs, helper images, and fun facts were created. Identifiers that were generated automatically with `new` are not listed individually, so if you plan to look a specific row up again afterwards, give it its own name (title) or your own identifier rather than relying on `new`.
 
 ## Table reference
 
@@ -172,7 +179,7 @@ Each row describes one picture and links it to a dive. The picture file itself m
 
 | Column        | Required | What to put there                                                                                           |
 |---------------|----------|-------------------------------------------------------------------------------------------------------------|
-| `uuid`        | Yes      | `new`, or your own identifier (give it your own if you plan to link it in `candidates.csv` or `pairs.csv`)  |
+| `uuid`        | Yes      | `new`, or your own identifier. You only need your own identifier here if you plan to link this picture in `candidates.csv`/`pairs.csv` by identifier - linking it by `source_path` instead does not require one (see below). |
 | `source_path` | Yes      | Where to find the picture file inside the `images/` folder, for example `dive-a/frame_0001.jpg`             |
 | `filename`    | Optional | The display name for the picture. Leave empty to reuse `source_path`.                                       |
 | `filepath`    | Optional | Where the picture should be permanently stored. Leave empty and a filepath will be generated automatically. |
@@ -204,45 +211,114 @@ These six rows cover every option:
 - The fourth image belongs to a dive found **by name** (`dive_title`) and is given `new` as its identifier, since nothing needs to refer back to it.
 - The fifth and sixth images belong to a dive found **by identifier** (`dive_uuid`) instead, referring back to the third row of `dives.csv` above. The fifth also sets a display name, a status, and a difficulty, while leaving priority empty, to show that the optional columns can be mixed and matched independently of one another.
 
-The first three images are given their own identifiers, since they are linked together below, in `candidates.csv` and `pairs.csv`. The rest are not linked to anything else, so `new` is used.
+The first three images are given their own identifiers, since they are linked together below, in `candidates.csv` and `pairs.csv`, by identifier. The rest are not, since `candidates.csv` and `pairs.csv` can also link a picture by the same `source_path` you gave it here, without needing an identifier of your own.
 
 ### `candidates.csv`
 
 Pairs of images that should be checked for overlap. Both images must belong to the same dive.
 
-| Column    | Required | What to put there                                                    |
-|-----------|----------|----------------------------------------------------------------------|
-| `image_a` | Yes      | The identifier of the first image                                    |
-| `image_b` | Yes      | The identifier of the second image                                   |
-| `status`  | Optional | See [Status values](#status-values). Leave empty to use the default. |
+Each image can be identified in either of two ways - fill in exactly one per side:
+
+| Column           | Required | What to put there                                                                              |
+|------------------|----------|--------------------------------------------------------------------------------------------------|
+| `image_a`        | See note | The identifier of the first image                                                              |
+| `image_b`        | See note | The identifier of the second image                                                             |
+| `image_source_a` | See note | The `source_path` you gave the first image in `images.csv`, in this same zip                    |
+| `image_source_b` | See note | The `source_path` you gave the second image in `images.csv`, in this same zip                   |
+| `status`         | Optional | See [Status values](#status-values). Leave empty to use the default.                            |
+
+Fill in exactly one of `image_a`/`image_source_a`, and exactly one of `image_b`/`image_source_b` - the two sides are resolved independently, so it is fine to identify one image by identifier and the other by `source_path` in the same row. If you fill in both for one side, the identifier is used and the `source_path` is ignored. `image_source_a`/`image_source_b` only work for pictures included in `images.csv` in this same zip - a picture that already existed in the system before this upload can only be linked by its identifier.
 
 Example ([`candidates.csv`](zip-uploads-examples/candidates.csv)):
 
-| image_a                              | image_b                              | status      |
-|--------------------------------------|--------------------------------------|-------------|
-| dd9c02f4-eef3-4806-a5fa-302e56676954 | 3d2d6a96-a537-4eb2-801c-babdaab57bc4 |             |
-| dd9c02f4-eef3-4806-a5fa-302e56676954 | 41f6aea3-cbf8-48f9-ac01-ec7afdbacb2b | has_overlap |
+| image_a                              | image_b                              | image_source_a         | image_source_b         | status      |
+|---------------------------------------|---------------------------------------|-------------------------|-------------------------|-------------|
+| dd9c02f4-eef3-4806-a5fa-302e56676954 | 3d2d6a96-a537-4eb2-801c-babdaab57bc4 |                         |                         |             |
+| dd9c02f4-eef3-4806-a5fa-302e56676954 | 41f6aea3-cbf8-48f9-ac01-ec7afdbacb2b |                         |                         | has_overlap |
+|                                       |                                       | dive-c/frame_0001.jpg  | dive-c/frame_0002.jpg  |             |
 
-The first row leaves the status empty (defaulting to hidden); the second sets it explicitly.
+The first row leaves the status empty (defaulting to hidden); the second sets it explicitly. The third links two pictures from `images.csv` that were given `new` as their own identifier, by their `source_path` instead - referring back to the fifth and sixth rows of `images.csv` above.
 
 ### `pairs.csv`
 
 Pairs of images that are already known to overlap and are ready to be shown to players for point-by-point matching. Both images must belong to the same dive.
 
-| Column    | Required | What to put there                                                    |
-|-----------|----------|----------------------------------------------------------------------|
-| `image_a` | Yes      | The identifier of the first image                                    |
-| `image_b` | Yes      | The identifier of the second image                                   |
-| `status`  | Optional | See [Status values](#status-values). Leave empty to use the default. |
+Identified the same way as `candidates.csv` above:
+
+| Column           | Required | What to put there                                                             |
+|------------------|----------|-------------------------------------------------------------------------------|
+| `image_a`        | See note | The identifier of the first image                                             |
+| `image_b`        | See note | The identifier of the second image                                            |
+| `image_source_a` | See note | The `source_path` you gave the first image in `images.csv`, in this same zip  |
+| `image_source_b` | See note | The `source_path` you gave the second image in `images.csv`, in this same zip |
+| `status`         | Optional | See [Status values](#status-values). Leave empty to use the default.          |
 
 Example ([`pairs.csv`](zip-uploads-examples/pairs.csv)):
 
-| image_a                              | image_b                              | status    |
-|--------------------------------------|--------------------------------------|-----------|
-| dd9c02f4-eef3-4806-a5fa-302e56676954 | 3d2d6a96-a537-4eb2-801c-babdaab57bc4 |           |
-| 3d2d6a96-a537-4eb2-801c-babdaab57bc4 | 41f6aea3-cbf8-48f9-ac01-ec7afdbacb2b | finalized |
+| image_a                              | image_b                              | image_source_a        | image_source_b        | status    |
+|--------------------------------------|--------------------------------------|-----------------------|-----------------------|-----------|
+| dd9c02f4-eef3-4806-a5fa-302e56676954 | 3d2d6a96-a537-4eb2-801c-babdaab57bc4 |                       |                       |           |
+| 3d2d6a96-a537-4eb2-801c-babdaab57bc4 | 41f6aea3-cbf8-48f9-ac01-ec7afdbacb2b |                       |                       | finalized |
+|                                      |                                      | dive-c/frame_0001.jpg | dive-c/frame_0002.jpg |           |
 
-As with `candidates.csv`, the first row leaves the status empty and the second sets it explicitly. A pair does not need to have appeared in `candidates.csv` first.
+As with `candidates.csv`, the first row leaves the status empty and the second sets it explicitly. The third links the same two pictures as the `candidates.csv` example above by `source_path`; a pair does not need to have appeared in `candidates.csv` first.
+
+When a row is rejected - for example because both images are the same, or because they belong to different dives - the error message always identifies each image, either by the `source_path` it was given in this same zip, or, for a picture already in the system before this upload, by its stored filepath and filename.
+
+### `helper_images.csv`
+
+A helper image is a decorative picture, for example one shown alongside a fun fact. Unlike `images.csv`, a helper image is not linked to a dive. The picture file itself must be included in the `helper_images/` folder of the zip (see below).
+
+| Column        | Required | What to put there                                                                                                                          |
+|---------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| `uuid`        | Yes      | `new`, or your own identifier (give it your own if you plan to attach it to a fun fact in `fun_facts.csv`)                                 |
+| `source_path` | Yes      | Where to find the picture file inside the `helper_images/` folder, for example `jellyfish.jpg`                                             |
+| `filename`    | Optional | The display name for the picture. Leave empty to reuse `source_path`.                                                                      |
+| `filepath`    | Optional | Where the picture should be permanently stored. Leave empty and a filepath will be generated automatically from the picture's own content. |
+
+Example ([`helper_images.csv`](zip-uploads-examples/helper_images.csv)):
+
+| uuid                                 | source_path    | filename            | filepath             |
+|--------------------------------------|----------------|---------------------|----------------------|
+| bd5d95f9-040f-4c22-8d60-7e61d32f4aa2 | jellyfish.jpg  |                     |                      |
+| af5fa30f-017f-4eca-bb91-59ae74c7e890 | anglerfish.jpg | Deep Sea Anglerfish |                      |
+| 83b8efab-a751-44fc-9a90-da3b647054e0 | coral-icon.png |                     | icons/coral-icon.png |
+
+These three rows cover every option:
+- The first helper image leaves every optional column empty: its display name falls back to `source_path`, and its permanent location is chosen automatically from the picture's own content.
+- The second helper image sets a display name, but still lets its storage location be chosen automatically.
+- The third helper image sets its own `filepath`, overriding where the picture is permanently stored instead of leaving it to be chosen automatically.
+
+All three helper images are given their own identifiers instead of `new`, since they are attached to fun facts below, in `fun_facts.csv`.
+
+### `fun_facts.csv`
+
+A fun fact is a short piece of trivia that can be shown to users, optionally scoped to a region and decorated with a helper image.
+
+| Column         | Required | What to put there                                                                                                    |
+|----------------|----------|--------------------------------------------------------------------------------------------------------------------------|
+| `uuid`         | Yes      | `new`, or your own identifier                                                                                        |
+| `title`        | Yes      | The name of the fun fact. Must be unique.                                                                            |
+| `fact`         | Yes      | The fact itself, written as a JSON object on a single line, for example `{"body": "..."}`. Unlike every other JSON column on this page, this one may not be left empty. |
+| `min_level`    | Optional | A whole number: the minimum expert level a user must have to be shown this fact. Leave empty to default to `0`, meaning every user can see it. |
+| `region_uuid`  | Optional | The region's identifier, to limit this fact to one region                                                            |
+| `region_title` | Optional | The region's name, to limit this fact to one region                                                                  |
+| `image_uuid`   | Optional | The identifier of a helper image (from `helper_images.csv`, or one already in the system) to show alongside this fact |
+
+Fill in at most one of `region_uuid`/`region_title`; leave both empty for a fact that applies to every region. Unlike every other reference in this page, there is no `image_title` column: a helper image has no unique display name to look it up by, so it can only be referred to by its identifier.
+
+Example ([`fun_facts.csv`](zip-uploads-examples/fun_facts.csv)):
+
+| uuid | title | fact | min_level | region_uuid | region_title | image_uuid |
+|------|-------|------|-----------|-------------|--------------|------------|
+| new | Deep Sea Pressure | {"body": "At 1000m depth, pressure exceeds 100 atmospheres."} | | | Reykjanes Ridge | bd5d95f9-040f-4c22-8d60-7e61d32f4aa2 |
+| new | Bioluminescence | {"body": "Most deep-sea animals produce their own light."} | 2 | | | af5fa30f-017f-4eca-bb91-59ae74c7e890 |
+| 0b638dab-e075-4d36-af6c-0d0d58c884f8 | General Ocean Trivia | {"body": "The ocean covers over 70% of Earth's surface."} | | | | |
+
+These three rows cover every option:
+- The first fact is scoped to a region found **by name** (`region_title`), referring back to `regions.csv`, and shows a helper image found **by identifier**, referring back to the first row of `helper_images.csv` above. It leaves `min_level` empty, defaulting to `0`.
+- The second fact sets an explicit `min_level`, and shows a helper image referring back to the second row of `helper_images.csv` above, but is not scoped to any region.
+- The third fact leaves region and image both empty, so it applies to every region and is shown without a picture. It is given its own identifier instead of `new`, since nothing needs to refer back to it here, but doing so makes no difference either way.
 
 ## The `images/` folder
 
@@ -259,6 +335,12 @@ images/dive-c/frame_0001.jpg
 images/dive-c/frame_0002.jpg
 ```
 
+## The `helper_images/` folder
+
+If `helper_images.csv` is included, the zip file must also contain a folder named `helper_images` with the actual picture files in it. The same picture formats accepted by the `images/` folder are accepted here too, and you can organize the pictures however you like, as long as `source_path` gives the correct path to each one, measured from inside the `helper_images/` folder.
+
+Unlike `images.csv`, a helper image's automatically generated `filepath` is derived from the picture's own content rather than from its identifier. This means uploading the exact same picture bytes again under a different `uuid`, without giving an explicit `filepath`, will try to store it at the same location as before and fail as a duplicate. Give an explicit `filepath` if you intend to upload the same picture more than once.
+
 ## Status values
 
 Images, candidate pairs, and image pairs each move through a small set of named stages. Leaving the `status` column empty always uses the first value in the list below (the item stays out of sight until someone changes its status later), which is the right choice for almost every upload.
@@ -271,7 +353,7 @@ Images, candidate pairs, and image pairs each move through a small set of named 
 
 ## Full example
 
-All seven example files shown on this page, together, form one complete, working upload. You can find them in [`zip-uploads-examples/`](zip-uploads-examples/):
+All nine example files shown on this page, together, form one complete, working upload. You can find them in [`zip-uploads-examples/`](zip-uploads-examples/):
 
 - [`labels.csv`](zip-uploads-examples/labels.csv)
 - [`cameras.csv`](zip-uploads-examples/cameras.csv)
@@ -280,3 +362,5 @@ All seven example files shown on this page, together, form one complete, working
 - [`images.csv`](zip-uploads-examples/images.csv)
 - [`candidates.csv`](zip-uploads-examples/candidates.csv)
 - [`pairs.csv`](zip-uploads-examples/pairs.csv)
+- [`helper_images.csv`](zip-uploads-examples/helper_images.csv)
+- [`fun_facts.csv`](zip-uploads-examples/fun_facts.csv)
