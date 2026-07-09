@@ -96,6 +96,16 @@ export function downloadFullDatasetZip(): Promise<void> {
 }
 
 /**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/full-csv-only. Same as
+ * downloadFullDatasetZip, but without the images/ and helper_images/ asset folders - just the
+ * CSVs. Use for large datasets where the asset files would make the full export impractically
+ * large.
+ */
+export function downloadFullDatasetCsvOnlyZip(): Promise<void> {
+  return downloadFile('/api/v1/dataset/export/full-csv-only', 'dataset_export_full_csv_only.zip')
+}
+
+/**
  * Scientist/admin only - real endpoint: GET /api/v1/dataset/export/points-flat?dive={uuid}.
  * Exports the point-annotation flat view (one row per annotation, joined to pair/image/dive/label
  * context) as CSV, optionally filtered to one dive.

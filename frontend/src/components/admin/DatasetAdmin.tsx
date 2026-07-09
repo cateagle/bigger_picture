@@ -4,6 +4,7 @@ import {
   downloadAnnotationsCsv,
   downloadCandidateAnnotationsFlatCsv,
   downloadDiveZip,
+  downloadFullDatasetCsvOnlyZip,
   downloadFullDatasetZip,
   downloadFunFactsCsv,
   downloadFunFactsZip,
@@ -175,6 +176,8 @@ export default function DatasetAdmin() {
 
   const handleDownloadFullDataset = () =>
     runGlobalDownload(() => downloadFullDatasetZip(), 'Could not download the dataset zip.')
+  const handleDownloadFullDatasetCsvOnly = () =>
+    runGlobalDownload(() => downloadFullDatasetCsvOnlyZip(), 'Could not download the dataset zip.')
   const handleDownloadFunFactsCsv = () =>
     runGlobalDownload(() => downloadFunFactsCsv(), 'Could not download the CSV.')
   const handleDownloadFunFactsZip = () =>
@@ -187,6 +190,9 @@ export default function DatasetAdmin() {
       <div className="dataset-admin-toolbar dataset-admin-toolbar-global">
         <button type="button" className="btn" onClick={handleDownloadFullDataset} disabled={globalDownloading}>
           {globalDownloading ? 'Downloading…' : 'Download full dataset (zip)'}
+        </button>
+        <button type="button" className="btn" onClick={handleDownloadFullDatasetCsvOnly} disabled={globalDownloading}>
+          {globalDownloading ? 'Downloading…' : 'Download full dataset - CSVs only (zip)'}
         </button>
         <button type="button" className="btn" onClick={handleDownloadFunFactsCsv} disabled={globalDownloading}>
           {globalDownloading ? 'Downloading…' : 'Download fun facts (CSV)'}

@@ -124,3 +124,10 @@ class UserUpdateRequest(BaseModel):
             "Not allowed if the resulting role is annotator."
         ),
     )
+
+
+class FunFactImportResponse(BaseModel):
+    """Result of a successful fun facts CSV import."""
+
+    created: int = Field(description="Number of new fun facts created.")
+    updated: int = Field(description="Number of existing fun facts overwritten.")
