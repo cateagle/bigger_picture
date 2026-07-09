@@ -1,4 +1,4 @@
-# Bigger Picture
+# Sea the Bigger Picture
 
 A browser-playable citizen-science game that crowdsources ground-truth annotations for a dataset of marine images, so the results can be used to train machine learning models (e.g. for image registration / matching).
 

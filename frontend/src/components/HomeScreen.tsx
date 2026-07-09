@@ -132,7 +132,7 @@ export default function HomeScreen({
 
       <header className="home-header">
         <p className="home-eyebrow">Journey of the Eel</p>
-        <h1>Bigger Picture</h1>
+        <h1>Sea the Bigger Picture</h1>
         <p>
           Every year, European eels leave the rivers where they grew up and swim thousands of kilometres back to
           the Sargasso Sea to spawn — a route no one has ever fully mapped. Play through three leagues of the

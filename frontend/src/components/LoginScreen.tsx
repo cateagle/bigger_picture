@@ -38,7 +38,7 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
   return (
     <div className="login-screen">
       <div className="login-card">
-        <h1>Bigger Picture</h1>
+        <h1>Sea the Bigger Picture</h1>
         <p>
           Enter a username to continue — no password needed. Existing usernames log you back in;
           new ones create an account. This browser stays signed in.
