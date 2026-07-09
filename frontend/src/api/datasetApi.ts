@@ -74,6 +74,25 @@ export function fetchAnnotationsForDive(diveUuid: string): Promise<AnnotationSum
   )
 }
 
+export interface StrideCandidatePairResult {
+  total_images: number
+  pairs_considered: number
+  pairs_created: number
+  pairs_skipped: number
+}
+
+/** Scientist only - real endpoint: POST /api/v1/dataset/candidates/create-stride. */
+export function createCandidatePairsByStride(
+  diveUuid: string,
+  stride: number,
+  sortBy: 'filename' | 'filepath',
+): Promise<StrideCandidatePairResult> {
+  return apiFetch<StrideCandidatePairResult>('/api/v1/dataset/candidates/create-stride', {
+    method: 'POST',
+    body: JSON.stringify({ dive_uuid: diveUuid, stride, sort_by: sortBy }),
+  })
+}
+
 /**
  * Scientist/admin only - real endpoint: GET /api/v1/dataset/annotations/export?dive={uuid}.
  * Exports raw point-annotation rows (one row per annotation, all statuses, with provenance) as

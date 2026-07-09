@@ -33,6 +33,19 @@
   margin: 0 0 8px;
 }
 
+.dataset-admin-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+}
+
+.dataset-admin-section-header h3 {
+  margin: 0;
+}
+
 .dataset-admin-thumb {
   width: 64px;
   height: 48px;

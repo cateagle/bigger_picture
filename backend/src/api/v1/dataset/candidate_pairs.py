@@ -11,14 +11,22 @@ from src.constants import (
     CandidateStatus,
 )
 from src.db import get_db
-from src.models.dataset import CandidatePairListResponse, CandidatePairResponse, ImagePairRef
+from src.models.dataset import (
+    CandidatePairListResponse,
+    CandidatePairResponse,
+    ImagePairRef,
+    StrideCandidatePairRequest,
+    StrideCandidatePairResponse,
+)
 from src.schema.candidate_pairs import CandidatePair
 from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
 from src.services.candidate_pairs import create_candidate_pair as _create_candidate_pair_row
+from src.services.candidate_pairs import ensure_candidate_pair
 from src.services.errors import ConflictError, SameDiveError
 from src.services.image_pairs import ensure_image_pair
+from src.services.images import resolve_dive_id as _resolve_dive_id_or_none
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
 
 router = APIRouter()
@@ -51,6 +59,13 @@ def _resolve_pair_ids(db: Session, image_a: UUID, image_b: UUID) -> tuple[int, i
     if ids[0] == ids[1]:
         raise HTTPException(status_code=422, detail="image_a and image_b must differ")
     return ids
+
+
+def _resolve_dive_id(db: Session, dive_uuid: UUID) -> int:
+    dive_id = _resolve_dive_id_or_none(db, dive_uuid)
+    if dive_id is None:
+        raise HTTPException(status_code=404, detail="Dive not found")
+    return dive_id
 
 
 @router.get(
@@ -124,6 +139,53 @@ def create_candidate_pair(
     db.commit()
     db.refresh(pair)
     return _to_response(pair, db)
+
+
+@router.post(
+    "/create-stride",
+    response_model=StrideCandidatePairResponse,
+    status_code=201,
+    summary="Create Candidate Pairs By Stride",
+    description="""
+Create candidate pairs across all images in a dive using a sliding stride: images are sorted by sort_by (filename or filepath, ascending), and each image at position i is paired with the image at position i+stride, for every valid i. Existing candidate pairs are left unchanged (create-or-ignore). Requires the scientist role.
+
+The pairs are always created with status "hidden".
+
+Fails with 404 if the dive does not exist, or 422 if stride is not a positive integer.
+""",
+)
+def create_candidate_pairs_by_stride(
+    payload: StrideCandidatePairRequest, request: Request, db: Session = Depends(get_db)
+):
+    user = require_current_user(request)
+    dive_id = _resolve_dive_id(db, payload.dive_uuid)
+
+    sort_column = Image.filename if payload.sort_by == "filename" else Image.filepath
+    images = db.execute(
+        select(Image).where(Image.dive_id == dive_id).order_by(sort_column, Image.id)
+    ).scalars().all()
+
+    pairs_considered = 0
+    pairs_created = 0
+    for i in range(len(images) - payload.stride):
+        image1_id, image2_id = sorted((images[i].id, images[i + payload.stride].id))
+        pairs_considered += 1
+        if ensure_candidate_pair(
+            db,
+            image1_id=image1_id,
+            image2_id=image2_id,
+            creator_id=user.id,
+            status_id=CANDIDATE_STATUS_INT[CandidateStatus.HIDDEN],
+        ):
+            pairs_created += 1
+
+    db.commit()
+    return StrideCandidatePairResponse(
+        total_images=len(images),
+        pairs_considered=pairs_considered,
+        pairs_created=pairs_created,
+        pairs_skipped=pairs_considered - pairs_created,
+    )
 
 
 @router.post(

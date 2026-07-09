@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -600,6 +600,30 @@ class CandidatePairListResponse(BaseModel):
         description="Candidate pairs whose images both belong to the given dive, for the requested page."
     )
     total: int = Field(description="Total number of matching candidate pairs, across all pages.")
+
+
+class StrideCandidatePairRequest(BaseModel):
+    """Request to bulk-create candidate pairs across a dive's images by sliding stride."""
+
+    dive_uuid: UUID = Field(description="Dive whose images to pair up.")
+    stride: int = Field(
+        gt=0,
+        description="Distance between paired images in sort order; 1 pairs each image with the next.",
+    )
+    sort_by: Literal["filename", "filepath"] = Field(
+        default="filename", description="Image field to sort by (ascending) before pairing."
+    )
+
+
+class StrideCandidatePairResponse(BaseModel):
+    total_images: int = Field(description="Number of images in the dive considered.")
+    pairs_considered: int = Field(
+        description="Number of (image[i], image[i+stride]) pairs generated."
+    )
+    pairs_created: int = Field(description="Number of new candidate pairs created.")
+    pairs_skipped: int = Field(
+        description="Number of pairs that already existed and were left unchanged."
+    )
 
 
 class ImagePairResponse(BaseModel):
