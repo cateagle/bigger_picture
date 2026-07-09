@@ -600,6 +600,22 @@ class CandidatePairListResponse(BaseModel):
         description="Candidate pairs whose images both belong to the given dive, for the requested page."
     )
     total: int = Field(description="Total number of matching candidate pairs, across all pages.")
+    hidden_count: int = Field(
+        description="Total number of matching candidate pairs with status hidden, across all pages."
+    )
+
+
+class DivePublishRequest(BaseModel):
+    """Request to publish a batch of hidden candidate pairs in a dive."""
+
+    dive_uuid: UUID = Field(description="Dive whose hidden candidate pairs to publish.")
+
+
+class PublishCandidatesResponse(BaseModel):
+    published: int = Field(description="Number of candidate pairs moved from hidden to open.")
+    remaining_hidden: int = Field(
+        description="Number of candidate pairs still hidden in this dive after publishing."
+    )
 
 
 class StrideCandidatePairRequest(BaseModel):

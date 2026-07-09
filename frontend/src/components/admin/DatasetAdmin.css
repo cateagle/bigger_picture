@@ -46,6 +46,12 @@
   margin: 0;
 }
 
+.dataset-admin-section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .dataset-admin-thumb {
   width: 64px;
   height: 48px;

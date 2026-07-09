@@ -80,15 +80,19 @@ export function fetchImagesForDive(
   ).then((res) => ({ items: res.images, total: res.total }))
 }
 
+export interface CandidatePairsPage extends PaginatedResult<CandidatePairSummary> {
+  hiddenCount: number
+}
+
 /** Scientist/admin only - real endpoint: GET /api/v1/dataset/candidates?dive={uuid}&page={page}&page_size={pageSize}. */
 export function fetchCandidatePairsForDive(
   diveUuid: string,
   page: number,
   pageSize: number,
-): Promise<PaginatedResult<CandidatePairSummary>> {
-  return apiFetch<{ candidates: CandidatePairSummary[]; total: number }>(
+): Promise<CandidatePairsPage> {
+  return apiFetch<{ candidates: CandidatePairSummary[]; total: number; hidden_count: number }>(
     `/api/v1/dataset/candidates?dive=${diveUuid}&page=${page}&page_size=${pageSize}`,
-  ).then((res) => ({ items: res.candidates, total: res.total }))
+  ).then((res) => ({ items: res.candidates, total: res.total, hiddenCount: res.hidden_count }))
 }
 
 /** Scientist/admin only - real endpoint: GET /api/v1/dataset/pairs?dive={uuid}&page={page}&page_size={pageSize}. */
@@ -125,6 +129,19 @@ export function createCandidatePairsByStride(
   return apiFetch<StrideCandidatePairResult>('/api/v1/dataset/candidates/create-stride', {
     method: 'POST',
     body: JSON.stringify({ dive_uuid: diveUuid, stride, sort_by: sortBy }),
+  })
+}
+
+export interface PublishCandidatesResult {
+  published: number
+  remaining_hidden: number
+}
+
+/** Scientist only - real endpoint: POST /api/v1/dataset/candidates/publish. Moves up to 100 hidden candidate pairs in the dive to "open", oldest first. Safe to call repeatedly. */
+export function publishCandidatePairs(diveUuid: string): Promise<PublishCandidatesResult> {
+  return apiFetch<PublishCandidatesResult>('/api/v1/dataset/candidates/publish', {
+    method: 'POST',
+    body: JSON.stringify({ dive_uuid: diveUuid }),
   })
 }
 
