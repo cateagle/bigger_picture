@@ -12,6 +12,7 @@ import { LevelBadge } from './LevelBadge'
 import { useGameStats } from './useGameStats'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
+import { ZoomLens } from './ZoomLens'
 import './AnnotateGame.css'
 
 const MIN_CORRESPONDENCES = 4
@@ -48,6 +49,8 @@ export default function AnnotateGame({
   const [pending, setPending] = useState<{ side: 'A' | 'B'; point: NormalizedPoint } | null>(null)
   const [showHints, setShowHints] = useState(true)
   const [gridSize, setGridSize] = useState<GridSize>(0)
+  const [zoomPoint, setZoomPoint] = useState<{side: 'A' | 'B'; point: NormalizedPoint} | null>(null)
+  const [cursorPosition, setCursorPosition] = useState<{x: number; y: number} | null>(null)
   const { stats, window: statsWindow, bump } = useGameStats('annotate')
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
@@ -98,6 +101,30 @@ export default function AnnotateGame({
     setPending({ side, point })
   }
 
+  const handleMouseMove =  (side: 'A' | 'B') =>  (e: ReactMouseEvent<HTMLImageElement>) => {
+    const point = pointFromClick(e)
+    const rect = e.currentTarget.getBoundingClientRect()
+
+    setZoomPoint({
+      side,
+      point })
+
+    // setCursorPosition({
+    //   x: e.clientX,
+    //   y: e.clientY })
+    setCursorPosition({
+      x: rect.left + point.x * rect.width,
+      y: rect.top + point.y * rect.height,
+})
+
+      
+  }
+
+  const handleMouseLeave = () => {
+    setZoomPoint(null)
+    setCursorPosition(null)
+  }
+
   const handleUndo = () => {
     if (pending) {
       setPending(null)
@@ -141,6 +168,18 @@ export default function AnnotateGame({
 
   return (
     <div className="game-screen" data-game="annotate">
+       {zoomPoint && (
+        <ZoomLens
+          imageRef={
+            zoomPoint.side === 'A'
+              ? imageARef
+              : imageBRef
+          }
+          point={zoomPoint.point}
+          cursor={cursorPosition}
+          zoom={4}
+        />
+      )}
       {showHints && <AnnotateHintsModal onDismiss={() => setShowHints(false)} />}
       <header className="game-header">
         <div className="game-header-top">
@@ -185,6 +224,8 @@ export default function AnnotateGame({
                 src={pair.imageA}
                 alt="Image A"
                 onClick={handleClickImage('A')}
+                onMouseMove={handleMouseMove('A')}
+                onMouseLeave={handleMouseLeave}
                 className={`clickable${pending?.side === 'A' ? ' awaiting-match' : ''}`}
               />
               {gridSize !== 0 && <GridOverlay size={gridSize} />}
@@ -206,6 +247,8 @@ export default function AnnotateGame({
                 src={pair.imageB}
                 alt="Image B"
                 onClick={handleClickImage('B')}
+                onMouseMove={handleMouseMove('B')}
+                onMouseLeave={handleMouseLeave}
                 className={`clickable${pending?.side === 'B' ? ' awaiting-match' : ''}`}
               />
               {gridSize !== 0 && <GridOverlay size={gridSize} />}

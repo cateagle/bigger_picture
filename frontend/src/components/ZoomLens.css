@@ -1,0 +1,45 @@
+.zoom-lens {
+    position: fixed;
+  
+    width: 160px;
+    height: 160px;
+  
+    border-radius: 50%;
+    overflow: hidden;
+  
+    border: 3px solid white;
+    box-shadow: 0 0 8px black;
+  
+    pointer-events: none;
+    z-index: 10000;
+  
+    background-repeat: no-repeat;
+  }
+  
+  /* vertikale Linie */
+  .zoom-lens::before {
+    content: "";
+    position: absolute;
+  
+    width: 2px;
+    height: 100%;
+  
+    left: 50%;
+    top: 0;
+  
+    background: red;
+  }
+  
+  /* horizontale Linie */
+  .zoom-lens::after {
+    content: "";
+    position: absolute;
+  
+    height: 2px;
+    width: 100%;
+  
+    left: 0;
+    top: 50%;
+  
+    background: red;
+  }
