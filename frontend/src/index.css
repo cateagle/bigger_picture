@@ -7,7 +7,13 @@
   /* Per-league accents, shared between the game-select cards and each mini-game screen. */
   --accent-overlap: #12798a; /* Glass eel: young, translucent, fresh from the open ocean. */
   --accent-annotate: #9c6508; /* Yellow eel: years spent in golden, muddy river water. */
-  --accent-verify: #4c5872; /* Silver eel: steel-toned, ready for the deep-sea migration. */
+  --accent-verify: #5468a8; /* Silver eel: bright steel-blue, ready for the deep-sea migration. */
+  /* Metallic sheen for the top league — a glossy fill plus its deep edge and a
+     bright bar highlight. Solid --accent-verify stays the base for gauges,
+     spikes and marker rings; these add shine only to the "chrome" surfaces. */
+  --accent-verify-deep: #3c4d82;
+  --accent-verify-shine: linear-gradient(180deg, #6c81c2 0%, #5468a8 42%, #41528a 100%);
+  --accent-verify-bar: linear-gradient(90deg, #c6d0ee 0%, #5468a8 50%, #3c4d82 100%);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -193,6 +199,48 @@ h2 {
 
 .game-screen[data-game] .image-pane {
   border-color: color-mix(in srgb, var(--game-accent) 35%, var(--pane-border));
+}
+
+/* Silver eel is the top league, so its primary buttons get a polished-metal
+   look: a vertical sheen, a specular top edge, and a highlight that sweeps
+   across on hover. Scoped to :not(:disabled) so a disabled Submit still reads
+   as disabled. Applies on the game-select card and inside the game screen. */
+.game-card[data-game='verify'] .btn-primary:not(:disabled),
+.game-screen[data-game='verify'] .btn-primary:not(:disabled) {
+  position: relative;
+  overflow: hidden;
+  background: var(--accent-verify-shine);
+  border-color: var(--accent-verify-deep);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.game-card[data-game='verify'] .btn-primary:not(:disabled)::after,
+.game-screen[data-game='verify'] .btn-primary:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -70%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.55s ease;
+  pointer-events: none;
+}
+
+.game-card[data-game='verify'] .btn-primary:not(:disabled):hover::after,
+.game-screen[data-game='verify'] .btn-primary:not(:disabled):hover::after {
+  left: 130%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card[data-game='verify'] .btn-primary:not(:disabled)::after,
+  .game-screen[data-game='verify'] .btn-primary:not(:disabled)::after {
+    transition: none;
+  }
 }
 
 .game-header h1 {
