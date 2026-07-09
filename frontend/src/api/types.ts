@@ -34,11 +34,25 @@ export interface HelperImage {
   filepath: string
 }
 
+/** A single cited source backing a fun fact. */
+export interface FunFactSource {
+  url: string
+}
+
+/**
+ * The free-form JSON body stored per fun fact (the `fact` field of
+ * `FunFactResponse`): the fact text plus optional cited sources.
+ */
+export interface FunFactBody {
+  fact: string
+  sources?: FunFactSource[]
+}
+
 /** Mirrors `FunFactResponse` from `backend/src/models/dataset.py`. */
 export interface FunFact {
   uuid: string
   title: string
-  fact: unknown
+  fact: FunFactBody
   min_level: number
   region: string | null
   image: HelperImage | null

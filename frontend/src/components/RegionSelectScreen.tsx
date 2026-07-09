@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Globe from 'react-globe.gl'
 import { fetchRegions } from '../api/regionApi'
 import type { Region, RegionMesh, User } from '../api/types'
-import { normalizeMeshWinding } from '../geo'
+import { meshCentroid, normalizeMeshWinding } from '../geo'
 import { useContainerSize } from '../useContainerSize'
 import { LevelBadge } from './LevelBadge'
 import './RegionSelectScreen.css'
@@ -10,6 +10,15 @@ import './RegionSelectScreen.css'
 const CAP_COLOR = 'rgba(42, 120, 214, 0.55)'
 const CAP_COLOR_HOVER = 'rgba(233, 168, 47, 0.75)'
 const STROKE_COLOR = 'rgba(255, 255, 255, 0.85)'
+
+// Warm gold beacons (rings + an anchor dot) mark every region's location so
+// tiny areas stay findable — and clickable — against the blue ocean, even when
+// their polygon is only a few pixels across.
+const BEACON_RGB = '233, 168, 47'
+const BEACON_RGB_HOVER = '255, 214, 120'
+
+/** A region's location on the globe, used for its beacon ring and anchor dot. */
+type Beacon = { region: Region; lat: number; lng: number; span: number }
 
 export default function RegionSelectScreen({
   user,
@@ -43,6 +52,11 @@ export default function RegionSelectScreen({
         .filter((r): r is Region & { metadata: { mesh: RegionMesh } } => !!r.metadata?.mesh)
         .map((r) => ({ ...r, metadata: { ...r.metadata, mesh: normalizeMeshWinding(r.metadata.mesh) } })),
     [regions],
+  )
+
+  const beacons = useMemo<Beacon[]>(
+    () => meshedRegions.map((r) => ({ region: r, ...meshCentroid(r.metadata.mesh) })),
+    [meshedRegions],
   )
 
   return (
@@ -99,6 +113,29 @@ export default function RegionSelectScreen({
                 polygonLabel={(r) => (r as Region).title}
                 onPolygonHover={(r) => setHovered(r as Region | null)}
                 onPolygonClick={(r) => onSelect(r as Region)}
+                // A thin gold spike standing orthogonally off the surface: a
+                // point rendered as a tall, thin radial cylinder. Visible from
+                // any angle even when the region's footprint is a few pixels,
+                // and its whole height is a generous click target.
+                pointsData={beacons}
+                pointColor={(b) =>
+                  `rgba(${(b as Beacon).region === hovered ? BEACON_RGB_HOVER : BEACON_RGB}, 0.92)`
+                }
+                pointAltitude={(b) => ((b as Beacon).region === hovered ? 0.2 : 0.16)}
+                pointRadius={(b) => ((b as Beacon).region === hovered ? 0.28 : 0.18)}
+                pointLabel={(b) => (b as Beacon).region.title}
+                onPointHover={(b) => setHovered(b ? (b as Beacon).region : null)}
+                onPointClick={(b) => onSelect((b as Beacon).region)}
+                // Pulsing ring: draws the eye to each region's location.
+                ringsData={beacons}
+                ringAltitude={0.011}
+                ringMaxRadius={(b) => Math.min(6, Math.max(2.5, (b as Beacon).span))}
+                ringPropagationSpeed={2}
+                ringRepeatPeriod={1400}
+                ringColor={(b: object) => {
+                  const rgb = (b as Beacon).region === hovered ? BEACON_RGB_HOVER : BEACON_RGB
+                  return (t: number) => `rgba(${rgb}, ${0.55 * (1 - t)})`
+                }}
               />
             )}
           </div>

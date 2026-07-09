@@ -1,10 +1,37 @@
-import { apiFetch } from './client'
+import { ApiError, apiFetch } from './client'
 import type { FunFact } from './types'
+
+/**
+ * How many times a single fact may be shown to a player before it stops being
+ * eligible. Passed as `max_seen` to the random endpoint.
+ */
+export const FUN_FACT_MAX_SEEN = 3
 
 /** Scientist/admin only - real endpoint: GET /api/v1/dataset/fun-facts. */
 export function fetchFunFacts(): Promise<FunFact[]> {
   return apiFetch<{ fun_facts: FunFact[]; total: number }>('/api/v1/dataset/fun-facts').then(
     (res) => res.fun_facts,
+  )
+}
+
+/**
+ * Fetch a random fun fact eligible for the current player (real endpoint:
+ * GET /api/v1/annotate/fun-facts/random) and record it as seen server-side.
+ *
+ * Passing `region` biases towards facts tied to the region the player is
+ * working in (region-agnostic facts stay eligible too). Resolves to `null`
+ * when nothing is currently eligible — e.g. the player has seen everything at
+ * their level `FUN_FACT_MAX_SEEN` times already — rather than throwing, so the
+ * caller can simply skip showing a fact.
+ */
+export function getRandomFunFact(region?: string | null): Promise<FunFact | null> {
+  const params = new URLSearchParams({ max_seen: String(FUN_FACT_MAX_SEEN) })
+  if (region) params.set('region', region)
+  return apiFetch<FunFact>(`/api/v1/annotate/fun-facts/random?${params.toString()}`).catch(
+    (err) => {
+      if (err instanceof ApiError && err.status === 404) return null
+      throw err
+    },
   )
 }
 

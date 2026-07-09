@@ -43,9 +43,182 @@
   opacity: 0.8;
 }
 
-.stat-accuracy-row {
+/* Per-league accent so each section's charts echo its game colour. */
+.stat-section[data-game='overlap'] {
+  --game-accent: var(--accent-overlap);
+}
+.stat-section[data-game='annotate'] {
+  --game-accent: var(--accent-annotate);
+}
+.stat-section[data-game='verify'] {
+  --game-accent: var(--accent-verify);
+}
+
+.stat-charts {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.stat-charts-wide {
+  flex: 1 1 200px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-charts-title {
+  font-size: 0.8rem;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+/* Neutral track shared by gauges and meters. */
+.stat-gauge-track,
+.stat-meter-track,
+.stat-split-empty {
+  background: color-mix(in srgb, var(--pane-border) 60%, transparent);
+}
+
+/* Radial accuracy gauge */
+.stat-gauge {
+  flex: 0 0 auto;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 108px;
+}
+
+.stat-gauge-svg {
+  width: 92px;
+  height: 92px;
+}
+
+.stat-gauge-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--pane-border) 60%, transparent);
+  stroke-width: 9;
+}
+
+.stat-gauge-arc {
+  fill: none;
+  stroke: var(--game-accent, var(--text-h));
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+
+.stat-gauge-value {
+  fill: var(--text-h);
+  font-size: 21px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.stat-gauge-caption {
+  font-size: 0.8rem;
+  color: var(--text);
+  text-align: center;
+}
+
+/* Two-category split bar */
+.stat-split {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-split-track {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.stat-split-empty {
+  flex: 1;
+}
+
+.stat-split-seg {
+  min-width: 0;
+}
+
+.stat-split-seg-0 {
+  background: var(--game-accent, var(--text-h));
+}
+
+/* Secondary category: a muted step of the accent that stays legible against
+   both the light and the dark surface (mixing toward the neutral border, not
+   the background, so it never sinks into a dark page). */
+.stat-split-seg-1 {
+  background: color-mix(in srgb, var(--game-accent, var(--text)) 42%, var(--pane-border));
+}
+
+.stat-split-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.stat-split-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.stat-split-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+.stat-split-legend-value {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+/* Coverage progress meter */
+.stat-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-meter-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.stat-meter-value {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.stat-meter-track {
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.stat-meter-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--game-accent, var(--text-h));
+  transition: width 0.4s ease;
 }
