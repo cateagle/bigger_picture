@@ -11,6 +11,7 @@ export default function AccountBar({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   user: User
@@ -19,6 +20,7 @@ export default function AccountBar({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   return (
@@ -40,6 +42,7 @@ export default function AccountBar({
         showAdmin={user.role !== 'annotator'}
         onOpenAdmin={onOpenAdmin}
         onOpenStats={onOpenStats}
+        onOpenLeaderboard={onOpenLeaderboard}
         onLogout={onLogout}
       />
     </div>

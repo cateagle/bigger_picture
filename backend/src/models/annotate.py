@@ -337,6 +337,22 @@ class MyStatsResponse(BaseModel):
     verify: VerifyStats = Field(description="Stage 3 (Verification) statistics.")
 
 
+class LeaderboardEntry(BaseModel):
+    """A single player's standing in the global experience-points leaderboard."""
+
+    rank: int = Field(description="1-based position in the overall ranking, highest exp first.")
+    uuid: UUID = Field(description="Unique identifier of the player.")
+    username: str = Field(description="Login name of the player.")
+    exp: int = Field(description="Total experience points the player has earned.")
+
+
+class LeaderboardResponse(BaseModel):
+    """A page of the global experience-points leaderboard, highest exp first."""
+
+    entries: list[LeaderboardEntry] = Field(description="The requested page of ranked players.")
+    total: int = Field(description="Total number of players, so clients know when to stop paging.")
+
+
 class QuestResponse(BaseModel):
     """A single daily quest with the caller's progress toward it.
 

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.api.v1.annotate.candidates import router as candidates_router
 from src.api.v1.annotate.fun_facts import router as fun_facts_router
+from src.api.v1.annotate.leaderboard import router as leaderboard_router
 from src.api.v1.annotate.points import router as points_router
 from src.api.v1.annotate.quests import router as quests_router
 from src.api.v1.annotate.stats import router as stats_router
@@ -25,6 +26,7 @@ router = APIRouter()
 router.include_router(candidates_router, prefix="/candidate")
 router.include_router(points_router, prefix="/points")
 router.include_router(stats_router, prefix="/stats")
+router.include_router(leaderboard_router, prefix="/leaderboard")
 router.include_router(quests_router, prefix="/quests")
 router.include_router(fun_facts_router, prefix="/fun-facts")
 

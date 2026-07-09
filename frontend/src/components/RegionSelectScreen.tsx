@@ -26,6 +26,7 @@ export default function RegionSelectScreen({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   user: User
@@ -33,6 +34,7 @@ export default function RegionSelectScreen({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   const [regions, setRegions] = useState<Region[] | null>(null)
@@ -66,6 +68,7 @@ export default function RegionSelectScreen({
         onOpenAdmin={onOpenAdmin}
         onOpenStats={onOpenStats}
         onOpenQuests={onOpenQuests}
+        onOpenLeaderboard={{onOpenLeaderboard}}
         onLogout={onLogout}
       />
 

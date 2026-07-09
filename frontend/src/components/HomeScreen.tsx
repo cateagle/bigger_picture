@@ -64,6 +64,7 @@ export default function HomeScreen({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   onPlay: (id: GameId) => void
@@ -73,6 +74,7 @@ export default function HomeScreen({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   // Per-game availability for this region: `undefined` while we're still probing;
@@ -138,6 +140,7 @@ export default function HomeScreen({
         onOpenAdmin={onOpenAdmin}
         onOpenStats={onOpenStats}
         onOpenQuests={onOpenQuests}
+        onOpenLeaderboard={onOpenLeaderboard}
         onLogout={onLogout}
       />
 

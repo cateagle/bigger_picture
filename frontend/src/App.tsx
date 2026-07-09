@@ -8,6 +8,7 @@ import VerifyGame from './components/VerifyGame'
 import DailyQuestsScreen from './components/DailyQuestsScreen'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
+import LeaderboardScreen from './components/LeaderboardScreen'
 import LoginScreen from './components/LoginScreen'
 import MyStatsScreen from './components/MyStatsScreen'
 import RegionSelectScreen from './components/RegionSelectScreen'
@@ -90,6 +91,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
   const onOpenAdmin = () => navigate('/admin')
   const onOpenStats = () => navigate('/stats')
   const onOpenQuests = () => navigate('/quests')
+  const onOpenLeaderboard = () => navidate('/leaderboard')
 
   return (
     <Routes>
@@ -141,6 +143,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={handleLogout}
           />
         }
@@ -175,6 +178,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
                 onOpenAdmin={onOpenAdmin}
                 onOpenStats={onOpenStats}
                 onOpenQuests={onOpenQuests}
+                onOpenLeaderboard={onOpenLeaderboard}
                 onLogout={handleLogout}
               />
             )}

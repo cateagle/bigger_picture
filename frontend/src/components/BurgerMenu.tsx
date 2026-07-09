@@ -5,11 +5,13 @@ export default function BurgerMenu({
   showAdmin,
   onOpenAdmin,
   onOpenStats,
+  onOpenLeaderboard,
   onLogout,
 }: {
   showAdmin: boolean
   onOpenAdmin: () => void
   onOpenStats: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -54,6 +56,9 @@ export default function BurgerMenu({
           )}
           <button type="button" role="menuitem" onClick={runAndClose(onOpenStats)}>
             My Stats
+          </button>
+          <button type="button" role="menuitem" onClick={runAndClose(onOpenLeaderboard)}>
+            Leaderboard
           </button>
           <button type="button" role="menuitem" onClick={runAndClose(onLogout)}>
             Log out
