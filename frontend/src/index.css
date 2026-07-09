@@ -314,8 +314,20 @@ h2 {
   height: 1px;
 }
 
-.marker-reviewed {
-  opacity: 0.35;
+/* A decided marker is dimmed so undecided points stand out, and carries a
+   colored ring showing its review decision. */
+.marker-approved,
+.marker-flagged {
+  opacity: 0.5;
+  border-color: #fff;
+}
+
+.marker-approved {
+  box-shadow: 0 0 0 3px #1baf7a;
+}
+
+.marker-flagged {
+  box-shadow: 0 0 0 3px #e34948;
 }
 
 .verify-points {
@@ -352,15 +364,19 @@ h2 {
   gap: 8px;
 }
 
-.verify-point-status {
-  font-size: 0.85rem;
-  font-weight: 500;
+.verify-toggle {
+  min-width: 88px;
 }
 
-.verify-point-status-approved {
-  color: #1baf7a;
+/* Active (staged) toggle states — reversible until the player submits. */
+.verify-toggle-approved {
+  background: #1baf7a;
+  border-color: #1baf7a;
+  color: #fff;
 }
 
-.verify-point-status-flagged {
-  color: #e34948;
+.verify-toggle-flagged {
+  background: #e34948;
+  border-color: #e34948;
+  color: #fff;
 }

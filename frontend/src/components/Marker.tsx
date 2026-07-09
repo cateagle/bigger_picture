@@ -4,16 +4,17 @@ export function Marker({
   point,
   color,
   label,
-  reviewed = false,
+  status,
 }: {
   point: NormalizedPoint
   color: string
   label: number
-  reviewed?: boolean
+  /** When set, draws a colored ring around the marker to show its review decision. */
+  status?: 'approved' | 'flagged'
 }) {
   return (
     <div
-      className={reviewed ? 'marker marker-reviewed' : 'marker'}
+      className={`marker${status ? ` marker-${status}` : ''}`}
       style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%`, backgroundColor: color }}
     >
       {label}
