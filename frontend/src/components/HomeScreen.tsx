@@ -4,8 +4,7 @@ import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextCandidatePair } from '../api/overlapApi'
 import type { Region, User } from '../api/types'
 import { fetchNextPendingVerification } from '../api/verifyApi'
-import DailyQuestsMenuLink from './DailyQuestsMenuLink'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import './HomeScreen.css'
 import glass_eel_2 from '../../images/glass_eel_2.png'
 import yellow_eel from '../../images/yellow_eel.png'
@@ -59,7 +58,6 @@ export default function HomeScreen({
   region,
   onChangeRegion,
   onOpenAdmin,
-  onOpenTeam,
   onOpenStats,
   onOpenQuests,
   onLogout,
@@ -69,7 +67,6 @@ export default function HomeScreen({
   region: Region
   onChangeRegion: () => void
   onOpenAdmin: () => void
-  onOpenTeam: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
   onLogout: () => void
@@ -116,30 +113,15 @@ export default function HomeScreen({
 
   return (
     <div className="home-screen">
-      <div className="account-bar">
-        <span>
-          Signed in as <strong>{user.username}</strong> · Region: <strong>{region.title}</strong>
-        </span>
-        <LevelBadge exp={user.exp} />
-        <button type="button" className="back-link" onClick={onChangeRegion}>
-          Change region
-        </button>
-        {user.role !== 'annotator' && (
-          <button type="button" className="back-link" onClick={onOpenAdmin}>
-            Admin
-          </button>
-        )}
-        <button type="button" className="back-link" onClick={onOpenStats}>
-          My Stats
-        </button>
-        <DailyQuestsMenuLink onClick={onOpenQuests} />
-        <button type="button" className="back-link" onClick={onOpenTeam}>
-          Team
-        </button>
-        <button type="button" className="back-link" onClick={onLogout}>
-          Log out
-        </button>
-      </div>
+      <AccountBar
+        user={user}
+        region={region}
+        onChangeRegion={onChangeRegion}
+        onOpenAdmin={onOpenAdmin}
+        onOpenStats={onOpenStats}
+        onOpenQuests={onOpenQuests}
+        onLogout={onLogout}
+      />
 
       <header className="home-header">
         <p className="home-eyebrow">Journey of the Eel</p>

@@ -8,3 +8,18 @@
 .app-footer p {
   margin: 0;
 }
+
+.app-footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.app-footer-links a {
+  color: var(--text);
+}
+
+.app-footer-links a:hover {
+  color: var(--text-h);
+}

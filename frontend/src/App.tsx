@@ -56,7 +56,7 @@ function App() {
   return (
     <BrowserRouter>
       {content}
-      <Footer />
+      <Footer showTeamLink={!!user} />
     </BrowserRouter>
   )
 }
@@ -94,7 +94,6 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
             user={user}
             onSelect={selectRegion}
             onOpenAdmin={() => navigate('/admin')}
-            onOpenTeam={() => navigate('/team')}
             onOpenStats={() => navigate('/stats')}
             onOpenQuests={() => navigate('/quests')}
             onLogout={handleLogout}
@@ -122,7 +121,6 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
                   navigate('/')
                 }}
                 onOpenAdmin={() => navigate('/admin')}
-                onOpenTeam={() => navigate('/team')}
                 onOpenStats={() => navigate('/stats')}
                 onOpenQuests={() => navigate('/quests')}
                 onLogout={handleLogout}
