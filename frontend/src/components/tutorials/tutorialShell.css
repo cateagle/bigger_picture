@@ -111,17 +111,6 @@
   border-radius: 4px;
 }
 
-/* Placeholder scene variants, used to fake a second distinct example until
-   real photo pairs are available (see SceneVariant). */
-.tut-scene-svg-angled {
-  transform: scale(1.08) rotate(-2deg);
-  transform-origin: center;
-}
-
-.tut-scene-svg-different {
-  filter: hue-rotate(110deg) saturate(1.15);
-}
-
 .tut-feedback {
   margin: 0;
   font-size: 0.9rem;
