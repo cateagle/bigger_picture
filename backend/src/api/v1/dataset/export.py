@@ -68,10 +68,10 @@ def _zip_response(background_tasks: BackgroundTasks, build_fn, filename: str) ->
     summary="Export Full Dataset as Zip",
     description="""
 Export every content table (users, labels, cameras, regions, dives, images, image pairs,
-candidate pairs, point annotations, candidate annotations, fun facts, helper images, seen facts)
-as CSV, with every internal id dropped and every foreign key resolved to the referenced row's
-uuid, packaged into a zip alongside images/ and helper_images/ folders containing the actual
-asset files. Requires the scientist role.
+candidate pairs, point annotations, candidate annotations, fun facts, helper images, seen facts,
+quest claims) as CSV, with every internal id dropped and every foreign key resolved to the
+referenced row's uuid, packaged into a zip alongside images/ and helper_images/ folders
+containing the actual asset files. Requires the scientist role.
 
 Image pairs and candidate pairs have no uuid of their own - they are identified purely by the
 uuids of their two constituent images, both in their own CSV and in any other table's reference

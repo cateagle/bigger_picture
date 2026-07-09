@@ -265,7 +265,7 @@ def test_export_full_dataset_zip_contains_all_tables_and_assets(client, scientis
     expected_csvs = {
         "users.csv", "labels.csv", "cameras.csv", "regions.csv", "dives.csv", "images.csv",
         "image_pairs.csv", "candidate_pairs.csv", "point_annotations.csv", "candidate_annotations.csv",
-        "fun_facts.csv", "helper_images.csv", "seen_facts.csv",
+        "fun_facts.csv", "helper_images.csv", "seen_facts.csv", "quest_claims.csv",
     }
     assert expected_csvs.issubset(set(names))
     assert any(name.startswith("images/") for name in names)
@@ -300,6 +300,49 @@ def test_export_full_dataset_zip_contains_all_tables_and_assets(client, scientis
         candidate_annotations_csv[0]["candidate_image2_uuid"],
     } == {img_a, img_b}
     assert "candidate_uuid" not in candidate_annotations_csv[0]
+
+
+def test_full_dataset_export_covers_every_schema_table(client, scientist):
+    """Regression test: every table in the schema is either covered by the full
+    export or explicitly excluded (status lookup tables, field_documentation).
+
+    Written after a real bug where a new table (quest_claims, added by a
+    concurrently-merged feature) was silently missing from the export because
+    the writer list was a hand-maintained snapshot from when the export was
+    built. This compares against SQLAlchemy's actual table registry instead of
+    another hand-maintained list, so a future forgotten table fails here rather
+    than shipping silently.
+    """
+    import src.schema.annotation_statuses  # noqa: F401
+    import src.schema.cameras  # noqa: F401
+    import src.schema.candidate_annotations  # noqa: F401
+    import src.schema.candidate_pairs  # noqa: F401
+    import src.schema.candidate_statuses  # noqa: F401
+    import src.schema.dives  # noqa: F401
+    import src.schema.field_documentation  # noqa: F401
+    import src.schema.fun_facts  # noqa: F401
+    import src.schema.helper_images  # noqa: F401
+    import src.schema.image_pairs  # noqa: F401
+    import src.schema.image_statuses  # noqa: F401
+    import src.schema.images  # noqa: F401
+    import src.schema.labels  # noqa: F401
+    import src.schema.pair_statuses  # noqa: F401
+    import src.schema.point_annotations  # noqa: F401
+    import src.schema.quest_claims  # noqa: F401
+    import src.schema.regions  # noqa: F401
+    import src.schema.seen_facts  # noqa: F401
+    import src.schema.users  # noqa: F401
+    from src.schema.base import Base
+    from src.services.dataset_export import _FULL_EXPORT_WRITERS
+
+    excluded_tables = {
+        "image_statuses", "pair_statuses", "candidate_statuses", "annotation_statuses",
+        "field_documentation",
+    }
+    exported_tables = {filename[: -len(".csv")] for filename, _writer in _FULL_EXPORT_WRITERS}
+    all_tables = set(Base.metadata.tables.keys())
+
+    assert all_tables - excluded_tables == exported_tables
 
 
 # --------------------------------------------------------------------------

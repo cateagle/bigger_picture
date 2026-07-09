@@ -46,6 +46,7 @@ from src.schema.image_pairs import ImagePair
 from src.schema.images import Image
 from src.schema.labels import Label
 from src.schema.point_annotations import PointAnnotation
+from src.schema.quest_claims import QuestClaim
 from src.schema.regions import Region
 from src.schema.seen_facts import SeenFact
 from src.schema.users import User
@@ -422,6 +423,20 @@ def write_seen_facts_csv(db: Session, buffer: TextIO) -> None:
         writer.writerow([_uuid_str(user_row.uuid), _uuid_str(fact_row.uuid), seen.seen_count])
 
 
+def write_quest_claims_csv(db: Session, buffer: TextIO) -> None:
+    writer = csv.writer(buffer)
+    writer.writerow(["user_uuid", "quest_key", "day_start_ms", "reward_exp", "created_at"])
+    rows = db.execute(
+        select(QuestClaim, User)
+        .join(User, QuestClaim.user_id == User.id)
+        .order_by(QuestClaim.id)
+    ).all()
+    for claim, user_row in rows:
+        writer.writerow(
+            [_uuid_str(user_row.uuid), claim.quest_key, claim.day_start_ms, claim.reward_exp, claim.created_at]
+        )
+
+
 # --------------------------------------------------------------------------
 # Flat-view CSV writers (existing SQL views, minus their leaked internal ids)
 # --------------------------------------------------------------------------
@@ -546,6 +561,7 @@ _FULL_EXPORT_WRITERS = [
     ("fun_facts.csv", write_fun_facts_csv),
     ("helper_images.csv", write_helper_images_csv),
     ("seen_facts.csv", write_seen_facts_csv),
+    ("quest_claims.csv", write_quest_claims_csv),
 ]
 
 
