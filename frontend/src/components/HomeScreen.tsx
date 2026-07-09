@@ -1,4 +1,9 @@
+import { useEffect, useState } from 'react'
+import { fetchNextImagePair } from '../api/annotationApi'
+import { fetchDivesForRegion } from '../api/diveApi'
+import { fetchNextCandidatePair } from '../api/overlapApi'
 import type { Region, User } from '../api/types'
+import { fetchNextPendingVerification } from '../api/verifyApi'
 import { LevelBadge } from './LevelBadge'
 import './HomeScreen.css'
 
@@ -59,6 +64,46 @@ export default function HomeScreen({
   onOpenStats: () => void
   onLogout: () => void
 }) {
+  // Per-game availability for this region: `undefined` while we're still probing;
+  // otherwise `true` if the game has something to serve, `false` if it's empty.
+  // A region can have dives but no candidate/image pairs for a given stage (or the
+  // player may have already worked through them), so we probe each game the same
+  // way the game screen does — resolve a dive, then ask that stage's "next" endpoint.
+  const [availability, setAvailability] = useState<Record<GameId, boolean> | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    setAvailability(undefined)
+
+    async function probe(diveUuid: string): Promise<Record<GameId, boolean>> {
+      const [overlap, annotate, verify] = await Promise.all([
+        fetchNextCandidatePair(diveUuid),
+        fetchNextImagePair(diveUuid),
+        fetchNextPendingVerification(diveUuid),
+      ])
+      return { overlap: overlap !== null, annotate: annotate !== null, verify: verify !== null }
+    }
+
+    fetchDivesForRegion(region.uuid)
+      .then((dives) => {
+        const dive = dives[0]
+        if (!dive) return { overlap: false, annotate: false, verify: false }
+        return probe(dive.uuid)
+      })
+      // On a fetch error we can't be sure the region is empty, so leave every game
+      // playable and let the game screen surface the failure itself.
+      .catch(() => ({ overlap: true, annotate: true, verify: true }))
+      .then((result) => {
+        if (!cancelled) setAvailability(result)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [region.uuid])
+
+  const tooltip = `There's nothing to play in this stage for ${region.title} right now — it has no imagery for this stage yet, or you've already worked through it. Try another region.`
+
   return (
     <div className="home-screen">
       <div className="account-bar">
@@ -96,17 +141,37 @@ export default function HomeScreen({
       </header>
 
       <div className="game-card-row">
-        {GAMES.map((game) => (
-          <article className={`game-card${game.active ? '' : ' game-card-locked'}`} data-game={game.id} key={game.id}>
-            <span className="game-card-league">{game.league}</span>
-            <h2>{game.title}</h2>
-            <p className="game-card-flavor">{game.flavor}</p>
-            <p>{game.description}</p>
-            <button type="button" className="btn btn-primary" disabled={!game.active} onClick={() => onPlay(game.id)}>
-              {game.active ? 'Play' : 'Coming soon'}
-            </button>
-          </article>
-        ))}
+        {GAMES.map((game) => {
+          // `undefined` availability = still probing; treat as playable so the
+          // buttons don't flash disabled on every home visit.
+          const noData = game.active && availability?.[game.id] === false
+          const disabled = !game.active || noData
+          return (
+            <article
+              className={`game-card${disabled ? ' game-card-locked' : ''}${noData ? ' game-card-nodata' : ''}`}
+              data-game={game.id}
+              key={game.id}
+            >
+              <span className="game-card-league">{game.league}</span>
+              <h2>{game.title}</h2>
+              <p className="game-card-flavor">{game.flavor}</p>
+              <p>{game.description}</p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={disabled}
+                onClick={() => onPlay(game.id)}
+              >
+                {!game.active ? 'Coming soon' : noData ? 'No data yet' : 'Play'}
+              </button>
+              {noData && (
+                <span className="game-card-tooltip" role="tooltip">
+                  {tooltip}
+                </span>
+              )}
+            </article>
+          )
+        })}
       </div>
     </div>
   )
