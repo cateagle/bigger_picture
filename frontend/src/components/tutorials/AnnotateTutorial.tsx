@@ -123,13 +123,13 @@ export default function AnnotateTutorial({ onComplete }: { onComplete: () => voi
         aria-modal="true"
         aria-labelledby="annot-tut-title"
       >
-        <button type="button" className="annot-tut-skip" onClick={onComplete}>
+        <button type="button" className="tut-skip" onClick={onComplete}>
           Skip tutorial
         </button>
         <h2 id="annot-tut-title">{narration.title}</h2>
         <p className="tut-body">{narration.body}</p>
 
-        <div className="annot-tut-pane-row">
+        <div className="tut-scene-row">
           {(['left', 'right'] as const).map((side) => (
             <div
               key={side}
@@ -150,17 +150,17 @@ export default function AnnotateTutorial({ onComplete }: { onComplete: () => voi
               )}
               {activeTarget && activeTarget.side === side && (
                 <div
-                  className="annot-tut-hint"
+                  className="tut-hint"
                   style={{ left: `${activeTarget.point.x * 100}%`, top: `${activeTarget.point.y * 100}%` }}
                 />
               )}
               {stage === 'moving' && (
                 <>
-                  <div className="annot-tut-avoid" style={{ left: `${FISH.x * 100}%`, top: `${FISH.y * 100}%` }}>
-                    <span className="annot-tut-avoid-label">moves — skip</span>
+                  <div className="tut-avoid" style={{ left: `${FISH.x * 100}%`, top: `${FISH.y * 100}%` }}>
+                    <span className="tut-avoid-label">moves — skip</span>
                   </div>
-                  <div className="annot-tut-avoid" style={{ left: `${BUBBLES.x * 100}%`, top: `${BUBBLES.y * 100}%` }}>
-                    <span className="annot-tut-avoid-label">moves — skip</span>
+                  <div className="tut-avoid" style={{ left: `${BUBBLES.x * 100}%`, top: `${BUBBLES.y * 100}%` }}>
+                    <span className="tut-avoid-label">moves — skip</span>
                   </div>
                 </>
               )}
@@ -172,7 +172,7 @@ export default function AnnotateTutorial({ onComplete }: { onComplete: () => voi
 
         {stage === 'moving' && (
           <footer className="tut-footer">
-            <button type="button" className="btn btn-primary annot-tut-start" onClick={onComplete}>
+            <button type="button" className="btn btn-primary tut-start" onClick={onComplete}>
               Start playing
             </button>
           </footer>

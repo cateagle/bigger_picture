@@ -10,6 +10,8 @@ import AccountBar from './AccountBar'
 import { useGameStats } from './useGameStats'
 import { useFunFactTrigger } from './useFunFactTrigger'
 import FunFactModal from './FunFactModal'
+import OverlapTutorial from './tutorials/OverlapTutorial'
+import { useTutorial } from './tutorials/useTutorial'
 
 export default function OverlapGame({
   region,
@@ -41,6 +43,7 @@ export default function OverlapGame({
   const [gridSize, setGridSize] = useState<GridSize>(0)
   const { stats, window: statsWindow, bump } = useGameStats('overlap')
   const { fact, recordCompletion, dismiss } = useFunFactTrigger(region.uuid)
+  const { show: showTutorial, complete: completeTutorial } = useTutorial('overlap')
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -95,6 +98,7 @@ export default function OverlapGame({
   return (
     <div className="game-screen" data-game="overlap">
       {fact && <FunFactModal fact={fact} onDismiss={dismiss} />}
+      {showTutorial && <OverlapTutorial onComplete={completeTutorial} />}
       <header className="game-header">
         <div className="game-header-top">
           <button type="button" className="back-link" onClick={onBack}>
