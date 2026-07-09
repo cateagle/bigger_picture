@@ -34,6 +34,8 @@ export interface FunFact {
   fact: unknown
   min_level: number
   region: string | null
+  /** Relative asset filepath, once the backend's image-upload support lands. Not present today. */
+  image?: string | null
 }
 
 /** Mirrors `DatasetSummaryResponse` from `backend/src/models/dataset.py`. */
