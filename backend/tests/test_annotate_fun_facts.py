@@ -1,6 +1,9 @@
+import base64
+import io
 import uuid
 
 import pytest
+from PIL import Image as PILImage
 from sqlalchemy import text
 
 
@@ -151,6 +154,33 @@ def test_random_unknown_region_is_404(client, scientist, seed_user, login_as):
         "/api/v1/annotate/fun-facts/random", params={"max_seen": 1, "region": _new_uuid()}
     )
     assert resp.status_code == 404
+
+
+def test_random_surfaces_attached_image(client, scientist, seed_user, login_as):
+    img = PILImage.new("RGB", (10, 10), (5, 6, 7))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    image_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    resp = client.post(
+        "/api/v1/dataset/fun-facts/create",
+        json={
+            "uuid": _new_uuid(), "title": "illustrated", "fact": {"text": "illustrated"},
+            "image": image_b64, "image_filename": "pic.png",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    fact = resp.json()["uuid"]
+
+    annotator = seed_user(username="ann11", role="annotator", expert_level=0)
+    login_as(annotator)
+
+    resp = client.get("/api/v1/annotate/fun-facts/random", params={"max_seen": 1})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["uuid"] == fact
+    assert body["image"] is not None
+    assert body["image"]["filename"] == "pic.png"
 
 
 def test_random_missing_max_seen_is_422(client, scientist, seed_user, login_as):

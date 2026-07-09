@@ -18,6 +18,7 @@ def create_fun_fact(
     fact: Any,
     min_level: int,
     region_id: int | None,
+    image_id: int | None,
     creator_id: int,
 ) -> FunFact:
     """Build, add, and flush a new `FunFact` row. Does not commit.
@@ -32,6 +33,7 @@ def create_fun_fact(
         fact_json=encode_metadata(fact),
         min_level=min_level,
         region_id=region_id,
+        image_id=image_id,
     )
     db.add(fun_fact)
     try:
