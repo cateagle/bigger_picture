@@ -4,6 +4,7 @@ import { createImage } from '../../api/datasetApi'
 import { ApiError } from '../../api/client'
 import './AdminPanels.css'
 import './CreateStrideCandidatePairsModal.css'
+import './UploadImagesModal.css'
 
 export default function UploadImagesModal({
   diveUuid,
@@ -62,7 +63,13 @@ export default function UploadImagesModal({
       >
         <div className="admin-form">
           <h3 id="upload-images-modal-title">Upload images</h3>
-          <p className="game-status">Each uploaded image is assigned a random uuid; the original filename is kept for display only.</p>
+          <div className="upload-images-warning" role="alert">
+            <span aria-hidden="true">⚠️</span>
+            <span>
+              <strong>Note:</strong> each uploaded image is assigned a random uuid; the original filename is kept
+              for display only.
+            </span>
+          </div>
           <label className="admin-form-field">
             Select images
             <input type="file" accept="image/*" multiple disabled={uploading} onChange={handleFilesChange} />
