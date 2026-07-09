@@ -8,6 +8,12 @@ export interface AccuracyStat {
   accuracy: number | null
 }
 
+/** Format an accuracy fraction as a percentage, or "n/a" when nothing is reviewed yet. */
+export function formatAccuracy(stat: AccuracyStat): string {
+  if (stat.accuracy === null) return 'n/a'
+  return `${Math.round(stat.accuracy * 100)}%`
+}
+
 /** Mirrors `OverlapStats` from `backend/src/models/annotate.py`. */
 export interface OverlapStats {
   pairs_marked: number

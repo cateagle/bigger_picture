@@ -1,0 +1,8 @@
+.fun-facts-admin-thumb {
+  max-width: 160px;
+  max-height: 120px;
+  border-radius: 6px;
+  border: 1px solid var(--pane-border);
+  object-fit: contain;
+  display: block;
+}

@@ -80,6 +80,32 @@ class RegionListResponse(BaseModel):
     regions: list[RegionResponse] = Field(description="All regions in the system.")
 
 
+class HelperImageResponse(BaseModel):
+    """A helper image: a decorative image asset, not part of the dataset."""
+
+    uuid: UUID = Field(description="Unique identifier of the helper image.")
+    created_at: int = Field(
+        description="Unix epoch time in milliseconds when the helper image was created."
+    )
+    created_by: UUID = Field(
+        description="Unique identifier of the user who uploaded the helper image."
+    )
+    filename: str = Field(
+        description="Display filename of the helper image. Not used to derive storage path."
+    )
+    filepath: str = Field(
+        description="Relative path under the assets directory the image is stored at. "
+        "Content-addressed; served at /assets/{filepath}."
+    )
+
+
+class HelperImageListResponse(BaseModel):
+    helper_images: list[HelperImageResponse] = Field(
+        description="Helper images, for the requested page."
+    )
+    total: int = Field(description="Total number of helper images, across all pages.")
+
+
 class FunFactResponse(BaseModel):
     """A fun fact that can be shown to users."""
 
@@ -97,6 +123,9 @@ class FunFactResponse(BaseModel):
     )
     region: UUID | None = Field(
         description="Unique identifier of the region this fact is scoped to, or null if it applies to all regions."
+    )
+    image: HelperImageResponse | None = Field(
+        description="The helper image attached to this fun fact, or null if none is attached."
     )
 
 
@@ -140,6 +169,27 @@ class FunFactCreateRequest(BaseModel):
         description="Unique identifier of the region to scope this fact to. Omit or send null to apply to all regions.",
     )
 
+    image: str | None = Field(
+        default=None,
+        description="Base64-encoded raw image bytes to upload as this fact's image. Deduplicated "
+        "by content: if identical bytes were uploaded before, the existing helper image is reused. "
+        "Mutually exclusive with image_uuid. Requires image_filename.",
+    )
+
+    image_filename: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="Display filename to record for the uploaded image. Required when image is "
+        "supplied; rejected with 422 if supplied without image.",
+    )
+
+    image_uuid: UUID | None = Field(
+        default=None,
+        description="Unique identifier of an existing helper image to attach instead of uploading "
+        "a new one. Mutually exclusive with image.",
+    )
+
 
 class FunFactUpdateRequest(BaseModel):
     """Request used to partially update an existing fun fact.
@@ -148,6 +198,12 @@ class FunFactUpdateRequest(BaseModel):
     untouched. Sending an explicit null for title, fact, or min_level is also
     a no-op, since none of these columns are nullable. Sending an explicit
     null for region clears it (the fact then applies to all regions).
+
+    Image handling has four states, since it needs one more than the usual
+    present/null/value truth table can express: leave unchanged (omit image,
+    image_uuid, and clear_image), upload new bytes (image + image_filename),
+    attach an existing helper image (image_uuid), or detach the current image
+    (clear_image: true). At most one of these may be active at a time.
     """
 
     model_config = ConfigDict(
@@ -181,6 +237,33 @@ class FunFactUpdateRequest(BaseModel):
     region: UUID | None = Field(
         default=None,
         description="New region to scope this fact to. Send null to clear it, or omit to leave unchanged.",
+    )
+
+    image: str | None = Field(
+        default=None,
+        description="Base64-encoded raw image bytes to upload and attach, replacing any current "
+        "image. Deduplicated by content. Mutually exclusive with image_uuid and clear_image. "
+        "Requires image_filename.",
+    )
+
+    image_filename: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="Display filename for the uploaded image. Required when image is supplied; "
+        "rejected with 422 if supplied without image.",
+    )
+
+    image_uuid: UUID | None = Field(
+        default=None,
+        description="Unique identifier of an existing helper image to attach instead of uploading "
+        "a new one. Mutually exclusive with image and clear_image.",
+    )
+
+    clear_image: bool = Field(
+        default=False,
+        description="If true, detach the current image (sets it to null). Mutually exclusive with "
+        "image and image_uuid. Omit or false to leave the image unchanged.",
     )
 
 

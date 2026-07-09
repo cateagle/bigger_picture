@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { createFunFact, fetchFunFacts, updateFunFact } from '../api/funFactApi'
 import { createLabel, fetchLabels, updateLabel } from '../api/labelApi'
 import type { User } from '../api/types'
 import DatasetAdmin from './admin/DatasetAdmin'
+import FunFactsAdmin from './admin/FunFactsAdmin'
 import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
@@ -23,24 +23,12 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
   return updateLabel(uuid, input as { scope?: string; title?: string; description?: string | null })
 }
 
-function createFunFactAdapter(input: Record<string, unknown>) {
-  return createFunFact(input as { title: string; fact: unknown })
-}
-function updateFunFactAdapter(uuid: string, input: Record<string, unknown>) {
-  return updateFunFact(uuid, input as { title?: string; fact?: unknown })
-}
-
 type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import'
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
   { key: 'title', label: 'Title', type: 'text', required: true } as const,
   { key: 'description', label: 'Description', type: 'textarea' } as const,
-]
-
-const FACT_FIELDS = [
-  { key: 'title', label: 'Title', type: 'text', required: true } as const,
-  { key: 'fact', label: 'Fact (JSON)', type: 'json', required: true } as const,
 ]
 
 export default function AdminScreen({ user, onBack }: { user: User; onBack: () => void }) {
@@ -93,15 +81,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           update={updateLabelAdapter}
         />
       )}
-      {tab === 'facts' && (
-        <SimpleEntityAdmin
-          entityName="Facts"
-          fields={FACT_FIELDS}
-          fetchList={fetchFunFacts}
-          create={createFunFactAdapter}
-          update={updateFunFactAdapter}
-        />
-      )}
+      {tab === 'facts' && <FunFactsAdmin />}
       {tab === 'dataset' && <DatasetAdmin />}
       {tab === 'import' && <ZipUploadAdmin />}
       {tab === 'users' && isAdmin && <UsersAdmin currentUserUuid={user.uuid} />}

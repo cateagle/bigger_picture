@@ -45,18 +45,42 @@
 }
 
 .game-card {
+  --card-accent: #2a78d6;
   flex: 1 1 260px;
   max-width: 320px;
   border: 1px solid var(--pane-border);
+  border-top: 4px solid var(--card-accent);
   border-radius: 10px;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: color-mix(in srgb, var(--card-accent) 6%, var(--bg));
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.game-card:hover:not(.game-card-locked) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--card-accent) 25%, transparent);
+}
+
+.game-card[data-game='overlap'] {
+  --card-accent: var(--accent-overlap);
+}
+
+.game-card[data-game='annotate'] {
+  --card-accent: var(--accent-annotate);
+}
+
+.game-card[data-game='verify'] {
+  --card-accent: var(--accent-verify);
 }
 
 .game-card-locked {
   opacity: 0.6;
+  filter: grayscale(0.6);
 }
 
 .game-card-league {
@@ -64,7 +88,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text);
+  color: color-mix(in srgb, var(--card-accent) 60%, var(--text-h));
 }
 
 .game-card h2 {
@@ -84,4 +108,9 @@
 
 .game-card button {
   margin-top: 8px;
+}
+
+.game-card .btn-primary {
+  background: var(--card-accent);
+  border-color: var(--card-accent);
 }
