@@ -360,3 +360,77 @@ def test_create_stride_role_gating_annotator_forbidden(client, seed_user, login_
         json={"dive_uuid": _new_uuid(), "stride": 1, "sort_by": "filename"},
     )
     assert resp.status_code == 403
+
+
+def test_list_candidates_hidden_count(client, scientist):
+    dive = _make_dive(client)
+    a = _make_image(client, dive, "ha.png")
+    b = _make_image(client, dive, "hb.png")
+    c = _make_image(client, dive, "hc.png")
+    assert client.post("/api/v1/dataset/candidates/create", json={"image_a": a, "image_b": b}).status_code == 201
+    assert client.post("/api/v1/dataset/candidates/create", json={"image_a": b, "image_b": c}).status_code == 201
+    assert client.post(
+        "/api/v1/dataset/candidates/batch/status-change/open",
+        json=[{"image_a": a, "image_b": b}],
+    ).status_code == 200
+
+    resp = client.get(f"/api/v1/dataset/candidates?dive={dive}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 2
+    assert body["hidden_count"] == 1
+
+
+def test_publish_moves_hidden_to_open(client, scientist):
+    dive = _make_dive(client)
+    a = _make_image(client, dive, "pa.png")
+    b = _make_image(client, dive, "pb.png")
+    c = _make_image(client, dive, "pc.png")
+    assert client.post("/api/v1/dataset/candidates/create", json={"image_a": a, "image_b": b}).status_code == 201
+    assert client.post("/api/v1/dataset/candidates/create", json={"image_a": b, "image_b": c}).status_code == 201
+
+    resp = client.post("/api/v1/dataset/candidates/publish", json={"dive_uuid": dive})
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"published": 2, "remaining_hidden": 0}
+
+    listing = client.get(f"/api/v1/dataset/candidates?dive={dive}").json()
+    assert listing["hidden_count"] == 0
+    assert all(p["status"] == "open" for p in listing["candidates"])
+
+    # Calling again publishes nothing further, since none are hidden anymore.
+    resp2 = client.post("/api/v1/dataset/candidates/publish", json={"dive_uuid": dive})
+    assert resp2.status_code == 200
+    assert resp2.json() == {"published": 0, "remaining_hidden": 0}
+
+
+def test_publish_respects_batch_cap(client, scientist, monkeypatch):
+    import src.api.v1.dataset.candidate_pairs as candidate_pairs_module
+
+    monkeypatch.setattr(candidate_pairs_module, "PUBLISH_BATCH_SIZE", 2)
+
+    dive = _make_dive(client)
+    imgs = [_make_image(client, dive, f"cap{i}.png") for i in range(4)]
+    for i in range(3):
+        assert client.post(
+            "/api/v1/dataset/candidates/create",
+            json={"image_a": imgs[i], "image_b": imgs[i + 1]},
+        ).status_code == 201
+
+    first = client.post("/api/v1/dataset/candidates/publish", json={"dive_uuid": dive})
+    assert first.status_code == 200, first.text
+    assert first.json() == {"published": 2, "remaining_hidden": 1}
+
+    second = client.post("/api/v1/dataset/candidates/publish", json={"dive_uuid": dive})
+    assert second.status_code == 200, second.text
+    assert second.json() == {"published": 1, "remaining_hidden": 0}
+
+
+def test_publish_missing_dive_is_404(client, scientist):
+    resp = client.post("/api/v1/dataset/candidates/publish", json={"dive_uuid": _new_uuid()})
+    assert resp.status_code == 404
+
+
+def test_publish_role_gating_annotator_forbidden(client, seed_user, login_as):
+    login_as(seed_user(username="ann4", role="annotator"))
+    resp = client.post("/api/v1/dataset/candidates/publish", json={"dive_uuid": _new_uuid()})
+    assert resp.status_code == 403
