@@ -10,6 +10,8 @@ import { gridToggleLabel, nextGridSize } from './gridSize'
 import { GameStatsBar } from './GameStatsBar'
 import { LevelBadge } from './LevelBadge'
 import { useGameStats } from './useGameStats'
+import { useFunFactTrigger } from './useFunFactTrigger'
+import FunFactModal from './FunFactModal'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 import { ZoomLens } from './ZoomLens'
@@ -52,6 +54,7 @@ export default function AnnotateGame({
   const [zoomPoint, setZoomPoint] = useState<{side: 'A' | 'B'; point: NormalizedPoint} | null>(null)
   const [cursorPosition, setCursorPosition] = useState<{x: number; y: number} | null>(null)
   const { stats, window: statsWindow, bump } = useGameStats('annotate')
+  const { fact, recordCompletion, dismiss } = useFunFactTrigger(region.uuid)
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
 
@@ -159,6 +162,7 @@ export default function AnnotateGame({
     })
       .then(() => {
         bump({ pairs_marked: 1, annotations: correspondences.length })
+        recordCompletion()
         loadNextPair(diveUuid)
         onUserRefresh()
       })
@@ -168,6 +172,7 @@ export default function AnnotateGame({
 
   return (
     <div className="game-screen" data-game="annotate">
+      {fact && <FunFactModal fact={fact} onDismiss={dismiss} />}
        {zoomPoint && (
         <ZoomLens
           imageRef={

@@ -12,11 +12,13 @@ interface TeamMember {
  */
 const TEAM: TeamMember[] = [
   { name: 'Sascha Mahmood', githubHandle: 'savenger' },
-  { name: 'paschoentag', githubHandle: 'paschoentag' },
-  { name: 'cateagle', githubHandle: 'cateagle' },
+  { name: 'Patricia Schöntag', githubHandle: 'paschoentag' },
+  { name: 'Julius ', githubHandle: 'cateagle' },
   { name: 'Paul C. Busch', githubHandle: 'chaosbit' },
   { name: 'Wiebke Engler', githubHandle: 'Wiebke-Engler' },
   { name: 'Barbara Glemser', githubHandle: 'bglemser' },
+  { name: 'Meike Nienaber', githubHandle: 'Meike1711' },
+  { name: 'Raphaela Lopes', githubHandle: '' },
 ]
 
 export default function TeamScreen({ onBack }: { onBack: () => void }) {
