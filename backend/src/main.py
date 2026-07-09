@@ -3,8 +3,27 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
+from starlette.types import Scope
+
+
+class SPAStaticFiles(StaticFiles):
+    """StaticFiles that serves index.html for unmatched paths.
+
+    The frontend uses a client-side router (react-router's BrowserRouter) with
+    real paths like /region/<uuid>. Without this fallback a hard refresh or
+    deep link to such a path would 404, since no matching file exists on disk.
+    """
+
+    async def get_response(self, path: str, scope: Scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
 
 from src import config
 from src.api.middleware.auth_middleware import AuthMiddleware
@@ -60,7 +79,7 @@ def create_app(*, database_path: str | None = None) -> FastAPI:
     # checkout, backend-only dev, pytest) is a normal state, not an error.
     frontend_dist = Path(config.FRONTEND_DIST_DIR)
     if frontend_dist.is_dir():
-        app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+        app.mount("/", SPAStaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
     return app
 
