@@ -43,12 +43,16 @@ def _make_dive(client, title="dive") -> str:
 
 
 def _make_image(client, dive, filepath) -> str:
+    return _make_image_named(client, dive, filename=filepath, filepath=filepath)
+
+
+def _make_image_named(client, dive, filename, filepath) -> str:
     u = _new_uuid()
     resp = client.post(
         "/api/v1/dataset/images/create",
         json={
             "uuid": u,
-            "filename": filepath,
+            "filename": filename,
             "filepath": filepath,
             "dive_uuid": dive,
             "image": _png_b64(),
@@ -245,4 +249,114 @@ def test_list_candidates_unknown_dive_is_404(client, scientist):
 def test_list_candidates_role_gating_annotator_forbidden(client, seed_user, login_as):
     login_as(seed_user(username="ann2", role="annotator"))
     resp = client.get(f"/api/v1/dataset/candidates?dive={_new_uuid()}")
+    assert resp.status_code == 403
+
+
+def test_create_stride_happy_path(client, scientist):
+    dive = _make_dive(client)
+    imgs = [_make_image(client, dive, f"img{i}.png") for i in range(4)]
+
+    resp = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": dive, "stride": 1, "sort_by": "filename"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["total_images"] == 4
+    assert body["pairs_considered"] == 3
+    assert body["pairs_created"] == 3
+    assert body["pairs_skipped"] == 0
+
+    listing = client.get(f"/api/v1/dataset/candidates?dive={dive}").json()["candidates"]
+    pairs = {frozenset((p["image_a"], p["image_b"])) for p in listing}
+    assert pairs == {
+        frozenset((imgs[0], imgs[1])),
+        frozenset((imgs[1], imgs[2])),
+        frozenset((imgs[2], imgs[3])),
+    }
+    assert all(p["status"] == "hidden" for p in listing)
+
+
+def test_create_stride_larger_stride(client, scientist):
+    dive = _make_dive(client)
+    imgs = [_make_image(client, dive, f"img{i}.png") for i in range(4)]
+
+    resp = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": dive, "stride": 2, "sort_by": "filename"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["pairs_considered"] == 2
+    assert body["pairs_created"] == 2
+
+    listing = client.get(f"/api/v1/dataset/candidates?dive={dive}").json()["candidates"]
+    pairs = {frozenset((p["image_a"], p["image_b"])) for p in listing}
+    assert pairs == {frozenset((imgs[0], imgs[2])), frozenset((imgs[1], imgs[3]))}
+
+
+def test_create_stride_is_idempotent(client, scientist):
+    dive = _make_dive(client)
+    [_make_image(client, dive, f"img{i}.png") for i in range(4)]
+
+    first = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": dive, "stride": 1, "sort_by": "filename"},
+    )
+    assert first.status_code == 201, first.text
+    assert first.json()["pairs_created"] == 3
+
+    second = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": dive, "stride": 1, "sort_by": "filename"},
+    )
+    assert second.status_code == 201, second.text
+    body = second.json()
+    assert body["pairs_created"] == 0
+    assert body["pairs_considered"] == 3
+    assert body["pairs_skipped"] == 3
+
+
+def test_create_stride_missing_dive_is_404(client, scientist):
+    resp = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": _new_uuid(), "stride": 1, "sort_by": "filename"},
+    )
+    assert resp.status_code == 404
+
+
+def test_create_stride_zero_stride_is_422(client, scientist):
+    dive = _make_dive(client)
+    resp = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": dive, "stride": 0, "sort_by": "filename"},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_stride_sort_by_filepath(client, scientist):
+    dive = _make_dive(client)
+    a = _make_image_named(client, dive, filename="1.png", filepath="b.png")
+    b = _make_image_named(client, dive, filename="2.png", filepath="c.png")
+    c = _make_image_named(client, dive, filename="3.png", filepath="a.png")
+
+    resp = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": dive, "stride": 1, "sort_by": "filepath"},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["pairs_created"] == 2
+
+    listing = client.get(f"/api/v1/dataset/candidates?dive={dive}").json()["candidates"]
+    pairs = {frozenset((p["image_a"], p["image_b"])) for p in listing}
+    # filepath order is c ("a.png"), a ("b.png"), b ("c.png") -> adjacent pairs (c,a) and (a,b).
+    assert pairs == {frozenset((c, a)), frozenset((a, b))}
+
+
+def test_create_stride_role_gating_annotator_forbidden(client, seed_user, login_as):
+    login_as(seed_user(username="ann3", role="annotator"))
+    resp = client.post(
+        "/api/v1/dataset/candidates/create-stride",
+        json={"dive_uuid": _new_uuid(), "stride": 1, "sort_by": "filename"},
+    )
     assert resp.status_code == 403

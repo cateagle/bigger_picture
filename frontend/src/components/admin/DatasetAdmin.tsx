@@ -14,9 +14,11 @@ import {
   fetchImagePairsForDive,
   fetchImagesForDive,
 } from '../../api/datasetApi'
+import type { StrideCandidatePairResult } from '../../api/datasetApi'
 import { fetchDivesForRegion } from '../../api/diveApi'
 import { fetchRegions } from '../../api/regionApi'
 import type { AnnotationSummary, CandidatePairSummary, DatasetImage, Dive, ImagePairSummary, Region } from '../../api/types'
+import CreateStrideCandidatePairsModal from './CreateStrideCandidatePairsModal'
 import '../admin/AdminPanels.css'
 import './DatasetAdmin.css'
 
@@ -71,6 +73,9 @@ export default function DatasetAdmin() {
   const [annotations, setAnnotations] = useState<AnnotationSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const [strideModalOpen, setStrideModalOpen] = useState(false)
+  const [strideResult, setStrideResult] = useState<StrideCandidatePairResult | null>(null)
+
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
 
@@ -115,7 +120,7 @@ export default function DatasetAdmin() {
       .catch(() => setError('Could not load images for this dive.'))
   }, [diveUuid, imagesPage])
 
-  useEffect(() => {
+  const loadCandidatePairs = () => {
     if (!diveUuid) return
     fetchCandidatePairsForDive(diveUuid, candidatesPage, PAGE_SIZE)
       .then(({ items, total }) => {
@@ -123,7 +128,9 @@ export default function DatasetAdmin() {
         setCandidatesTotal(total)
       })
       .catch(() => setError('Could not load candidate pairs for this dive.'))
-  }, [diveUuid, candidatesPage])
+  }
+
+  useEffect(loadCandidatePairs, [diveUuid, candidatesPage])
 
   useEffect(() => {
     if (!diveUuid) return
@@ -300,7 +307,18 @@ export default function DatasetAdmin() {
           </section>
 
           <section className="dataset-admin-section">
-            <h3>Candidate pairs ({candidatesTotal})</h3>
+            <div className="dataset-admin-section-header">
+              <h3>Candidate pairs ({candidatesTotal})</h3>
+              <button type="button" className="btn" onClick={() => setStrideModalOpen(true)}>
+                Create pairs by stride…
+              </button>
+            </div>
+            {strideResult && (
+              <p className="game-status">
+                Created {strideResult.pairs_created} new candidate pairs ({strideResult.pairs_skipped} already
+                existed).
+              </p>
+            )}
             {candidates === null ? (
               <p className="game-status">Loading…</p>
             ) : (
@@ -387,6 +405,24 @@ export default function DatasetAdmin() {
             )}
           </section>
         </>
+      )}
+
+      {strideModalOpen && (
+        <CreateStrideCandidatePairsModal
+          diveUuid={diveUuid}
+          onCancel={() => setStrideModalOpen(false)}
+          onCreated={(result) => {
+            setStrideResult(result)
+            setStrideModalOpen(false)
+            // If already on page 1, changing the page is a no-op, so refetch directly;
+            // otherwise resetting the page triggers the existing effect to refetch.
+            if (candidatesPage === 1) {
+              loadCandidatePairs()
+            } else {
+              setCandidatesPage(1)
+            }
+          }}
+        />
       )}
     </div>
   )
