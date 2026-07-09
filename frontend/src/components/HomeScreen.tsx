@@ -53,6 +53,7 @@ export default function HomeScreen({
   onOpenAdmin,
   onOpenTeam,
   onOpenStats,
+  onOpenQuests,
   onLogout,
 }: {
   onPlay: (id: GameId) => void
@@ -62,6 +63,7 @@ export default function HomeScreen({
   onOpenAdmin: () => void
   onOpenTeam: () => void
   onOpenStats: () => void
+  onOpenQuests: () => void
   onLogout: () => void
 }) {
   // Per-game availability for this region: `undefined` while we're still probing;
@@ -121,6 +123,9 @@ export default function HomeScreen({
         )}
         <button type="button" className="back-link" onClick={onOpenStats}>
           My Stats
+        </button>
+        <button type="button" className="back-link" onClick={onOpenQuests}>
+          Daily Quests
         </button>
         <button type="button" className="back-link" onClick={onOpenTeam}>
           Team
