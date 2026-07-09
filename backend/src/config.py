@@ -30,6 +30,12 @@ CANDIDATE_AGREEMENT_THRESHOLD = float(os.environ.get("CANDIDATE_AGREEMENT_THRESH
 POINT_ANNOTATION_REVIEW_EXP = int(os.environ.get("POINT_ANNOTATION_REVIEW_EXP", "1"))
 CANDIDATE_ANNOTATION_REVIEW_EXP = int(os.environ.get("CANDIDATE_ANNOTATION_REVIEW_EXP", "5"))
 
+# Daily quests. The set (and its order) is chosen deterministically from a fixed
+# catalog by an RNG seeded only on the local day, so every player sees the same
+# quests each day. "Today" is a local-midnight-to-midnight window in this tz.
+QUEST_TIMEZONE = os.environ.get("QUEST_TIMEZONE", "Europe/Berlin")
+QUEST_COUNT_PER_DAY = int(os.environ.get("QUEST_COUNT_PER_DAY", "3"))
+
 # Username of an admin to create automatically the first time the database is
 # initialized (empty users table). Leave blank to disable auto-seeding and
 # create the first admin manually via `python -m src.bootstrap_admin`.
