@@ -46,6 +46,7 @@
 
 .game-card {
   --card-accent: #2a78d6;
+  position: relative;
   flex: 1 1 260px;
   max-width: 320px;
   border: 1px solid var(--pane-border);
@@ -81,6 +82,51 @@
 .game-card-locked {
   opacity: 0.6;
   filter: grayscale(0.6);
+}
+
+/* Lift the hovered card above its siblings so the tooltip isn't painted over. */
+.game-card-nodata:hover {
+  z-index: 10;
+}
+
+.game-card-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  width: max-content;
+  max-width: 240px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #1f2430;
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  z-index: 20;
+}
+
+.game-card-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #1f2430;
+}
+
+.game-card-nodata:hover .game-card-tooltip,
+.game-card-nodata:focus-within .game-card-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .game-card-league {
