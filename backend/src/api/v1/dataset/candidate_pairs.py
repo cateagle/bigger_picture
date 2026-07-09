@@ -14,7 +14,9 @@ from src.db import get_db
 from src.models.dataset import (
     CandidatePairListResponse,
     CandidatePairResponse,
+    DivePublishRequest,
     ImagePairRef,
+    PublishCandidatesResponse,
     StrideCandidatePairRequest,
     StrideCandidatePairResponse,
 )
@@ -30,6 +32,8 @@ from src.services.images import resolve_dive_id as _resolve_dive_id_or_none
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
 
 router = APIRouter()
+
+PUBLISH_BATCH_SIZE = 100
 
 
 def _to_response(pair: CandidatePair, db: Session) -> CandidatePairResponse:
@@ -68,6 +72,18 @@ def _resolve_dive_id(db: Session, dive_uuid: UUID) -> int:
     return dive_id
 
 
+def _dive_candidates_query(dive_id: int):
+    """Select CandidatePair rows whose images both belong to dive_id."""
+    Image1 = aliased(Image)
+    Image2 = aliased(Image)
+    return (
+        select(CandidatePair)
+        .join(Image1, CandidatePair.image1_id == Image1.id)
+        .join(Image2, CandidatePair.image2_id == Image2.id)
+        .where(Image1.dive_id == dive_id, Image2.dive_id == dive_id)
+    )
+
+
 @router.get(
     "",
     response_model=CandidatePairListResponse,
@@ -88,19 +104,21 @@ def list_candidate_pairs(
     if dive_row is None:
         raise HTTPException(status_code=404, detail="Dive not found")
 
-    Image1 = aliased(Image)
-    Image2 = aliased(Image)
-    base_query = (
-        select(CandidatePair)
-        .join(Image1, CandidatePair.image1_id == Image1.id)
-        .join(Image2, CandidatePair.image2_id == Image2.id)
-        .where(Image1.dive_id == dive_row.id, Image2.dive_id == dive_row.id)
-    )
+    base_query = _dive_candidates_query(dive_row.id)
     total = db.execute(select(func.count()).select_from(base_query.subquery())).scalar_one()
+    hidden_count = db.execute(
+        select(func.count()).select_from(
+            base_query.where(
+                CandidatePair.status_id == CANDIDATE_STATUS_INT[CandidateStatus.HIDDEN]
+            ).subquery()
+        )
+    ).scalar_one()
     pairs = db.execute(
         base_query.order_by(CandidatePair.created_at).limit(page_size).offset((page - 1) * page_size)
     ).scalars().all()
-    return CandidatePairListResponse(candidates=[_to_response(pair, db) for pair in pairs], total=total)
+    return CandidatePairListResponse(
+        candidates=[_to_response(pair, db) for pair in pairs], total=total, hidden_count=hidden_count
+    )
 
 
 @router.post(
@@ -186,6 +204,41 @@ def create_candidate_pairs_by_stride(
         pairs_created=pairs_created,
         pairs_skipped=pairs_considered - pairs_created,
     )
+
+
+@router.post(
+    "/publish",
+    response_model=PublishCandidatesResponse,
+    summary="Publish Hidden Candidate Pairs",
+    description="""
+Move up to 100 hidden candidate pairs in the given dive to status "open", oldest first. Requires the scientist role. Safe to call repeatedly to publish further batches.
+
+Fails with 404 if the dive does not exist.
+""",
+)
+def publish_candidate_pairs(
+    payload: DivePublishRequest, request: Request, db: Session = Depends(get_db)
+):
+    require_current_user(request)
+    dive_id = _resolve_dive_id(db, payload.dive_uuid)
+
+    hidden_query = _dive_candidates_query(dive_id).where(
+        CandidatePair.status_id == CANDIDATE_STATUS_INT[CandidateStatus.HIDDEN]
+    )
+    pairs = db.execute(
+        hidden_query.order_by(CandidatePair.created_at).limit(PUBLISH_BATCH_SIZE)
+    ).scalars().all()
+
+    for pair in pairs:
+        pair.status_id = CANDIDATE_STATUS_INT[CandidateStatus.OPEN]
+
+    db.commit()
+
+    remaining_hidden = db.execute(
+        select(func.count()).select_from(hidden_query.subquery())
+    ).scalar_one()
+
+    return PublishCandidatesResponse(published=len(pairs), remaining_hidden=remaining_hidden)
 
 
 @router.post(

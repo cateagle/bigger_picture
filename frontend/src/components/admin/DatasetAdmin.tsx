@@ -13,8 +13,9 @@ import {
   fetchCandidatePairsForDive,
   fetchImagePairsForDive,
   fetchImagesForDive,
+  publishCandidatePairs,
 } from '../../api/datasetApi'
-import type { StrideCandidatePairResult } from '../../api/datasetApi'
+import type { PublishCandidatesResult, StrideCandidatePairResult } from '../../api/datasetApi'
 import { fetchDivesForRegion } from '../../api/diveApi'
 import { fetchRegions } from '../../api/regionApi'
 import type { AnnotationSummary, CandidatePairSummary, DatasetImage, Dive, ImagePairSummary, Region } from '../../api/types'
@@ -64,6 +65,7 @@ export default function DatasetAdmin() {
 
   const [candidates, setCandidates] = useState<CandidatePairSummary[] | null>(null)
   const [candidatesTotal, setCandidatesTotal] = useState(0)
+  const [candidatesHiddenCount, setCandidatesHiddenCount] = useState(0)
   const [candidatesPage, setCandidatesPage] = useState(1)
 
   const [pairs, setPairs] = useState<ImagePairSummary[] | null>(null)
@@ -75,6 +77,10 @@ export default function DatasetAdmin() {
 
   const [strideModalOpen, setStrideModalOpen] = useState(false)
   const [strideResult, setStrideResult] = useState<StrideCandidatePairResult | null>(null)
+
+  const [publishing, setPublishing] = useState(false)
+  const [publishResult, setPublishResult] = useState<PublishCandidatesResult | null>(null)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
@@ -103,6 +109,7 @@ export default function DatasetAdmin() {
     setImagesPage(1)
     setCandidates(null)
     setCandidatesTotal(0)
+    setCandidatesHiddenCount(0)
     setCandidatesPage(1)
     setPairs(null)
     setPairsTotal(0)
@@ -123,14 +130,30 @@ export default function DatasetAdmin() {
   const loadCandidatePairs = () => {
     if (!diveUuid) return
     fetchCandidatePairsForDive(diveUuid, candidatesPage, PAGE_SIZE)
-      .then(({ items, total }) => {
+      .then(({ items, total, hiddenCount }) => {
         setCandidates(items)
         setCandidatesTotal(total)
+        setCandidatesHiddenCount(hiddenCount)
       })
       .catch(() => setError('Could not load candidate pairs for this dive.'))
   }
 
   useEffect(loadCandidatePairs, [diveUuid, candidatesPage])
+
+  const handlePublish = () => {
+    if (!diveUuid || publishing) return
+    setPublishing(true)
+    setPublishError(null)
+    publishCandidatePairs(diveUuid)
+      .then((result) => {
+        setPublishResult(result)
+        loadCandidatePairs()
+      })
+      .catch((err: unknown) => {
+        setPublishError(err instanceof ApiError ? err.message : 'Could not publish candidate pairs.')
+      })
+      .finally(() => setPublishing(false))
+  }
 
   useEffect(() => {
     if (!diveUuid) return
@@ -309,9 +332,19 @@ export default function DatasetAdmin() {
           <section className="dataset-admin-section">
             <div className="dataset-admin-section-header">
               <h3>Candidate pairs ({candidatesTotal})</h3>
-              <button type="button" className="btn" onClick={() => setStrideModalOpen(true)}>
-                Create pairs by stride…
-              </button>
+              <div className="dataset-admin-section-actions">
+                <button type="button" className="btn" onClick={() => setStrideModalOpen(true)}>
+                  Create pairs by stride…
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handlePublish}
+                  disabled={candidatesHiddenCount === 0 || publishing}
+                >
+                  {publishing ? 'Publishing…' : `Publish up to 100 (${candidatesHiddenCount} hidden)`}
+                </button>
+              </div>
             </div>
             {strideResult && (
               <p className="game-status">
@@ -319,6 +352,12 @@ export default function DatasetAdmin() {
                 existed).
               </p>
             )}
+            {publishResult && (
+              <p className="game-status">
+                Published {publishResult.published} candidate pairs ({publishResult.remaining_hidden} still hidden).
+              </p>
+            )}
+            {publishError && <p className="game-status game-status-error">{publishError}</p>}
             {candidates === null ? (
               <p className="game-status">Loading…</p>
             ) : (
