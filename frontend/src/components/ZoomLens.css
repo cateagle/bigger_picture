@@ -15,7 +15,13 @@
   
     background-repeat: no-repeat;
   }
-  
+
+  /* The pinned lens marks the point you already selected, awaiting its match. */
+  .zoom-lens-pinned {
+    border-color: #eda100;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+  }
+
   /* vertikale Linie */
   .zoom-lens::before {
     content: "";
