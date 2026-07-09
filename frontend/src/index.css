@@ -193,6 +193,12 @@ h2 {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  /* Each image keeps its own aspect ratio, so panes differ in height. Align to
+     the top instead of stretching the shorter pane taller than its image —
+     stretching leaves a dead letterbox band and, because markers/grid are
+     positioned as a percentage of the pane while clicks are measured against
+     the <img>, misplaces every marker vertically. */
+  align-items: flex-start;
 }
 
 .image-pane {
