@@ -18,6 +18,11 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "IMPORT_DIR", str(tmp_path / "import"))
     monkeypatch.setattr(config, "BACKUP_DIR", str(tmp_path / "backups"))
     monkeypatch.setattr(config, "AUTH_DATABASE_PATH", str(tmp_path / "auth.db"))
+    # A locally-built frontend/dist (e.g. from `npm run build`) would otherwise
+    # leak into these tests via main.py's SPA-fallback mount, since that path
+    # isn't test-isolated like the others above: it doesn't exist here, so the
+    # mount is simply skipped, matching a fresh/backend-only checkout.
+    monkeypatch.setattr(config, "FRONTEND_DIST_DIR", str(tmp_path / "frontend-dist-not-built"))
     return create_app(database_path=db_path)
 
 

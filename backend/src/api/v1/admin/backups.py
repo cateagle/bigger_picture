@@ -42,11 +42,11 @@ def _resolve_or_404(filename: str) -> Path:
     description="""
 Snapshot the live database via SQLite's VACUUM INTO, zip it, and move it into the backup directory. Requires the admin role.
 
-The resulting zip contains a single file, app.db, which is a complete and consistent snapshot of the database at the moment the backup was taken - safe to run against the live database with no downtime.
+The resulting zip always contains app.db, a complete and consistent snapshot of the main database at the moment the backup was taken - safe to run against the live database with no downtime. It also contains auth.db, a snapshot of the scientist/admin password database, if any scientist/admin account has ever had a password set; omitted otherwise.
 """,
 )
 def create_backup_endpoint(request: Request):
-    return create_backup(request.app.state.engine, _backup_dir())
+    return create_backup(request.app.state.engine, _backup_dir(), config.AUTH_DATABASE_PATH)
 
 
 @router.get(
