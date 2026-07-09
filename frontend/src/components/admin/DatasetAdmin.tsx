@@ -20,6 +20,7 @@ import { fetchDivesForRegion } from '../../api/diveApi'
 import { fetchRegions } from '../../api/regionApi'
 import type { AnnotationSummary, CandidatePairSummary, DatasetImage, Dive, ImagePairSummary, Region } from '../../api/types'
 import CreateStrideCandidatePairsModal from './CreateStrideCandidatePairsModal'
+import UploadImagesModal from './UploadImagesModal'
 import '../admin/AdminPanels.css'
 import './DatasetAdmin.css'
 
@@ -78,6 +79,8 @@ export default function DatasetAdmin() {
   const [strideModalOpen, setStrideModalOpen] = useState(false)
   const [strideResult, setStrideResult] = useState<StrideCandidatePairResult | null>(null)
 
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [uploadResult, setUploadResult] = useState<number | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [publishResult, setPublishResult] = useState<PublishCandidatesResult | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -117,7 +120,7 @@ export default function DatasetAdmin() {
     setAnnotations(null)
   }, [diveUuid])
 
-  useEffect(() => {
+  const loadImages = () => {
     if (!diveUuid) return
     fetchImagesForDive(diveUuid, imagesPage, PAGE_SIZE)
       .then(({ items, total }) => {
@@ -125,7 +128,9 @@ export default function DatasetAdmin() {
         setImagesTotal(total)
       })
       .catch(() => setError('Could not load images for this dive.'))
-  }, [diveUuid, imagesPage])
+  }
+
+  useEffect(loadImages, [diveUuid, imagesPage])
 
   const loadCandidatePairs = () => {
     if (!diveUuid) return
@@ -290,7 +295,15 @@ export default function DatasetAdmin() {
           </div>
 
           <section className="dataset-admin-section">
-            <h3>Images ({imagesTotal})</h3>
+            <div className="dataset-admin-section-header">
+              <h3>Images ({imagesTotal})</h3>
+              <button type="button" className="btn" onClick={() => setUploadModalOpen(true)}>
+                Upload images…
+              </button>
+            </div>
+            {uploadResult !== null && (
+              <p className="game-status">Uploaded {uploadResult} image(s).</p>
+            )}
             {images === null ? (
               <p className="game-status">Loading…</p>
             ) : (
@@ -444,6 +457,22 @@ export default function DatasetAdmin() {
             )}
           </section>
         </>
+      )}
+
+      {uploadModalOpen && (
+        <UploadImagesModal
+          diveUuid={diveUuid}
+          onCancel={() => setUploadModalOpen(false)}
+          onUploaded={(uploadedCount) => {
+            setUploadResult(uploadedCount)
+            setUploadModalOpen(false)
+            if (imagesPage === 1) {
+              loadImages()
+            } else {
+              setImagesPage(1)
+            }
+          }}
+        />
       )}
 
       {strideModalOpen && (

@@ -34,6 +34,41 @@ export function uploadDatasetZip(file: File): Promise<DatasetImportCounts> {
   }).then((res) => res.created)
 }
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.slice(result.indexOf(',') + 1))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
+/** Scientist only - real endpoint: POST /api/v1/dataset/images/create. Uploads one image (base64-encoded), always created with status "hidden". */
+export async function createImage(diveUuid: string, file: File): Promise<DatasetImage> {
+  const image = await fileToBase64(file)
+  const res = await apiFetch<{
+    uuid: string
+    filename: string
+    filepath: string
+    status: string | null
+    size_x: number
+    size_y: number
+  }>('/api/v1/dataset/images/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      uuid: crypto.randomUUID(),
+      filename: file.name,
+      filepath: `${diveUuid}/${crypto.randomUUID()}-${file.name}`,
+      dive_uuid: diveUuid,
+      image,
+    }),
+  })
+  return res
+}
+
 /** Scientist/admin only - real endpoint: GET /api/v1/dataset/images?dive={uuid}&page={page}&page_size={pageSize}. */
 export function fetchImagesForDive(
   diveUuid: string,
