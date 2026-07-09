@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { assetUrl } from '../../api/client'
+import { ApiError, assetUrl } from '../../api/client'
 import {
+  downloadAnnotationsCsv,
   fetchAnnotationsForDive,
   fetchCandidatePairsForDive,
   fetchImagePairsForDive,
@@ -62,6 +63,9 @@ export default function DatasetAdmin() {
 
   const [annotations, setAnnotations] = useState<AnnotationSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchRegions()
@@ -131,6 +135,17 @@ export default function DatasetAdmin() {
   const annotationsFor = (pair: ImagePairSummary) =>
     (annotations ?? []).filter((a) => a.image_a === pair.image_a && a.image_b === pair.image_b)
 
+  const handleDownload = () => {
+    if (!diveUuid || downloading) return
+    setDownloading(true)
+    setDownloadError(null)
+    downloadAnnotationsCsv(diveUuid)
+      .catch((err: unknown) => {
+        setDownloadError(err instanceof ApiError ? err.message : 'Could not download the CSV.')
+      })
+      .finally(() => setDownloading(false))
+  }
+
   return (
     <div className="dataset-admin">
       {error && <p className="game-status game-status-error">{error}</p>}
@@ -175,6 +190,13 @@ export default function DatasetAdmin() {
 
       {diveUuid && (
         <>
+          <div className="dataset-admin-toolbar">
+            <button type="button" className="btn" onClick={handleDownload} disabled={downloading}>
+              {downloading ? 'Downloading…' : 'Download point annotations (CSV)'}
+            </button>
+            {downloadError && <p className="game-status game-status-error">{downloadError}</p>}
+          </div>
+
           <section className="dataset-admin-section">
             <h3>Images ({imagesTotal})</h3>
             {images === null ? (

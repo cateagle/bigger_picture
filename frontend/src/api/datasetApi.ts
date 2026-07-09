@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, downloadFile } from './client'
 import type { AnnotationSummary, CandidatePairSummary, DatasetImage, DatasetSummary, ImagePairSummary } from './types'
 
 export interface PaginatedResult<T> {
@@ -69,5 +69,17 @@ export function fetchImagePairsForDive(
 export function fetchAnnotationsForDive(diveUuid: string): Promise<AnnotationSummary[]> {
   return apiFetch<{ annotations: AnnotationSummary[] }>(`/api/v1/dataset/annotations?dive=${diveUuid}`).then(
     (res) => res.annotations,
+  )
+}
+
+/**
+ * Scientist/admin only - real endpoint: GET /api/v1/dataset/annotations/export?dive={uuid}.
+ * Exports raw point-annotation rows (one row per annotation, all statuses, with provenance) as
+ * CSV and triggers a browser download.
+ */
+export function downloadAnnotationsCsv(diveUuid: string): Promise<void> {
+  return downloadFile(
+    `/api/v1/dataset/annotations/export?dive=${diveUuid}`,
+    `point_annotations_${diveUuid}.csv`,
   )
 }

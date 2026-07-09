@@ -50,6 +50,10 @@ def create_app(*, database_path: str | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Content-Disposition isn't in the browser's default cross-origin header
+        # exposure safelist; without this, JS can't read a download's server-supplied
+        # filename (see the CSV export button in the dataset admin panel).
+        expose_headers=["Content-Disposition"],
     )
     app.mount("/assets", StaticFiles(directory=config.ASSETS_DIR), name="assets")
     app.include_router(api_router, prefix="/api")

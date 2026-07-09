@@ -63,3 +63,33 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 export function assetUrl(filepath: string): string {
   return `${API_BASE_URL}/assets/${filepath}`
 }
+
+/**
+ * Fetches a file response (e.g. a CSV export) and triggers a browser download for it. The
+ * filename is read from the response's `Content-Disposition` header when present, falling back
+ * to `fallbackFilename` otherwise.
+ */
+export async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' })
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new ApiError(response.status, formatDetail(body?.detail) ?? response.statusText)
+  }
+
+  const disposition = response.headers.get('Content-Disposition')
+  const filename = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackFilename
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  try {
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
