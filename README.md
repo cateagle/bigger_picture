@@ -47,11 +47,15 @@ Splitting the pipeline this way keeps every individual task short and simple (go
 
 ## Gamification
 
-Not fully designed yet, but the intended direction:
+Implemented so far:
 
-- Points/score per completed round, weighted by stage (annotation > verification > overlap, reflecting effort).
+- **Experience points and levels.** Players earn exp when their work is confirmed — either by a human reviewer or by [candidate auto-review](./docs/candidate-auto-review.md) — and their level is derived automatically from total exp. Shown as a progress badge throughout the frontend.
+- **Daily quests.** A rotating set of goals (e.g. "get 10 pairs confirmed today", "get 50 points confirmed today"), the same for every player on a given day, resetting at local midnight. Progress only counts *confirmed* work, so a quest can't be completed just by submitting without it being reviewed. Completing one grants a one-time exp reward. See [`docs/daily-quests.md`](./docs/daily-quests.md).
+
+Still just an intended direction:
+
 - Streaks / accuracy bonuses when a player's answers agree with the eventual consensus.
-- Progress and leaderboards to encourage return visits.
+- Leaderboards to encourage return visits.
 - Possibly unlockable stages: e.g. new players start on Stage 1/3 (fast, low-error-risk tasks) and unlock Stage 2 (annotation) once they've demonstrated reliability.
 
 ## Architecture
@@ -68,7 +72,7 @@ bigger_picture/
 ```
 
 - **Frontend**: a single-page React app. Renders the three game modes, an admin area, and a team/about screen, and collects player input. All three stages talk to the real backend end-to-end, including fetching the next thing to work on (candidate pair, image pair, or pending review).
-- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset CRUD (regions, dives, images, pairs), and the overlap/annotation/verification queues and submission endpoints for all three stages. Still to come: scoring/consensus and gamification mechanics. See [`backend/README.md`](./backend/README.md) for details.
+- **Backend**: serves auth (self-service signup via a session cookie, no password), dataset CRUD (regions, dives, images, pairs), the overlap/annotation/verification queues and submission endpoints for all three stages, and exp/level and daily-quest gamification. See [`backend/README.md`](./backend/README.md) for details.
 - **Local deployment**: `docker-compose.yml` runs both the `frontend` and `backend` services so the whole stack can be started with `docker compose up`.
 - **Production deployment**: a root-level `Dockerfile` builds the frontend and embeds the static output directly into the FastAPI backend image, so the whole app ships as one container running only `uvicorn`.
 
@@ -163,4 +167,5 @@ python3 scripts/seed_examples.py north_sea   # just one dataset
 - ✅ Backend: FastAPI + SQLite, with auth, dataset, and admin endpoints.
 - ✅ All three stages (Finding Overlap, Annotating, Verification) wired end-to-end, including fetching the next thing to work on for each.
 - ✅ Dataset ingestion: `scripts/` CLIs and a bulk zip-upload endpoint for getting marine images and pairs into the backend.
-- ⬜ Gamification mechanics (scoring, consensus, leaderboards) — design only, not implemented.
+- ✅ Gamification: exp/levels awarded on confirmed work, plus rotating daily quests with exp rewards.
+- ⬜ Streaks, leaderboards, unlockable stages — design only, not implemented.

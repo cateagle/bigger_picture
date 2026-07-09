@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextPendingVerification, submitPointVerification } from '../api/verifyApi'
 import type { PendingVerification, Region, User } from '../api/types'
@@ -6,7 +6,7 @@ import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
 import { GameStatsBar } from './GameStatsBar'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import { useGameStats } from './useGameStats'
 import { useFunFactTrigger } from './useFunFactTrigger'
 import FunFactModal from './FunFactModal'
@@ -20,27 +20,34 @@ export default function VerifyGame({
   user,
   onUserRefresh,
   onBack,
+  onOpenAdmin,
+  onOpenStats,
+  onOpenQuests,
+  onLogout,
 }: {
   region: Region
   user: User
   onUserRefresh: () => void
   onBack: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
 }) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
   const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
   const [item, setItem] = useState<PendingVerification | null>(null)
+  // Staged, not-yet-submitted decisions for the current pair. Nothing reaches
+  // the backend until the player commits with Submit, and any mark here can be
+  // switched or cleared until then.
   const [statuses, setStatuses] = useState<Map<string, PointStatus>>(new Map())
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [submittingUuid, setSubmittingUuid] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [reviewedCount, setReviewedCount] = useState(0)
   const [gridSize, setGridSize] = useState<GridSize>(0)
   const { stats, window: statsWindow, bump } = useGameStats('verify')
   const { fact, recordCompletion, dismiss } = useFunFactTrigger(region.uuid)
-  // Guards the pair-completion trigger so it fires exactly once per pair, even
-  // if the effect below re-runs before the next pair has loaded.
-  const completedItemRef = useRef<PendingVerification | null>(null)
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -72,35 +79,72 @@ export default function VerifyGame({
     }
   }, [diveUuid, loadNext])
 
-  // Once every point in the current pair has a decision, count the pair as a
-  // completed unit (this is the only moment a fun fact may be triggered in
-  // verification — never after a single point) and move on to the next pair.
-  useEffect(() => {
-    if (!item || !diveUuid) return
-    if (
-      statuses.size > 0 &&
-      statuses.size === item.correspondences.length &&
-      completedItemRef.current !== item
-    ) {
-      completedItemRef.current = item
-      recordCompletion()
-      loadNext(diveUuid)
-    }
-  }, [statuses, item, diveUuid, loadNext, recordCompletion])
+  // Stage or update a single point's decision locally. Clicking the mark it
+  // already carries clears it (undo), so an accidental click is fully
+  // reversible before submitting; clicking the other mark switches it.
+  const togglePoint = (pointUuid: string, status: PointStatus) => {
+    if (submitting) return
+    setStatuses((prev) => {
+      const next = new Map(prev)
+      if (next.get(pointUuid) === status) {
+        next.delete(pointUuid)
+      } else {
+        next.set(pointUuid, status)
+      }
+      return next
+    })
+  }
 
-  const handlePointDecision = (pointUuid: string, approved: boolean) => {
-    if (!item || !diveUuid || submittingUuid) return
-    setSubmittingUuid(pointUuid)
+  const clearMarks = () => {
+    if (submitting) return
+    setStatuses(new Map())
+  }
+
+  // Commit the staged decisions. Only marked points are sent — undecided ones
+  // stay pending and simply come back in the next pair — so a partial review
+  // is fine. Points are submitted individually (there is no batch endpoint);
+  // any that fail stay staged so they can be retried.
+  const handleSubmit = () => {
+    if (!item || !diveUuid || submitting) return
+    const decided = item.correspondences
+      .map((c) => ({ uuid: c.pointUuid, status: statuses.get(c.pointUuid) }))
+      .filter((d): d is { uuid: string; status: PointStatus } => d.status !== undefined)
+    if (decided.length === 0) return
+
+    setSubmitting(true)
     setError(null)
-    submitPointVerification(pointUuid, approved)
-      .then(() => {
-        setReviewedCount((count) => count + 1)
-        setStatuses((prev) => new Map(prev).set(pointUuid, approved ? 'approved' : 'flagged'))
-        bump({ verified: 1, ...(approved ? { accepted: 1 } : { faulty_found: 1 }) })
-        onUserRefresh()
+    Promise.allSettled(
+      decided.map((d) => submitPointVerification(d.uuid, d.status === 'approved')),
+    )
+      .then((results) => {
+        let accepted = 0
+        let faulty = 0
+        const failed = new Set<string>()
+        results.forEach((res, i) => {
+          if (res.status === 'fulfilled') {
+            if (decided[i].status === 'approved') accepted += 1
+            else faulty += 1
+          } else {
+            failed.add(decided[i].uuid)
+          }
+        })
+
+        const submitted = accepted + faulty
+        if (submitted > 0) {
+          bump({ verified: submitted, accepted, faulty_found: faulty })
+          recordCompletion()
+          onUserRefresh()
+        }
+
+        if (failed.size > 0) {
+          // Keep only the failed marks staged so the player can retry them.
+          setStatuses((prev) => new Map([...prev].filter(([uuid]) => failed.has(uuid))))
+          setError('Some reviews could not be submitted. Please try again.')
+        } else {
+          loadNext(diveUuid)
+        }
       })
-      .catch(() => setError('Could not submit your review. Please try again.'))
-      .finally(() => setSubmittingUuid(null))
+      .finally(() => setSubmitting(false))
   }
 
   return (
@@ -111,7 +155,13 @@ export default function VerifyGame({
           <button type="button" className="back-link" onClick={onBack}>
             ← Back to games
           </button>
-          <LevelBadge exp={user.exp} />
+          <AccountBar
+            user={user}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={onLogout}
+          />
         </div>
         <GameStatsBar game="verify" stats={stats} window={statsWindow} />
         <h1>Silver Eel League — Verification</h1>
@@ -120,7 +170,8 @@ export default function VerifyGame({
         </p>
         <p>
           Review the numbered points below - does each pair mark the same physical spot in both
-          images? Approve or flag each point on its own.
+          images? Flag or approve each point, then submit. Nothing is saved until you do, so you can
+          change or clear a mark first, and you can submit just the points you're sure about.
         </p>
         <p className="game-region">Region: {region.title}</p>
       </header>
@@ -152,7 +203,7 @@ export default function VerifyGame({
                   point={c.pointA}
                   color={markerColor(i)}
                   label={i + 1}
-                  reviewed={statuses.has(c.pointUuid)}
+                  status={statuses.get(c.pointUuid)}
                 />
               ))}
             </div>
@@ -165,7 +216,7 @@ export default function VerifyGame({
                   point={c.pointB}
                   color={markerColor(i)}
                   label={i + 1}
-                  reviewed={statuses.has(c.pointUuid)}
+                  status={statuses.get(c.pointUuid)}
                 />
               ))}
             </div>
@@ -179,37 +230,53 @@ export default function VerifyGame({
                   <span className="verify-point-swatch" style={{ backgroundColor: markerColor(i) }}>
                     {i + 1}
                   </span>
-                  {status ? (
-                    <span className={`verify-point-status verify-point-status-${status}`}>
-                      {status === 'approved' ? 'Approved' : 'Flagged'}
-                    </span>
-                  ) : (
-                    <span className="verify-point-actions">
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={() => handlePointDecision(c.pointUuid, false)}
-                        disabled={submittingUuid === c.pointUuid}
-                      >
-                        Flag
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => handlePointDecision(c.pointUuid, true)}
-                        disabled={submittingUuid === c.pointUuid}
-                      >
-                        Approve
-                      </button>
-                    </span>
-                  )}
+                  <span className="verify-point-actions">
+                    <button
+                      type="button"
+                      className={`btn verify-toggle${status === 'flagged' ? ' verify-toggle-flagged' : ''}`}
+                      aria-pressed={status === 'flagged'}
+                      onClick={() => togglePoint(c.pointUuid, 'flagged')}
+                      disabled={submitting}
+                    >
+                      Flag
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn verify-toggle${status === 'approved' ? ' verify-toggle-approved' : ''}`}
+                      aria-pressed={status === 'approved'}
+                      onClick={() => togglePoint(c.pointUuid, 'approved')}
+                      disabled={submitting}
+                    >
+                      Approve
+                    </button>
+                  </span>
                 </li>
               )
             })}
           </ul>
 
           <footer className="game-footer">
-            <span className="game-count">{reviewedCount} reviewed</span>
+            <span className="game-count">
+              {statuses.size} of {item.correspondences.length} marked
+            </span>
+            <button
+              type="button"
+              className="btn"
+              onClick={clearMarks}
+              disabled={submitting || statuses.size === 0}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSubmit}
+              disabled={submitting || statuses.size === 0}
+            >
+              {submitting
+                ? 'Submitting…'
+                : `Submit ${statuses.size} review${statuses.size === 1 ? '' : 's'}`}
+            </button>
           </footer>
         </>
       )}

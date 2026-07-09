@@ -7,7 +7,13 @@
   /* Per-league accents, shared between the game-select cards and each mini-game screen. */
   --accent-overlap: #12798a; /* Glass eel: young, translucent, fresh from the open ocean. */
   --accent-annotate: #9c6508; /* Yellow eel: years spent in golden, muddy river water. */
-  --accent-verify: #4c5872; /* Silver eel: steel-toned, ready for the deep-sea migration. */
+  --accent-verify: #5468a8; /* Silver eel: bright steel-blue, ready for the deep-sea migration. */
+  /* Metallic sheen for the top league — a glossy fill plus its deep edge and a
+     bright bar highlight. Solid --accent-verify stays the base for gauges,
+     spikes and marker rings; these add shine only to the "chrome" surfaces. */
+  --accent-verify-deep: #3c4d82;
+  --accent-verify-shine: linear-gradient(180deg, #6c81c2 0%, #5468a8 42%, #41528a 100%);
+  --accent-verify-bar: linear-gradient(90deg, #c6d0ee 0%, #5468a8 50%, #3c4d82 100%);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -110,6 +116,95 @@ h2 {
   background: var(--pane-border);
 }
 
+.menu-link-check {
+  color: var(--accent-annotate, #2f9e6f);
+  font-weight: 700;
+}
+
+.region-link {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.region-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.region-link strong {
+  color: var(--text-h);
+}
+
+/* Account-bar overflow menu (see BurgerMenu). */
+
+.burger-menu {
+  position: relative;
+}
+
+.burger-menu-toggle {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--pane-border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.burger-menu-toggle:hover {
+  background: var(--pane-border);
+}
+
+.burger-menu-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--text-h);
+  border-radius: 1px;
+}
+
+.burger-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 6px;
+  border: 1px solid var(--pane-border);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 30;
+}
+
+.burger-menu-dropdown button {
+  font: inherit;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.burger-menu-dropdown button:hover {
+  background: var(--pane-border);
+}
+
 .level-badge {
   display: inline-flex;
   align-items: center;
@@ -188,6 +283,48 @@ h2 {
 
 .game-screen[data-game] .image-pane {
   border-color: color-mix(in srgb, var(--game-accent) 35%, var(--pane-border));
+}
+
+/* Silver eel is the top league, so its primary buttons get a polished-metal
+   look: a vertical sheen, a specular top edge, and a highlight that sweeps
+   across on hover. Scoped to :not(:disabled) so a disabled Submit still reads
+   as disabled. Applies on the game-select card and inside the game screen. */
+.game-card[data-game='verify'] .btn-primary:not(:disabled),
+.game-screen[data-game='verify'] .btn-primary:not(:disabled) {
+  position: relative;
+  overflow: hidden;
+  background: var(--accent-verify-shine);
+  border-color: var(--accent-verify-deep);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.game-card[data-game='verify'] .btn-primary:not(:disabled)::after,
+.game-screen[data-game='verify'] .btn-primary:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -70%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.55s ease;
+  pointer-events: none;
+}
+
+.game-card[data-game='verify'] .btn-primary:not(:disabled):hover::after,
+.game-screen[data-game='verify'] .btn-primary:not(:disabled):hover::after {
+  left: 130%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card[data-game='verify'] .btn-primary:not(:disabled)::after,
+  .game-screen[data-game='verify'] .btn-primary:not(:disabled)::after {
+    transition: none;
+  }
 }
 
 .game-header h1 {
@@ -314,8 +451,20 @@ h2 {
   height: 1px;
 }
 
-.marker-reviewed {
-  opacity: 0.35;
+/* A decided marker is dimmed so undecided points stand out, and carries a
+   colored ring showing its review decision. */
+.marker-approved,
+.marker-flagged {
+  opacity: 0.5;
+  border-color: #fff;
+}
+
+.marker-approved {
+  box-shadow: 0 0 0 3px #1baf7a;
+}
+
+.marker-flagged {
+  box-shadow: 0 0 0 3px #e34948;
 }
 
 .verify-points {
@@ -352,15 +501,19 @@ h2 {
   gap: 8px;
 }
 
-.verify-point-status {
-  font-size: 0.85rem;
-  font-weight: 500;
+.verify-toggle {
+  min-width: 88px;
 }
 
-.verify-point-status-approved {
-  color: #1baf7a;
+/* Active (staged) toggle states — reversible until the player submits. */
+.verify-toggle-approved {
+  background: #1baf7a;
+  border-color: #1baf7a;
+  color: #fff;
 }
 
-.verify-point-status-flagged {
-  color: #e34948;
+.verify-toggle-flagged {
+  background: #e34948;
+  border-color: #e34948;
+  color: #fff;
 }

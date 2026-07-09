@@ -1,0 +1,97 @@
+.daily-quests-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.quest-card {
+  --quest-accent: #2a78d6;
+  flex: 1 1 240px;
+  max-width: 320px;
+  border: 1px solid var(--pane-border);
+  border-left: 4px solid var(--quest-accent);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: color-mix(in srgb, var(--quest-accent) 5%, var(--bg));
+}
+
+.quest-card-done {
+  --quest-accent: var(--accent-annotate, #2f9e6f);
+}
+
+.quest-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quest-card-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.quest-card-reward {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--quest-accent) 60%, var(--text-h));
+}
+
+.quest-card-desc {
+  margin: 0;
+  font-size: 0.9rem;
+  flex-grow: 1;
+}
+
+.quest-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quest-progress-bar {
+  position: relative;
+  flex-grow: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 15%, transparent);
+  overflow: hidden;
+}
+
+.quest-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--quest-accent);
+  transition: width 0.3s ease;
+}
+
+.quest-progress-count {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.quest-claim-btn {
+  margin-top: 4px;
+}
+
+.quest-claim-btn:not(:disabled) {
+  background: var(--quest-accent);
+  border-color: var(--quest-accent);
+}
+
+.quest-claimed {
+  margin-top: 4px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--accent-annotate, #2f9e6f);
+}

@@ -2,7 +2,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src import config
+from src.csrf import CSRF_HEADER_NAME, compute_csrf_token
 from src.main import create_app
+from src.password_auth.hashing import hash_password
+from src.password_auth.store import set_password_hash
 from src.schema.users import create_self_referencing_user
 
 
@@ -14,6 +17,12 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "ASSETS_DIR", str(tmp_path / "assets"))
     monkeypatch.setattr(config, "IMPORT_DIR", str(tmp_path / "import"))
     monkeypatch.setattr(config, "BACKUP_DIR", str(tmp_path / "backups"))
+    monkeypatch.setattr(config, "AUTH_DATABASE_PATH", str(tmp_path / "auth.db"))
+    # A locally-built frontend/dist (e.g. from `npm run build`) would otherwise
+    # leak into these tests via main.py's SPA-fallback mount, since that path
+    # isn't test-isolated like the others above: it doesn't exist here, so the
+    # mount is simply skipped, matching a fresh/backend-only checkout.
+    monkeypatch.setattr(config, "FRONTEND_DIST_DIR", str(tmp_path / "frontend-dist-not-built"))
     return create_app(database_path=db_path)
 
 
@@ -54,5 +63,19 @@ def seed_user(client):
 def login_as(client):
     def _login(user):
         client.cookies.set(config.COOKIE_NAME, config.encode_uuid(user.uuid))
+        # Real logins get this via the CSRF cookie (see auth/router.py's
+        # _set_csrf_cookie); this bypass fixture sets the client's default
+        # header directly since it never goes through that response.
+        client.headers[CSRF_HEADER_NAME] = compute_csrf_token(user.uuid)
 
     return _login
+
+
+@pytest.fixture
+def set_password(client):
+    """Store a password hash for a user directly, bypassing the API."""
+
+    def _set_password(user, password: str):
+        set_password_hash(config.AUTH_DATABASE_PATH, user.uuid, hash_password(password))
+
+    return _set_password

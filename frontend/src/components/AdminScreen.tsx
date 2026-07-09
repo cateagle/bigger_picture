@@ -3,11 +3,12 @@ import { createLabel, fetchLabels, updateLabel } from '../api/labelApi'
 import type { User } from '../api/types'
 import DatasetAdmin from './admin/DatasetAdmin'
 import FunFactsAdmin from './admin/FunFactsAdmin'
+import PasswordSettings from './admin/PasswordSettings'
 import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
 import ZipUploadAdmin from './admin/ZipUploadAdmin'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import './AdminScreen.css'
 
 /**
@@ -23,7 +24,7 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
   return updateLabel(uuid, input as { scope?: string; title?: string; description?: string | null })
 }
 
-type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import'
+type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import' | 'password'
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
@@ -31,7 +32,21 @@ const LABEL_FIELDS = [
   { key: 'description', label: 'Description', type: 'textarea' } as const,
 ]
 
-export default function AdminScreen({ user, onBack }: { user: User; onBack: () => void }) {
+export default function AdminScreen({
+  user,
+  onBack,
+  onOpenAdmin,
+  onOpenStats,
+  onOpenQuests,
+  onLogout,
+}: {
+  user: User
+  onBack: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
+}) {
   const [tab, setTab] = useState<Tab>('regions')
   const isAdmin = user.role === 'admin'
 
@@ -42,7 +57,13 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           <button type="button" className="back-link" onClick={onBack}>
             ← Back to games
           </button>
-          <LevelBadge exp={user.exp} />
+          <AccountBar
+            user={user}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={onLogout}
+          />
         </div>
         <h1>Admin</h1>
         <p>Manage regions, labels, facts, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>
@@ -69,6 +90,9 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
             Users
           </button>
         )}
+        <button type="button" className={`btn${tab === 'password' ? ' btn-primary' : ''}`} onClick={() => setTab('password')}>
+          Password
+        </button>
       </div>
 
       {tab === 'regions' && <RegionsAdmin />}
@@ -85,6 +109,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
       {tab === 'dataset' && <DatasetAdmin />}
       {tab === 'import' && <ZipUploadAdmin />}
       {tab === 'users' && isAdmin && <UsersAdmin currentUserUuid={user.uuid} />}
+      {tab === 'password' && <PasswordSettings />}
     </div>
   )
 }

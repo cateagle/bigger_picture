@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from src.password_auth.hashing import verify_password
+
 
 def _admin(seed_user, login_as):
     admin = seed_user(username="admin", role="admin")
@@ -60,6 +62,38 @@ def test_create_backup_reflects_committed_data(client, seed_user, login_as, back
     row = conn.execute("SELECT username FROM users WHERE username = 'snapshotted'").fetchone()
     conn.close()
     assert row is not None
+
+
+def test_create_backup_omits_auth_db_when_no_password_ever_set(client, seed_user, login_as, backup_dir):
+    _admin(seed_user, login_as)
+    resp = client.post("/api/v1/admin/backups/create")
+    assert resp.status_code == 201, resp.text
+
+    with zipfile.ZipFile(Path(backup_dir) / resp.json()["filename"]) as zf:
+        assert zf.namelist() == ["app.db"]
+
+
+def test_create_backup_includes_auth_db_when_a_password_exists(
+    client, seed_user, login_as, set_password, backup_dir, tmp_path
+):
+    admin = _admin(seed_user, login_as)
+    set_password(admin, "correct horse battery staple")
+
+    resp = client.post("/api/v1/admin/backups/create")
+    assert resp.status_code == 201, resp.text
+
+    with zipfile.ZipFile(Path(backup_dir) / resp.json()["filename"]) as zf:
+        assert set(zf.namelist()) == {"app.db", "auth.db"}
+        assert zf.read("auth.db")[:16] == b"SQLite format 3\x00"
+
+        extracted = tmp_path / "extracted-auth.db"
+        extracted.write_bytes(zf.read("auth.db"))
+
+    conn = sqlite3.connect(extracted)
+    row = conn.execute("SELECT password_hash FROM password_credentials WHERE user_uuid = ?", (admin.uuid,)).fetchone()
+    conn.close()
+    assert row is not None
+    assert verify_password("correct horse battery staple", row[0])
 
 
 def test_list_backups_returns_size_and_parsed_timestamp(client, seed_user, login_as):

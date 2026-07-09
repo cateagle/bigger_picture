@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import { ApiError, assetUrl } from '../../api/client'
 import {
   downloadAnnotationsCsv,
+  downloadCandidateAnnotationsFlatCsv,
+  downloadDiveZip,
+  downloadFullDatasetZip,
+  downloadFunFactsCsv,
+  downloadFunFactsZip,
+  downloadPointAnnotationsFlatCsv,
   fetchAnnotationsForDive,
   fetchCandidatePairsForDive,
   fetchImagePairsForDive,
@@ -66,6 +72,9 @@ export default function DatasetAdmin() {
 
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  const [globalDownloading, setGlobalDownloading] = useState(false)
+  const [globalDownloadError, setGlobalDownloadError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchRegions()
@@ -135,20 +144,58 @@ export default function DatasetAdmin() {
   const annotationsFor = (pair: ImagePairSummary) =>
     (annotations ?? []).filter((a) => a.image_a === pair.image_a && a.image_b === pair.image_b)
 
-  const handleDownload = () => {
+  const runDiveDownload = (action: () => Promise<void>, errorMessage: string) => {
     if (!diveUuid || downloading) return
     setDownloading(true)
     setDownloadError(null)
-    downloadAnnotationsCsv(diveUuid)
+    action()
       .catch((err: unknown) => {
-        setDownloadError(err instanceof ApiError ? err.message : 'Could not download the CSV.')
+        setDownloadError(err instanceof ApiError ? err.message : errorMessage)
       })
       .finally(() => setDownloading(false))
   }
 
+  const runGlobalDownload = (action: () => Promise<void>, errorMessage: string) => {
+    if (globalDownloading) return
+    setGlobalDownloading(true)
+    setGlobalDownloadError(null)
+    action()
+      .catch((err: unknown) => {
+        setGlobalDownloadError(err instanceof ApiError ? err.message : errorMessage)
+      })
+      .finally(() => setGlobalDownloading(false))
+  }
+
+  const handleDownload = () => runDiveDownload(() => downloadAnnotationsCsv(diveUuid), 'Could not download the CSV.')
+  const handleDownloadPointsFlat = () =>
+    runDiveDownload(() => downloadPointAnnotationsFlatCsv(diveUuid), 'Could not download the CSV.')
+  const handleDownloadCandidatesFlat = () =>
+    runDiveDownload(() => downloadCandidateAnnotationsFlatCsv(diveUuid), 'Could not download the CSV.')
+  const handleDownloadDiveZip = () => runDiveDownload(() => downloadDiveZip(diveUuid), 'Could not download the zip.')
+
+  const handleDownloadFullDataset = () =>
+    runGlobalDownload(() => downloadFullDatasetZip(), 'Could not download the dataset zip.')
+  const handleDownloadFunFactsCsv = () =>
+    runGlobalDownload(() => downloadFunFactsCsv(), 'Could not download the CSV.')
+  const handleDownloadFunFactsZip = () =>
+    runGlobalDownload(() => downloadFunFactsZip(), 'Could not download the zip.')
+
   return (
     <div className="dataset-admin">
       {error && <p className="game-status game-status-error">{error}</p>}
+
+      <div className="dataset-admin-toolbar dataset-admin-toolbar-global">
+        <button type="button" className="btn" onClick={handleDownloadFullDataset} disabled={globalDownloading}>
+          {globalDownloading ? 'Downloading…' : 'Download full dataset (zip)'}
+        </button>
+        <button type="button" className="btn" onClick={handleDownloadFunFactsCsv} disabled={globalDownloading}>
+          {globalDownloading ? 'Downloading…' : 'Download fun facts (CSV)'}
+        </button>
+        <button type="button" className="btn" onClick={handleDownloadFunFactsZip} disabled={globalDownloading}>
+          {globalDownloading ? 'Downloading…' : 'Download fun facts + images (zip)'}
+        </button>
+        {globalDownloadError && <p className="game-status game-status-error">{globalDownloadError}</p>}
+      </div>
 
       <div className="dataset-admin-pickers">
         <label className="admin-form-field">
@@ -193,6 +240,15 @@ export default function DatasetAdmin() {
           <div className="dataset-admin-toolbar">
             <button type="button" className="btn" onClick={handleDownload} disabled={downloading}>
               {downloading ? 'Downloading…' : 'Download point annotations (CSV)'}
+            </button>
+            <button type="button" className="btn" onClick={handleDownloadPointsFlat} disabled={downloading}>
+              {downloading ? 'Downloading…' : 'Download points (flat CSV)'}
+            </button>
+            <button type="button" className="btn" onClick={handleDownloadCandidatesFlat} disabled={downloading}>
+              {downloading ? 'Downloading…' : 'Download candidates (flat CSV)'}
+            </button>
+            <button type="button" className="btn" onClick={handleDownloadDiveZip} disabled={downloading}>
+              {downloading ? 'Downloading…' : 'Download dive export (zip)'}
             </button>
             {downloadError && <p className="game-status game-status-error">{downloadError}</p>}
           </div>

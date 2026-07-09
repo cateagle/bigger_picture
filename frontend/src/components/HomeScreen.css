@@ -77,10 +77,26 @@
 
 .game-card[data-game='verify'] {
   --card-accent: var(--accent-verify);
+  /* Top league: swap the flat accent bar for a metallic sheen. The 4px
+     border-top goes transparent and a rounded pseudo-element bar overlays it,
+     so its top corners follow the card's radius like the other leagues'. */
+  border-top-color: transparent;
+}
+
+.game-card[data-game='verify']::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -1px;
+  right: -1px;
+  height: 4px;
+  background: var(--accent-verify-bar);
+  border-radius: 10px 10px 0 0;
+  pointer-events: none;
 }
 
 .game-card-locked {
-  opacity: 0.6;
+  opacity: 0.3;
   filter: grayscale(0.6);
 }
 
