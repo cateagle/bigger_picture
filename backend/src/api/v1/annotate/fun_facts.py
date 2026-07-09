@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 
 from src.api.deps import require_current_user
 from src.api.v1.dataset._metadata import decode_metadata
+from src.api.v1.dataset.helper_images import helper_image_to_response
 from src.db import get_db
 from src.models.dataset import FunFactResponse
 from src.schema.fun_facts import FunFact
+from src.schema.helper_images import HelperImage
 from src.schema.regions import Region
 from src.schema.seen_facts import SeenFact
 from src.schema.users import User
@@ -24,6 +26,9 @@ def _to_response(fun_fact: FunFact, db: Session) -> FunFactResponse:
     if fun_fact.region_id is not None:
         region = db.get(Region, fun_fact.region_id)
         region_uuid = UUID(bytes=region.uuid)
+    image_response = None
+    if fun_fact.image_id is not None:
+        image_response = helper_image_to_response(db.get(HelperImage, fun_fact.image_id), db)
     return FunFactResponse(
         uuid=UUID(bytes=fun_fact.uuid),
         created_at=fun_fact.created_at,
@@ -32,6 +37,7 @@ def _to_response(fun_fact: FunFact, db: Session) -> FunFactResponse:
         fact=decode_metadata(fun_fact.fact_json),
         min_level=fun_fact.min_level,
         region=region_uuid,
+        image=image_response,
     )
 
 

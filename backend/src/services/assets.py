@@ -120,3 +120,33 @@ def read_image_dimensions(path: Path) -> tuple[int, int]:
     height = image.shape[0]
     width = image.shape[1]
     return (width, height)
+
+
+_SIGNATURE_TO_EXT: list[tuple[bytes, str]] = [
+    (b"\x89PNG\r\n\x1a\n", "png"),
+    (b"\xff\xd8\xff", "jpg"),
+    (b"GIF87a", "gif"),
+    (b"GIF89a", "gif"),
+    (b"BM", "bmp"),
+    (b"II*\x00", "tiff"),
+    (b"MM\x00*", "tiff"),
+]
+
+
+def detect_image_extension(path: Path) -> str:
+    """Return a canonical lowercase extension (no dot), derived from the file's
+    magic-byte signature - never from a caller-supplied filename. Raises
+    `ValueError` if the signature isn't one of the known image formats.
+
+    This is header inspection, not decoding, so it doesn't need an imaging
+    library; `read_image_dimensions` (cv2-based) remains the decodability
+    check for callers that also need one.
+    """
+    with path.open("rb") as fh:
+        header = fh.read(12)
+    if header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return "webp"
+    for signature, ext in _SIGNATURE_TO_EXT:
+        if header.startswith(signature):
+            return ext
+    raise ValueError(f"Unrecognized image signature: {header!r}")

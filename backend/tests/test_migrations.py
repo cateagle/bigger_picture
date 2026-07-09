@@ -16,6 +16,7 @@ def test_applies_cleanly_and_is_idempotent(tmp_path):
         "0004_status_descriptions.sql",
         "0005_candidate_vote_uniqueness.sql",
         "0006_user_gamification.sql",
+        "0007_fact_images.sql",
     ]
 
     applied_again = run_migrations(db_path)
