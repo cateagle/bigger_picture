@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchMyStats } from '../api/statsApi'
 import type { MyStats } from '../api/statsApi'
 import type { User } from '../api/types'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import { AccuracyGauge, ProgressMeter, SplitBar } from './StatCharts'
 import './MyStatsScreen.css'
 
@@ -15,7 +15,21 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   )
 }
 
-export default function MyStatsScreen({ user, onBack }: { user: User; onBack: () => void }) {
+export default function MyStatsScreen({
+  user,
+  onBack,
+  onOpenAdmin,
+  onOpenStats,
+  onOpenQuests,
+  onLogout,
+}: {
+  user: User
+  onBack: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
+}) {
   const [stats, setStats] = useState<MyStats | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -32,7 +46,13 @@ export default function MyStatsScreen({ user, onBack }: { user: User; onBack: ()
           <button type="button" className="back-link" onClick={onBack}>
             ← Back to games
           </button>
-          <LevelBadge exp={user.exp} />
+          <AccountBar
+            user={user}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={onLogout}
+          />
         </div>
         <h1>My Stats</h1>
         <p>Your contributions and accuracy across the three leagues, {user.username}.</p>

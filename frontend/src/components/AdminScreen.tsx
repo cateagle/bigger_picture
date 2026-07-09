@@ -8,7 +8,7 @@ import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
 import ZipUploadAdmin from './admin/ZipUploadAdmin'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import './AdminScreen.css'
 
 /**
@@ -32,7 +32,21 @@ const LABEL_FIELDS = [
   { key: 'description', label: 'Description', type: 'textarea' } as const,
 ]
 
-export default function AdminScreen({ user, onBack }: { user: User; onBack: () => void }) {
+export default function AdminScreen({
+  user,
+  onBack,
+  onOpenAdmin,
+  onOpenStats,
+  onOpenQuests,
+  onLogout,
+}: {
+  user: User
+  onBack: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
+}) {
   const [tab, setTab] = useState<Tab>('regions')
   const isAdmin = user.role === 'admin'
 
@@ -43,7 +57,13 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
           <button type="button" className="back-link" onClick={onBack}>
             ← Back to games
           </button>
-          <LevelBadge exp={user.exp} />
+          <AccountBar
+            user={user}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={onLogout}
+          />
         </div>
         <h1>Admin</h1>
         <p>Manage regions, labels, facts, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>

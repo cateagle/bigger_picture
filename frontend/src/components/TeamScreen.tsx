@@ -1,4 +1,6 @@
+import type { User } from '../api/types'
 import teamPhoto from '../assets/team.jpg'
+import AccountBar from './AccountBar'
 import './TeamScreen.css'
 
 interface TeamMember {
@@ -21,12 +23,35 @@ const TEAM: TeamMember[] = [
   { name: 'Raphaela Lopes', githubHandle: 'raoahela' },
 ]
 
-export default function TeamScreen({ onBack }: { onBack: () => void }) {
+export default function TeamScreen({
+  user,
+  onBack,
+  onOpenAdmin,
+  onOpenStats,
+  onOpenQuests,
+  onLogout,
+}: {
+  user: User
+  onBack: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
+}) {
   return (
     <div className="team-screen">
-      <button type="button" className="back-link" onClick={onBack}>
-        ← Back
-      </button>
+      <div className="game-header-top">
+        <button type="button" className="back-link" onClick={onBack}>
+          ← Back
+        </button>
+        <AccountBar
+          user={user}
+          onOpenAdmin={onOpenAdmin}
+          onOpenStats={onOpenStats}
+          onOpenQuests={onOpenQuests}
+          onLogout={onLogout}
+        />
+      </div>
 
       <header className="team-header">
         <p className="team-eyebrow">Journey of the Eel</p>

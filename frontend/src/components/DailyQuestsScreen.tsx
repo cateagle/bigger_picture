@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ApiError } from '../api/client'
 import { claimQuest, fetchDailyQuests, type Quest } from '../api/questApi'
 import type { User } from '../api/types'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import './DailyQuestsScreen.css'
 
 /**
@@ -15,10 +15,18 @@ export default function DailyQuestsScreen({
   user,
   onBack,
   onUserRefresh,
+  onOpenAdmin,
+  onOpenStats,
+  onOpenQuests,
+  onLogout,
 }: {
   user: User
   onBack: () => void
   onUserRefresh: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
 }) {
   const [quests, setQuests] = useState<Quest[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +63,13 @@ export default function DailyQuestsScreen({
           <button type="button" className="back-link" onClick={onBack}>
             ← Back to games
           </button>
-          <LevelBadge exp={user.exp} />
+          <AccountBar
+            user={user}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={onLogout}
+          />
         </div>
         <h1>Daily Quests</h1>
         <p>Today's goals, {user.username} — the same for every player, resetting each day.</p>
