@@ -14,6 +14,7 @@ const TEAM: TeamMember[] = [
   { name: 'paschoentag', githubHandle: 'paschoentag' },
   { name: 'cateagle', githubHandle: 'cateagle' },
   { name: 'Paul C. Busch', githubHandle: 'chaosbit' },
+  { name: 'Wiebke Engler', githubHandle: 'Wiebke-Engler' },
 ]
 
 function initials(name: string): string {
