@@ -137,6 +137,15 @@
   color: color-mix(in srgb, var(--card-accent) 60%, var(--text-h));
 }
 
+
+.game-card-image {
+  width: 75%;
+  aspect-ratio: 1 / 1;   /* or 4 / 3, 3 / 2, 1 / 1 */
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
 .game-card h2 {
   margin: 0;
   font-size: 1.25rem;
