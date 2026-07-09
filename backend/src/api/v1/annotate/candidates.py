@@ -33,6 +33,7 @@ from src.schema.dives import Dive
 from src.schema.images import Image
 from src.schema.users import User
 from src.services.experience import grant_exp
+from src.services.image_pairs import ensure_image_pair
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
 from src.services.random_pool import sample_pool
 from src.util import now_ms
@@ -103,7 +104,69 @@ def _vote_weight(annotation: CandidateAnnotation) -> int:
     return 1
 
 
-def _recompute_candidate_consensus(candidate: CandidatePair, actor: User, db: Session) -> None:
+def _winning_side(counted: list[CandidateAnnotation]) -> bool | None:
+    """Return the winning `no_overlap` value, or None if neither the
+    expert-weighted consensus nor the raw count/agreement auto-review
+    threshold is met yet.
+    """
+    overlap_weight = sum(_vote_weight(annotation) for annotation in counted if not annotation.no_overlap)
+    no_overlap_weight = sum(_vote_weight(annotation) for annotation in counted if annotation.no_overlap)
+    total_weight = overlap_weight + no_overlap_weight
+    if total_weight >= config.CANDIDATE_CONSENSUS_MIN_WEIGHT:
+        if overlap_weight / total_weight >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
+            return False
+        if no_overlap_weight / total_weight >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
+            return True
+
+    overlap_count = sum(1 for annotation in counted if not annotation.no_overlap)
+    no_overlap_count = len(counted) - overlap_count
+    if len(counted) >= config.CANDIDATE_MIN_ANNOTATIONS:
+        if overlap_count / len(counted) >= config.CANDIDATE_AGREEMENT_THRESHOLD:
+            return False
+        if no_overlap_count / len(counted) >= config.CANDIDATE_AGREEMENT_THRESHOLD:
+            return True
+
+    return None
+
+
+def _apply_auto_review(
+    candidate: CandidatePair, counted: list[CandidateAnnotation], no_overlap_wins: bool, db: Session
+) -> None:
+    """Close `candidate` via system auto-review: flip every counted
+    annotation to approved/review_failed based on agreement with the
+    winning side, granting exp only to winning-side creators, then set the
+    candidate's terminal status and (for has_overlap) ensure an ImagePair
+    exists. There is no human reviewer in this path, so reviewed_by stays
+    NULL throughout.
+    """
+    reviewed_at = now_ms()
+    for annotation in counted:
+        if annotation.no_overlap == no_overlap_wins:
+            annotation.status_id = ANNOTATION_APPROVED
+            grant_exp(db, db.get(User, annotation.created_by), config.CANDIDATE_ANNOTATION_REVIEW_EXP)
+        else:
+            annotation.status_id = ANNOTATION_REVIEW_FAILED
+        annotation.reviewed_at = reviewed_at
+        annotation.reviewed_by = None
+
+    candidate.status_id = (
+        CANDIDATE_STATUS_INT[CandidateStatus.NO_OVERLAP]
+        if no_overlap_wins
+        else CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]
+    )
+    candidate.reviewed_by = None
+    candidate.reviewed_at = reviewed_at
+
+    if not no_overlap_wins:
+        ensure_image_pair(
+            db,
+            image1_id=candidate.image1_id,
+            image2_id=candidate.image2_id,
+            creator_id=candidate.created_by,
+        )
+
+
+def _recompute_candidate_consensus(candidate: CandidatePair, db: Session) -> None:
     if candidate.status_id != CANDIDATE_OPEN:
         return
 
@@ -114,26 +177,11 @@ def _recompute_candidate_consensus(candidate: CandidatePair, actor: User, db: Se
     if not counted:
         return
 
-    overlap_weight = sum(_vote_weight(annotation) for annotation in counted if not annotation.no_overlap)
-    no_overlap_weight = sum(_vote_weight(annotation) for annotation in counted if annotation.no_overlap)
-    total_weight = overlap_weight + no_overlap_weight
-    if total_weight < config.CANDIDATE_CONSENSUS_MIN_WEIGHT:
+    no_overlap_wins = _winning_side(counted)
+    if no_overlap_wins is None:
         return
 
-    overlap_share = overlap_weight / total_weight
-    no_overlap_share = no_overlap_weight / total_weight
-    reviewed_at = now_ms()
-
-    if overlap_share >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
-        candidate.status_id = CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]
-        candidate.reviewed_by = actor.id
-        candidate.reviewed_at = reviewed_at
-        return
-
-    if no_overlap_share >= config.CANDIDATE_CONSENSUS_MIN_SHARE:
-        candidate.status_id = CANDIDATE_STATUS_INT[CandidateStatus.NO_OVERLAP]
-        candidate.reviewed_by = actor.id
-        candidate.reviewed_at = reviewed_at
+    _apply_auto_review(candidate, counted, no_overlap_wins, db)
 
 
 @router.post(
@@ -160,7 +208,7 @@ def create_annotation(
     db.add(annotation)
     try:
         db.flush()
-        _recompute_candidate_consensus(candidate, user, db)
+        _recompute_candidate_consensus(candidate, db)
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -198,7 +246,7 @@ def batch_create_annotations(
         db.flush()
         for annotation in annotations:
             candidate = db.get(CandidatePair, annotation.candidate_id)
-            _recompute_candidate_consensus(candidate, user, db)
+            _recompute_candidate_consensus(candidate, db)
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -240,7 +288,7 @@ def correct_annotation(
 
     annotation.no_overlap = bool(payload.no_overlap)
     candidate = db.get(CandidatePair, annotation.candidate_id)
-    _recompute_candidate_consensus(candidate, user, db)
+    _recompute_candidate_consensus(candidate, db)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)
@@ -275,7 +323,7 @@ def _apply_review(annotation: CandidateAnnotation, caller: User, status_id: int,
         creator = db.get(User, annotation.created_by)
         grant_exp(db, creator, config.CANDIDATE_ANNOTATION_REVIEW_EXP)
     candidate = db.get(CandidatePair, annotation.candidate_id)
-    _recompute_candidate_consensus(candidate, caller, db)
+    _recompute_candidate_consensus(candidate, db)
     db.commit()
     db.refresh(annotation)
     return _to_response(annotation, db)

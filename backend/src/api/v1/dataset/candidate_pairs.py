@@ -8,21 +8,18 @@ from src.api.deps import require_current_user
 from src.constants import (
     CANDIDATE_STATUS_INT,
     INT_CANDIDATE_STATUS,
-    PAIR_STATUS_INT,
     CandidateStatus,
-    PairStatus,
 )
 from src.db import get_db
 from src.models.dataset import CandidatePairListResponse, CandidatePairResponse, ImagePairRef
 from src.schema.candidate_pairs import CandidatePair
 from src.schema.dives import Dive
-from src.schema.image_pairs import ImagePair
 from src.schema.images import Image
 from src.schema.users import User
 from src.services.candidate_pairs import create_candidate_pair as _create_candidate_pair_row
 from src.services.errors import ConflictError, SameDiveError
+from src.services.image_pairs import ensure_image_pair
 from src.services.lookups import get_by_uuid, resolve_sorted_image_pair
-from src.util import now_ms
 
 router = APIRouter()
 
@@ -172,25 +169,9 @@ def batch_status_change(
     created_image_pairs = 0
     if status_id == CANDIDATE_STATUS_INT[CandidateStatus.HAS_OVERLAP]:
         for pair in pairs:
-            # Only insert an ImagePair if one does not already exist for the
-            # same (sorted) images, so the UNIQUE(image1,image2) constraint
-            # cannot abort this transaction.
-            existing = db.execute(
-                select(ImagePair).where(
-                    ImagePair.image1_id == pair.image1_id,
-                    ImagePair.image2_id == pair.image2_id,
-                )
-            ).scalar_one_or_none()
-            if existing is None:
-                db.add(
-                    ImagePair(
-                        created_at=now_ms(),
-                        created_by=user.id,
-                        image1_id=pair.image1_id,
-                        image2_id=pair.image2_id,
-                        status_id=PAIR_STATUS_INT[PairStatus.HIDDEN],
-                    )
-                )
+            if ensure_image_pair(
+                db, image1_id=pair.image1_id, image2_id=pair.image2_id, creator_id=user.id
+            ):
                 created_image_pairs += 1
 
     db.commit()
