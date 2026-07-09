@@ -1,5 +1,6 @@
 import re
 import shutil
+import sqlite3
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,7 @@ from src.services.assets import move_asset, resolve_asset_path
 _FILENAME_RE = re.compile(r"^db_backup_(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:-\d+)?\.zip$")
 
 _DB_ARCNAME = "app.db"
+_AUTH_DB_ARCNAME = "auth.db"
 
 
 def _vacuum_into(engine: Engine, dest_path: Path) -> None:
@@ -37,6 +39,24 @@ def _vacuum_into(engine: Engine, dest_path: Path) -> None:
         raw.close()
 
 
+def _vacuum_sqlite_file_into(source_path: str, dest_path: Path) -> None:
+    """Snapshot the sqlite file at `source_path` into `dest_path` via `VACUUM INTO`.
+
+    Unlike `_vacuum_into`, this takes a bare file path rather than a
+    SQLAlchemy `Engine` - used for the password_auth database, which (by
+    design, see src/password_auth/store.py) has no engine on `app.state` to
+    reuse. A plain `sqlite3.connect()` has no transaction open yet (Python's
+    `sqlite3` only auto-begins one ahead of INSERT/UPDATE/DELETE), so running
+    `VACUUM INTO` as the first statement is safe here too.
+    """
+    conn = sqlite3.connect(source_path)
+    try:
+        conn.execute("VACUUM INTO ?", (str(dest_path),))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def generate_backup_filename(backup_dir: Path) -> str:
     """Return a fresh `db_backup_<UTC timestamp>.zip` filename, not already
     present in `backup_dir`. Appends `-2`, `-3`, ... on the rare same-second
@@ -59,9 +79,15 @@ def parse_backup_timestamp(filename: str) -> datetime | None:
     return datetime.fromisoformat(match.group(1)).replace(tzinfo=timezone.utc)
 
 
-def create_backup(engine: Engine, backup_dir: Path) -> BackupInfo:
-    """Snapshot the live database via `VACUUM INTO`, zip it, and move the zip
-    into `backup_dir` under a fresh timestamped name.
+def create_backup(engine: Engine, backup_dir: Path, auth_database_path: str) -> BackupInfo:
+    """Snapshot the live database (and the password_auth database, if it
+    exists) via `VACUUM INTO`, zip them together, and move the zip into
+    `backup_dir` under a fresh timestamped name.
+
+    `auth_database_path` is only included if it already exists on disk - a
+    deployment where no scientist/admin has ever set a password has no
+    password_auth file to speak of, and a backup shouldn't conjure one into
+    existence as a side effect.
     """
     backup_dir.mkdir(parents=True, exist_ok=True)
     staging_dir = backup_dir / ".tmp" / uuid4().hex
@@ -70,9 +96,16 @@ def create_backup(engine: Engine, backup_dir: Path) -> BackupInfo:
         db_tmp = staging_dir / _DB_ARCNAME
         _vacuum_into(engine, db_tmp)
 
+        auth_db_tmp = staging_dir / _AUTH_DB_ARCNAME
+        auth_db_exists = Path(auth_database_path).is_file()
+        if auth_db_exists:
+            _vacuum_sqlite_file_into(auth_database_path, auth_db_tmp)
+
         zip_tmp = staging_dir / "backup.zip"
         with zipfile.ZipFile(zip_tmp, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.write(db_tmp, arcname=_DB_ARCNAME)
+            if auth_db_exists:
+                zf.write(auth_db_tmp, arcname=_AUTH_DB_ARCNAME)
 
         filename = generate_backup_filename(backup_dir)
         final_path = backup_dir / filename

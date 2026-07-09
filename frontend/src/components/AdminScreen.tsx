@@ -3,6 +3,7 @@ import { createLabel, fetchLabels, updateLabel } from '../api/labelApi'
 import type { User } from '../api/types'
 import DatasetAdmin from './admin/DatasetAdmin'
 import FunFactsAdmin from './admin/FunFactsAdmin'
+import PasswordSettings from './admin/PasswordSettings'
 import RegionsAdmin from './admin/RegionsAdmin'
 import SimpleEntityAdmin from './admin/SimpleEntityAdmin'
 import UsersAdmin from './admin/UsersAdmin'
@@ -23,7 +24,7 @@ function updateLabelAdapter(uuid: string, input: Record<string, unknown>) {
   return updateLabel(uuid, input as { scope?: string; title?: string; description?: string | null })
 }
 
-type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import'
+type Tab = 'regions' | 'labels' | 'facts' | 'users' | 'dataset' | 'import' | 'password'
 
 const LABEL_FIELDS = [
   { key: 'scope', label: 'Scope', type: 'text', required: true } as const,
@@ -69,6 +70,9 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
             Users
           </button>
         )}
+        <button type="button" className={`btn${tab === 'password' ? ' btn-primary' : ''}`} onClick={() => setTab('password')}>
+          Password
+        </button>
       </div>
 
       {tab === 'regions' && <RegionsAdmin />}
@@ -85,6 +89,7 @@ export default function AdminScreen({ user, onBack }: { user: User; onBack: () =
       {tab === 'dataset' && <DatasetAdmin />}
       {tab === 'import' && <ZipUploadAdmin />}
       {tab === 'users' && isAdmin && <UsersAdmin currentUserUuid={user.uuid} />}
+      {tab === 'password' && <PasswordSettings />}
     </div>
   )
 }

@@ -50,7 +50,7 @@ def create_app(*, database_path: str | None = None) -> FastAPI:
         run_migrations(db_path)
 
         engine = make_engine(db_path)
-        seed_admin_from_env(engine)
+        seed_admin_from_env(engine, config.AUTH_DATABASE_PATH)
         seed_unknown_camera(engine)
         app.state.engine = engine
         app.state.session_factory = make_session_factory(engine)

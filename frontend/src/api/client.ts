@@ -29,20 +29,42 @@ function formatDetail(detail: unknown): string | undefined {
 }
 
 /**
+ * Reads a cookie by name via `document.cookie`. Used only for the
+ * non-httponly `csrf_token` cookie (scientist/admin sessions) - the
+ * `session_uuid` auth cookie is httponly and never readable from JS.
+ */
+function readCookie(name: string): string | undefined {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : undefined
+}
+
+const CSRF_COOKIE_NAME = 'csrf_token'
+const CSRF_HEADER_NAME = 'X-CSRF-Token'
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+/**
  * Thin fetch wrapper for the backend API. Always sends cookies (the
  * `session_uuid` auth cookie is httponly, so it can't be attached manually)
  * and resolves to the parsed JSON body, or rejects with `ApiError`.
  *
  * A `FormData` body (multipart file uploads) is sent without a `Content-Type`
  * header so the browser can set it itself, including the boundary.
+ *
+ * For any state-changing request, echoes the `csrf_token` cookie (set for
+ * scientist/admin sessions only) back as the `X-CSRF-Token` header - the
+ * backend requires this for those sessions. A no-op for annotator sessions,
+ * which never receive that cookie.
  */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const csrfToken = SAFE_METHODS.has(method) ? undefined : readCookie(CSRF_COOKIE_NAME)
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: 'include',
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
       ...init?.headers,
     },
   })

@@ -35,7 +35,13 @@ def test_admin_creates_user_with_role_ignores_expert_level(client, seed_user, lo
     _admin(seed_user, login_as)
     resp = client.post(
         "/api/v1/admin/users/create",
-        json={"uuid": _new_uuid(), "username": "sci", "role": "scientist", "expert_level": 3},
+        json={
+            "uuid": _new_uuid(),
+            "username": "sci",
+            "role": "scientist",
+            "expert_level": 3,
+            "password": "correct horse battery staple",
+        },
     )
     assert resp.status_code == 201
     body = resp.json()
@@ -80,7 +86,13 @@ def test_update_explicit_null_is_noop(client, seed_user, login_as):
     u = _new_uuid()
     client.post(
         "/api/v1/admin/users/create",
-        json={"uuid": u, "username": "keep", "role": "scientist", "expert_level": 2},
+        json={
+            "uuid": u,
+            "username": "keep",
+            "role": "scientist",
+            "expert_level": 2,
+            "password": "correct horse battery staple",
+        },
     )
     resp = client.post(
         "/api/v1/admin/users/update",
@@ -99,7 +111,7 @@ def test_update_sets_role_but_ignores_expert_level(client, seed_user, login_as):
     client.post("/api/v1/admin/users/create", json={"uuid": u, "username": "promote"})
     resp = client.post(
         "/api/v1/admin/users/update",
-        json={"uuid": u, "role": "scientist", "expert_level": 5},
+        json={"uuid": u, "role": "scientist", "expert_level": 5, "password": "correct horse battery staple"},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -123,3 +135,171 @@ def test_non_admin_is_403(client, seed_user, login_as):
 def test_unauthenticated_is_401(client):
     resp = client.post("/api/v1/admin/users/create", json={"uuid": _new_uuid(), "username": "x"})
     assert resp.status_code == 401
+
+
+def test_create_scientist_without_password_is_422(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    resp = client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": _new_uuid(), "username": "sci", "role": "scientist"},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_admin_without_password_is_422(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    resp = client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": _new_uuid(), "username": "second-admin", "role": "admin"},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_annotator_with_password_is_422(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    resp = client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": _new_uuid(), "username": "x", "password": "correct horse battery staple"},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_annotator_without_password_still_succeeds(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    resp = client.post("/api/v1/admin/users/create", json={"uuid": _new_uuid(), "username": "plain"})
+    assert resp.status_code == 201
+
+
+def test_create_password_too_short_is_422(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    resp = client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": _new_uuid(), "username": "sci", "role": "scientist", "password": "short"},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_password_too_long_is_422(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    resp = client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": _new_uuid(), "username": "sci", "role": "scientist", "password": "x" * 128},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_scientist_with_password_can_then_login(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    resp = client.post(
+        "/api/v1/admin/users/create",
+        json={
+            "uuid": _new_uuid(),
+            "username": "sci-login",
+            "role": "scientist",
+            "password": "correct horse battery staple",
+        },
+    )
+    assert resp.status_code == 201
+
+    client.post("/api/v1/auth/logout")
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"username": "sci-login", "password": "correct horse battery staple"},
+    )
+    assert login_resp.status_code == 200
+
+
+def test_update_promote_to_scientist_without_password_is_422(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    u = _new_uuid()
+    client.post("/api/v1/admin/users/create", json={"uuid": u, "username": "promote2"})
+    resp = client.post("/api/v1/admin/users/update", json={"uuid": u, "role": "scientist"})
+    assert resp.status_code == 422
+
+
+def test_update_promote_to_scientist_with_password_succeeds_and_can_login(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    u = _new_uuid()
+    client.post("/api/v1/admin/users/create", json={"uuid": u, "username": "promote3"})
+    resp = client.post(
+        "/api/v1/admin/users/update",
+        json={"uuid": u, "role": "scientist", "password": "correct horse battery staple"},
+    )
+    assert resp.status_code == 200
+
+    client.post("/api/v1/auth/logout")
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"username": "promote3", "password": "correct horse battery staple"},
+    )
+    assert login_resp.status_code == 200
+
+
+def test_update_change_password_for_existing_scientist(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    u = _new_uuid()
+    client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": u, "username": "haspw", "role": "scientist", "password": "correct horse battery staple"},
+    )
+    resp = client.post(
+        "/api/v1/admin/users/update",
+        json={"uuid": u, "password": "a different battery staple"},
+    )
+    assert resp.status_code == 200
+
+    client.post("/api/v1/auth/logout")
+    old_login = client.post(
+        "/api/v1/auth/login", json={"username": "haspw", "password": "correct horse battery staple"}
+    )
+    assert old_login.status_code == 401
+    new_login = client.post(
+        "/api/v1/auth/login", json={"username": "haspw", "password": "a different battery staple"}
+    )
+    assert new_login.status_code == 200
+
+
+def test_update_demote_to_annotator_deletes_stored_password(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    u = _new_uuid()
+    client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": u, "username": "demoted", "role": "scientist", "password": "correct horse battery staple"},
+    )
+    resp = client.post("/api/v1/admin/users/update", json={"uuid": u, "role": "annotator"})
+    assert resp.status_code == 200
+
+    # Re-promoting requires a fresh password - the old credential is gone.
+    resp = client.post("/api/v1/admin/users/update", json={"uuid": u, "role": "scientist"})
+    assert resp.status_code == 422
+
+
+def test_update_cannot_set_password_and_demote_in_same_request(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    u = _new_uuid()
+    client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": u, "username": "conflict", "role": "scientist", "password": "correct horse battery staple"},
+    )
+    resp = client.post(
+        "/api/v1/admin/users/update",
+        json={"uuid": u, "role": "annotator", "password": "correct horse battery staple"},
+    )
+    assert resp.status_code == 422
+
+
+def test_update_role_unchanged_password_omitted_is_noop(client, seed_user, login_as):
+    _admin(seed_user, login_as)
+    u = _new_uuid()
+    client.post(
+        "/api/v1/admin/users/create",
+        json={"uuid": u, "username": "unchanged", "role": "scientist", "password": "correct horse battery staple"},
+    )
+    resp = client.post("/api/v1/admin/users/update", json={"uuid": u, "username": "unchanged2"})
+    assert resp.status_code == 200
+
+    client.post("/api/v1/auth/logout")
+    login_resp = client.post(
+        "/api/v1/auth/login", json={"username": "unchanged2", "password": "correct horse battery staple"}
+    )
+    assert login_resp.status_code == 200

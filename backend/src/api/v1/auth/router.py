@@ -8,14 +8,18 @@ from src import config
 from src.api.deps import get_current_user, require_current_user
 from src.api.v1.dataset._metadata import decode_metadata, encode_metadata
 from src.constants import Role
+from src.csrf import compute_csrf_token
 from src.db import get_db
 from src.models.auth import (
     LoginRequest,
+    SetPasswordRequest,
     SignupRequest,
     StoryResponse,
     StoryUpdateRequest,
     UserResponse,
 )
+from src.password_auth.hashing import hash_password, verify_password
+from src.password_auth.store import get_password_hash, set_password_hash
 from src.schema.users import User, create_self_referencing_user, lookup_user_by_username
 
 router = APIRouter()
@@ -46,6 +50,27 @@ def _set_session_cookie(response: Response, user: User) -> None:
     )
 
 
+def _set_csrf_cookie(response: Response, user: User) -> None:
+    """Set/refresh the CSRF cookie for scientist/admin sessions (see src/csrf.py).
+
+    A no-op for annotators, who are exempt from CSRF checks. Called on every
+    signup/login/`/me` so a session started before this feature existed - or
+    one whose token was invalidated by a server restart rotating an
+    unconfigured CSRF_SECRET - transparently gets a fresh, valid cookie.
+    """
+    if user.role == Role.ANNOTATOR:
+        return
+    response.set_cookie(
+        config.CSRF_COOKIE_NAME,
+        compute_csrf_token(user.uuid),
+        httponly=False,  # must be JS-readable so the frontend can echo it in a header
+        samesite="lax",
+        secure=config.COOKIE_SECURE,
+        path="/",
+        max_age=config.COOKIE_MAX_AGE_SECONDS,
+    )
+
+
 @router.post(
     "/signup",
     response_model=UserResponse,
@@ -65,6 +90,7 @@ def signup(payload: SignupRequest, request: Request, response: Response):
         raise HTTPException(status_code=409, detail="Username already taken")
 
     _set_session_cookie(response, user)
+    _set_csrf_cookie(response, user)
     return _to_response(user)
 
 
@@ -73,9 +99,15 @@ def signup(payload: SignupRequest, request: Request, response: Response):
     response_model=UserResponse,
     summary="Log In",
     description="""
-Start a session for an existing account, identified by username alone; there is no password.
+Start a session for an existing account, identified by username.
 
-Sets a session cookie on success. Fails with 404 if the username is not registered.
+Annotator accounts have no password and log in by username alone. Scientist and
+admin accounts require the `password` field to match their stored credential.
+
+Sets a session cookie on success (and, for scientist/admin accounts, a CSRF
+cookie - see POST /api/v1/auth/password for how it's used). Fails with 404 if
+the username is not registered, 401 if a password is required and missing,
+wrong, or not yet set for the account.
 """,
 )
 def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
@@ -83,7 +115,13 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
     if user is None:
         raise HTTPException(status_code=404, detail="Unknown username")
 
+    if user.role != Role.ANNOTATOR:
+        stored_hash = get_password_hash(config.AUTH_DATABASE_PATH, user.uuid)
+        if payload.password is None or stored_hash is None or not verify_password(payload.password, stored_hash):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
     _set_session_cookie(response, user)
+    _set_csrf_cookie(response, user)
     return _to_response(user)
 
 
@@ -97,9 +135,10 @@ Return the user for the current session cookie.
 Fails with 401 if there is no valid session.
 """,
 )
-def me(user: User | None = Depends(get_current_user)):
+def me(response: Response, user: User | None = Depends(get_current_user)):
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    _set_csrf_cookie(response, user)
     return _to_response(user)
 
 
@@ -108,11 +147,38 @@ def me(user: User | None = Depends(get_current_user)):
     status_code=204,
     summary="Log Out",
     description="""
-Clear the session cookie. Always succeeds, even if no session was active.
+Clear the session cookie (and CSRF cookie, if any). Always succeeds, even if no session was active.
 """,
 )
 def logout(response: Response):
     response.delete_cookie(config.COOKIE_NAME, path="/")
+    response.delete_cookie(config.CSRF_COOKIE_NAME, path="/")
+
+
+@router.post(
+    "/password",
+    status_code=204,
+    summary="Set Password",
+    description="""
+Set or replace the password for the current session's account.
+
+Requires the scientist or admin role - annotator accounts do not use passwords.
+No confirmation of the current password is required; the session cookie is
+already this system's sole proof of identity. Requires a valid X-CSRF-Token
+header (see the CSRF cookie set at login) since this is a scientist/admin
+account action.
+
+Fails with 401 if there is no valid session, 403 if the account is an
+annotator or the CSRF token is missing/invalid, 422 if the password is
+outside the 10-127 character range.
+""",
+)
+def set_password(payload: SetPasswordRequest, request: Request):
+    user = require_current_user(request)
+    if user.role == Role.ANNOTATOR:
+        raise HTTPException(status_code=403, detail="Annotator accounts do not use passwords")
+
+    set_password_hash(config.AUTH_DATABASE_PATH, user.uuid, hash_password(payload.password))
 
 
 @router.get(
