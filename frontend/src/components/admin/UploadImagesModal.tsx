@@ -62,6 +62,7 @@ export default function UploadImagesModal({
       >
         <div className="admin-form">
           <h3 id="upload-images-modal-title">Upload images</h3>
+          <p className="game-status">Each uploaded image is assigned a random uuid; the original filename is kept for display only.</p>
           <label className="admin-form-field">
             Select images
             <input type="file" accept="image/*" multiple disabled={uploading} onChange={handleFilesChange} />
