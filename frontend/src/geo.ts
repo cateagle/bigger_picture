@@ -28,6 +28,40 @@ function normalizeRingWinding(rings: number[][][]): number[][][] {
   })
 }
 
+/** Collects the exterior-ring vertices of a mesh (the outer ring of every polygon). */
+function outerRingVertices(mesh: RegionMesh): number[][] {
+  if (mesh.type === 'Polygon') {
+    return (mesh.coordinates as number[][][])[0] ?? []
+  }
+  return (mesh.coordinates as number[][][][]).flatMap((polygon) => polygon[0] ?? [])
+}
+
+/**
+ * Bounding-box centre of a region mesh plus its angular `span` (the larger of
+ * its latitude/longitude extents, in degrees). Used to drop a beacon at a
+ * region's location and to tell small regions (tiny `span`) apart from large
+ * ones. The centre is stable and always sits within the region's extent, which
+ * is all a beacon needs — no need for a true area-weighted centroid.
+ */
+export function meshCentroid(mesh: RegionMesh): { lat: number; lng: number; span: number } {
+  const vertices = outerRingVertices(mesh)
+  let minLng = Infinity
+  let maxLng = -Infinity
+  let minLat = Infinity
+  let maxLat = -Infinity
+  for (const [lng, lat] of vertices) {
+    if (lng < minLng) minLng = lng
+    if (lng > maxLng) maxLng = lng
+    if (lat < minLat) minLat = lat
+    if (lat > maxLat) maxLat = lat
+  }
+  return {
+    lat: (minLat + maxLat) / 2,
+    lng: (minLng + maxLng) / 2,
+    span: Math.max(maxLat - minLat, maxLng - minLng),
+  }
+}
+
 /** Normalizes a `RegionMesh`'s ring winding for correct rendering by `react-globe.gl` (see `normalizeRingWinding`). */
 export function normalizeMeshWinding(mesh: RegionMesh): RegionMesh {
   if (mesh.type === 'Polygon') {

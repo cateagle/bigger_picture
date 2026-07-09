@@ -18,7 +18,7 @@ const TEAM: TeamMember[] = [
   { name: 'Wiebke Engler', githubHandle: 'Wiebke-Engler' },
   { name: 'Barbara Glemser', githubHandle: 'bglemser' },
   { name: 'Meike Nienaber', githubHandle: 'Meike1711' },
-  { name: 'Raphaela Lopes', githubHandle: '' },
+  { name: 'Raphaela Lopes', githubHandle: 'raoahela' },
 ]
 
 export default function TeamScreen({ onBack }: { onBack: () => void }) {
