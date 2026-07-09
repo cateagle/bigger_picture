@@ -119,3 +119,109 @@ def test_story_without_cookie_is_401(client):
     assert response.status_code == 401
     response = client.post("/api/v1/auth/story", json={"story": {}})
     assert response.status_code == 401
+
+
+def test_login_annotator_without_password_still_succeeds(client):
+    client.post("/api/v1/auth/signup", json={"username": "plain-annotator"})
+    client.post("/api/v1/auth/logout")
+    resp = client.post("/api/v1/auth/login", json={"username": "plain-annotator"})
+    assert resp.status_code == 200
+
+
+def test_login_annotator_with_extraneous_password_is_still_ignored(client):
+    client.post("/api/v1/auth/signup", json={"username": "annotator-with-pw-field"})
+    client.post("/api/v1/auth/logout")
+    resp = client.post(
+        "/api/v1/auth/login", json={"username": "annotator-with-pw-field", "password": "whatever"}
+    )
+    assert resp.status_code == 200
+
+
+def test_login_scientist_missing_password_is_401(client, seed_user, login_as):
+    seed_user(username="sci", role="scientist")
+    resp = client.post("/api/v1/auth/login", json={"username": "sci"})
+    assert resp.status_code == 401
+
+
+def test_login_scientist_without_stored_credential_is_401(client, seed_user):
+    seed_user(username="sci-nopw", role="scientist")
+    resp = client.post("/api/v1/auth/login", json={"username": "sci-nopw", "password": "anything1234"})
+    assert resp.status_code == 401
+
+
+def test_login_scientist_wrong_password_is_401(client, seed_user, set_password):
+    sci = seed_user(username="sci2", role="scientist")
+    set_password(sci, "correct horse battery staple")
+    resp = client.post("/api/v1/auth/login", json={"username": "sci2", "password": "wrong password here"})
+    assert resp.status_code == 401
+
+
+def test_login_scientist_correct_password_succeeds_and_sets_cookie(client, seed_user, set_password):
+    sci = seed_user(username="sci3", role="scientist")
+    set_password(sci, "correct horse battery staple")
+    resp = client.post(
+        "/api/v1/auth/login", json={"username": "sci3", "password": "correct horse battery staple"}
+    )
+    assert resp.status_code == 200
+    assert config.COOKIE_NAME in resp.cookies
+
+
+def test_login_admin_correct_password_succeeds(client, seed_user, set_password):
+    admin = seed_user(username="admin2", role="admin")
+    set_password(admin, "correct horse battery staple")
+    resp = client.post(
+        "/api/v1/auth/login", json={"username": "admin2", "password": "correct horse battery staple"}
+    )
+    assert resp.status_code == 200
+
+
+def test_login_unknown_username_is_404_even_with_password_supplied(client):
+    resp = client.post("/api/v1/auth/login", json={"username": "nobody", "password": "whatever12"})
+    assert resp.status_code == 404
+
+
+def test_set_password_requires_authentication(client):
+    resp = client.post("/api/v1/auth/password", json={"password": "correct horse battery staple"})
+    assert resp.status_code == 401
+
+
+def test_set_password_rejected_for_annotator(client):
+    client.post("/api/v1/auth/signup", json={"username": "annotator-no-pw"})
+    resp = client.post("/api/v1/auth/password", json={"password": "correct horse battery staple"})
+    assert resp.status_code == 403
+
+
+def test_set_password_too_short_is_422(client, seed_user, login_as):
+    sci = seed_user(username="sci4", role="scientist")
+    login_as(sci)
+    resp = client.post("/api/v1/auth/password", json={"password": "short"})
+    assert resp.status_code == 422
+
+
+def test_set_password_too_long_is_422(client, seed_user, login_as):
+    sci = seed_user(username="sci5", role="scientist")
+    login_as(sci)
+    resp = client.post("/api/v1/auth/password", json={"password": "x" * 128})
+    assert resp.status_code == 422
+
+
+def test_set_password_then_login_with_new_password_succeeds(client, seed_user, login_as):
+    sci = seed_user(username="sci6", role="scientist")
+    login_as(sci)
+    resp = client.post("/api/v1/auth/password", json={"password": "brand new password"})
+    assert resp.status_code == 204
+
+    client.post("/api/v1/auth/logout")
+    login_resp = client.post("/api/v1/auth/login", json={"username": "sci6", "password": "brand new password"})
+    assert login_resp.status_code == 200
+
+
+def test_set_password_invalidates_old_password(client, seed_user, login_as, set_password):
+    sci = seed_user(username="sci7", role="scientist")
+    set_password(sci, "old password value")
+    login_as(sci)
+    client.post("/api/v1/auth/password", json={"password": "brand new password"})
+
+    client.post("/api/v1/auth/logout")
+    old_login = client.post("/api/v1/auth/login", json={"username": "sci7", "password": "old password value"})
+    assert old_login.status_code == 401

@@ -1,9 +1,15 @@
 import os
+import secrets
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", str(BACKEND_DIR / "data" / "app.db"))
+# Separate SQLite database for password credentials (scientist/admin accounts
+# only - annotators never have a password). Kept apart from app.db so the
+# whole password_auth package is a self-contained, deletable unit; see
+# src/password_auth/store.py.
+AUTH_DATABASE_PATH = os.environ.get("AUTH_DATABASE_PATH", str(BACKEND_DIR / "data" / "auth.db"))
 ASSETS_DIR = os.environ.get("ASSETS_DIR", str(BACKEND_DIR / "assets"))
 IMPORT_DIR = os.environ.get("IMPORT_DIR", str(BACKEND_DIR / "import"))
 BACKUP_DIR = os.environ.get("BACKUP_DIR", str(BACKEND_DIR / "data" / "backups"))
@@ -29,10 +35,24 @@ CANDIDATE_ANNOTATION_REVIEW_EXP = int(os.environ.get("CANDIDATE_ANNOTATION_REVIE
 # create the first admin manually via `python -m src.bootstrap_admin`.
 SEED_ADMIN_USERNAME = os.environ.get("SEED_ADMIN_USERNAME", "")
 SEED_ADMIN_EXPERT_LEVEL = int(os.environ.get("SEED_ADMIN_EXPERT_LEVEL", "0"))
+# Optional password for the auto-seeded admin. Leave blank to seed the admin
+# without a password (they can only authenticate via a manually-set cookie
+# until an admin - themselves, once logged in some other way - sets one via
+# POST /api/v1/auth/password).
+SEED_ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD", "")
 
 COOKIE_NAME = os.environ.get("COOKIE_NAME", "session_uuid")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
 COOKIE_MAX_AGE_SECONDS = int(os.environ.get("COOKIE_MAX_AGE_SECONDS", str(60 * 60 * 24 * 365)))
+
+# Secret used to sign CSRF tokens for scientist/admin sessions (see src/csrf.py).
+# If not configured, a random secret is generated once per process start - the
+# whole scheme is stateless (a token is just an HMAC of the secret and the
+# user's uuid, recomputed on every request, nothing stored anywhere), so an
+# ephemeral secret is fine: a restart just invalidates outstanding CSRF
+# cookies, which are transparently reissued on the next login/signup/`/me`.
+CSRF_SECRET = (os.environ.get("CSRF_SECRET", "").encode() or secrets.token_bytes(32))
+CSRF_COOKIE_NAME = os.environ.get("CSRF_COOKIE_NAME", "csrf_token")
 
 # Origin of the frontend dev/prod server, for CORS. The session cookie is
 # httponly + sent via `credentials: 'include'`, so allow_origins must be an

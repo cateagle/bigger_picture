@@ -4,11 +4,12 @@ Self-service signup (POST /api/v1/auth/signup) always forces role='annotator',
 so there is no way to obtain the first admin through the API. Run this once
 against a fresh database:
 
-    cd backend && devenv shell -- python -m src.bootstrap_admin --username admin
+    cd backend && devenv shell -- python -m src.bootstrap_admin --username admin --password <10-127 chars>
 
-The printed uuid is the admin's only credential (there is no password and no
-recovery mechanism) - save it and set it as the `session_uuid` cookie to
-authenticate as this user.
+If --password is omitted, the admin is created without one - the printed uuid
+is then their only credential (no recovery mechanism); set it as the
+`session_uuid` cookie to authenticate as this user, and use
+POST /api/v1/auth/password once logged in to set a password afterward.
 """
 
 import argparse
@@ -20,13 +21,18 @@ from src import config
 from src.constants import Role
 from src.db import make_engine
 from src.migrations.runner import run_migrations
+from src.password_auth.hashing import hash_password
+from src.password_auth.store import set_password_hash
 from src.schema.users import User, count_users, create_self_referencing_user
 
 
-def bootstrap_admin(engine: Engine, username: str, expert_level: int = 0) -> User:
+def bootstrap_admin(engine: Engine, username: str, expert_level: int = 0, password: str | None = None) -> User:
     if count_users(engine) > 0:
         raise RuntimeError("users table is not empty; refusing to bootstrap a second self-referencing admin")
-    return create_self_referencing_user(engine, username=username, role=Role.ADMIN, expert_level=expert_level)
+    user = create_self_referencing_user(engine, username=username, role=Role.ADMIN, expert_level=expert_level)
+    if password is not None:
+        set_password_hash(config.AUTH_DATABASE_PATH, user.uuid, hash_password(password))
+    return user
 
 
 def seed_admin_from_env(engine: Engine) -> User | None:
@@ -46,6 +52,9 @@ def seed_admin_from_env(engine: Engine) -> User | None:
     user = create_self_referencing_user(
         engine, username=username, role=Role.ADMIN, expert_level=config.SEED_ADMIN_EXPERT_LEVEL
     )
+    password = config.SEED_ADMIN_PASSWORD.strip()
+    if password:
+        set_password_hash(config.AUTH_DATABASE_PATH, user.uuid, hash_password(password))
     logging.getLogger(__name__).info("Seeded admin user %r (id=%s) from SEED_ADMIN_USERNAME", username, user.id)
     return user
 
@@ -54,13 +63,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create the first admin user")
     parser.add_argument("--username", required=True)
     parser.add_argument("--expert-level", type=int, default=0)
+    parser.add_argument("--password", default=None, help="Optional password, 10-127 characters")
     parser.add_argument("--database-path", default=config.DATABASE_PATH)
     args = parser.parse_args()
 
+    if args.password is not None:
+        from src.password_auth.hashing import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
+
+        if not (MIN_PASSWORD_LENGTH <= len(args.password) <= MAX_PASSWORD_LENGTH):
+            parser.error(f"--password must be {MIN_PASSWORD_LENGTH}-{MAX_PASSWORD_LENGTH} characters")
+
     run_migrations(args.database_path)
     engine = make_engine(args.database_path)
-    user = bootstrap_admin(engine, args.username, args.expert_level)
+    user = bootstrap_admin(engine, args.username, args.expert_level, args.password)
 
     print(f"Created admin '{args.username}' (id={user.id})")
     print(f"uuid (hex) = {config.encode_uuid(user.uuid)}")
-    print(f"Set this as the '{config.COOKIE_NAME}' cookie to authenticate as this admin.")
+    if args.password is not None:
+        print("A password was set - log in normally via POST /api/v1/auth/login.")
+    else:
+        print(f"Set this as the '{config.COOKIE_NAME}' cookie to authenticate as this admin.")

@@ -9,11 +9,15 @@ export function signup(username: string): Promise<User> {
   })
 }
 
-/** Looks up an existing user by username (no password) and sets the session cookie. */
-export function login(username: string): Promise<User> {
+/**
+ * Looks up an existing user by username and sets the session cookie.
+ * `password` is only required for scientist/admin accounts - annotators log
+ * in by username alone and any password passed for them is ignored.
+ */
+export function login(username: string, password?: string): Promise<User> {
   return apiFetch<User>('/api/v1/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username }),
+    body: JSON.stringify({ username, password }),
   })
 }
 
@@ -25,4 +29,12 @@ export function me(): Promise<User> {
 /** Clears the session cookie. */
 export function logout(): Promise<void> {
   return apiFetch<void>('/api/v1/auth/logout', { method: 'POST' })
+}
+
+/** Sets or replaces the password for the current session's account. Scientist/admin only. */
+export function setPassword(password: string): Promise<void> {
+  return apiFetch<void>('/api/v1/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  })
 }

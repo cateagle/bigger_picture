@@ -6,8 +6,9 @@ unknown) regardless of path, so route handlers (e.g. GET /auth/me) can just
 read `request.state.user` instead of re-resolving identity themselves.
 
 Error convention: 401 means "don't know who you are" (no/invalid/unknown
-cookie); 403 means "you're known, but your role isn't high enough". Both
-return `{"detail": "..."}` bodies, matching FastAPI's HTTPException shape.
+cookie); 403 means "you're known, but your role isn't high enough", or "known
+and authorized, but the CSRF token is missing/invalid". Both return
+`{"detail": "..."}` bodies, matching FastAPI's HTTPException shape.
 """
 
 from starlette.concurrency import run_in_threadpool
@@ -16,7 +17,12 @@ from starlette.responses import JSONResponse
 
 from src import config
 from src.constants import ROLE_RANK, Role
+from src.csrf import CSRF_HEADER_NAME, verify_csrf_token
 from src.schema.users import lookup_user_by_uuid
+
+# Methods that mutate state and therefore need CSRF protection. GET/HEAD/OPTIONS
+# are never checked.
+_UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 # Ordered path-prefix -> minimum required role. Checked in order; first match wins.
 _PATH_ROLE_REQUIREMENTS: list[tuple[str, Role | None]] = [
@@ -58,6 +64,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     cookie_was_invalid = True
 
         request.state.user = user
+
+        # Scoped to the resolved user's role, not the endpoint's role
+        # requirement, so it covers every mutating request a scientist/admin
+        # session makes - including /api/v1/auth/password, which is publicly
+        # reachable per _PATH_ROLE_REQUIREMENTS but internally role-gated.
+        if user is not None and user.role != Role.ANNOTATOR and request.method in _UNSAFE_METHODS:
+            header_token = request.headers.get(CSRF_HEADER_NAME)
+            if not verify_csrf_token(user.uuid, header_token):
+                return JSONResponse({"detail": "Missing or invalid CSRF token"}, status_code=403)
 
         required_role = _required_role(request.url.path)
         if required_role is None:

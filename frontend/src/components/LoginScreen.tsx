@@ -7,6 +7,8 @@ import './LoginScreen.css'
 
 export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) => void }) {
   const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordRequired, setPasswordRequired] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -17,9 +19,9 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
 
     setSubmitting(true)
     setError(null)
-    login(trimmed)
+    login(trimmed, passwordRequired ? password : undefined)
       .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 404) {
+        if (err instanceof ApiError && err.status === 404 && !passwordRequired) {
           return signup(trimmed)
         }
         throw err
@@ -28,6 +30,10 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 409) {
           setError('That username was just taken by someone else. Please try a different one.')
+        } else if (err instanceof ApiError && err.status === 401 && !passwordRequired) {
+          setPasswordRequired(true)
+        } else if (err instanceof ApiError && err.status === 401) {
+          setError('Incorrect password.')
         } else {
           setError('Could not sign in. Please try again.')
         }
@@ -40,8 +46,9 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
       <div className="login-card">
         <h1>Sea the Bigger Picture</h1>
         <p>
-          Enter a username to continue — no password needed. Existing usernames log you back in;
-          new ones create an account. This browser stays signed in.
+          {passwordRequired
+            ? 'This account needs a password to continue.'
+            : 'Enter a username to continue — no password needed. Existing usernames log you back in; new ones create an account. This browser stays signed in.'}
         </p>
         <form onSubmit={handleSubmit}>
           <input
@@ -51,11 +58,27 @@ export default function LoginScreen({ onLoggedIn }: { onLoggedIn: (user: User) =
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Username"
             maxLength={64}
-            disabled={submitting}
+            disabled={submitting || passwordRequired}
             autoFocus
           />
+          {passwordRequired && (
+            <input
+              type="password"
+              className="login-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              maxLength={127}
+              disabled={submitting}
+              autoFocus
+            />
+          )}
           {error && <p className="login-error">{error}</p>}
-          <button type="submit" className="btn btn-primary" disabled={submitting || !username.trim()}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={submitting || !username.trim() || (passwordRequired && !password)}
+          >
             {submitting ? 'Signing in…' : 'Continue'}
           </button>
         </form>
