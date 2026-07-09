@@ -24,6 +24,7 @@ def create_app(*, database_path: str | None = None) -> FastAPI:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     Path(config.ASSETS_DIR).mkdir(parents=True, exist_ok=True)
     Path(config.IMPORT_DIR).mkdir(parents=True, exist_ok=True)
+    Path(config.BACKUP_DIR).mkdir(parents=True, exist_ok=True)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

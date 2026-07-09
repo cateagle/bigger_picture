@@ -13,6 +13,7 @@ def app(tmp_path, monkeypatch):
     # global so there's a single source of truth for the assets directory.
     monkeypatch.setattr(config, "ASSETS_DIR", str(tmp_path / "assets"))
     monkeypatch.setattr(config, "IMPORT_DIR", str(tmp_path / "import"))
+    monkeypatch.setattr(config, "BACKUP_DIR", str(tmp_path / "backups"))
     return create_app(database_path=db_path)
 
 
@@ -26,6 +27,12 @@ def assets_dir(tmp_path):
 def import_dir(tmp_path):
     """The import working directory the app is built against (see the `app` fixture)."""
     return str(tmp_path / "import")
+
+
+@pytest.fixture
+def backup_dir(tmp_path):
+    """The backup directory the app is built against (see the `app` fixture)."""
+    return str(tmp_path / "backups")
 
 
 @pytest.fixture
