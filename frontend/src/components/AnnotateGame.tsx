@@ -3,7 +3,8 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { fetchNextImagePair, submitAnnotation } from '../api/annotationApi'
 import { fetchDivesForRegion } from '../api/diveApi'
 import type { Correspondence, ImagePair, NormalizedPoint, Region, User } from '../api/types'
-import AnnotateHintsModal from './AnnotateHintsModal'
+import AnnotateTutorial from './tutorials/AnnotateTutorial'
+import { useTutorial } from './tutorials/useTutorial'
 import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
@@ -61,7 +62,7 @@ export default function AnnotateGame({
   const [error, setError] = useState<string | null>(null)
   const [correspondences, setCorrespondences] = useState<Correspondence[]>([])
   const [pending, setPending] = useState<{ side: 'A' | 'B'; point: NormalizedPoint } | null>(null)
-  const [showHints, setShowHints] = useState(true)
+  const { show: showTutorial, complete: completeTutorial } = useTutorial('annotate')
   const [gridSize, setGridSize] = useState<GridSize>(0)
   const [zoomPoint, setZoomPoint] = useState<{side: 'A' | 'B'; point: NormalizedPoint} | null>(null)
   const [cursorPosition, setCursorPosition] = useState<{x: number; y: number} | null>(null)
@@ -205,7 +206,7 @@ export default function AnnotateGame({
           pinned
         />
       )}
-      {showHints && <AnnotateHintsModal onDismiss={() => setShowHints(false)} />}
+      {showTutorial && <AnnotateTutorial onComplete={completeTutorial} />}
       <header className="game-header">
         <div className="game-header-top">
           <button type="button" className="back-link" onClick={onBack}>
