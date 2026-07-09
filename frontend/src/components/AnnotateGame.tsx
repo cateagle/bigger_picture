@@ -7,7 +7,9 @@ import AnnotateHintsModal from './AnnotateHintsModal'
 import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
+import { GameStatsBar } from './GameStatsBar'
 import { LevelBadge } from './LevelBadge'
+import { useGameStats } from './useGameStats'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 import './AnnotateGame.css'
@@ -46,6 +48,7 @@ export default function AnnotateGame({
   const [pending, setPending] = useState<{ side: 'A' | 'B'; point: NormalizedPoint } | null>(null)
   const [showHints, setShowHints] = useState(true)
   const [gridSize, setGridSize] = useState<GridSize>(0)
+  const { stats, window: statsWindow, bump } = useGameStats('annotate')
   const imageARef = useRef<HTMLImageElement>(null)
   const imageBRef = useRef<HTMLImageElement>(null)
 
@@ -128,6 +131,7 @@ export default function AnnotateGame({
       heightB: imageB.naturalHeight,
     })
       .then(() => {
+        bump({ pairs_marked: 1, annotations: correspondences.length })
         loadNextPair(diveUuid)
         onUserRefresh()
       })
@@ -145,6 +149,7 @@ export default function AnnotateGame({
           </button>
           <LevelBadge exp={user.exp} />
         </div>
+        <GameStatsBar game="annotate" stats={stats} window={statsWindow} />
         <h1>Yellow Eel League — Annotating</h1>
         <p className="game-flavor">
           For years, a yellow eel learns every rock and reed of its river home by heart.

@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchMyStats } from '../api/statsApi'
+import { fetchMyStats, formatAccuracy } from '../api/statsApi'
 import type { AccuracyStat, MyStats } from '../api/statsApi'
 import type { User } from '../api/types'
 import { LevelBadge } from './LevelBadge'
 import './MyStatsScreen.css'
-
-/** Format an accuracy fraction as a percentage, or "n/a" when nothing is reviewed yet. */
-function formatAccuracy(stat: AccuracyStat): string {
-  if (stat.accuracy === null) return 'n/a'
-  return `${Math.round(stat.accuracy * 100)}%`
-}
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (

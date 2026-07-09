@@ -5,7 +5,9 @@ import type { PendingVerification, Region, User } from '../api/types'
 import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
+import { GameStatsBar } from './GameStatsBar'
 import { LevelBadge } from './LevelBadge'
+import { useGameStats } from './useGameStats'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 
@@ -32,6 +34,7 @@ export default function VerifyGame({
   const [error, setError] = useState<string | null>(null)
   const [reviewedCount, setReviewedCount] = useState(0)
   const [gridSize, setGridSize] = useState<GridSize>(0)
+  const { stats, window: statsWindow, bump } = useGameStats('verify')
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -79,6 +82,7 @@ export default function VerifyGame({
       .then(() => {
         setReviewedCount((count) => count + 1)
         setStatuses((prev) => new Map(prev).set(pointUuid, approved ? 'approved' : 'flagged'))
+        bump({ verified: 1, ...(approved ? { accepted: 1 } : { faulty_found: 1 }) })
         onUserRefresh()
       })
       .catch(() => setError('Could not submit your review. Please try again.'))
@@ -94,6 +98,7 @@ export default function VerifyGame({
           </button>
           <LevelBadge exp={user.exp} />
         </div>
+        <GameStatsBar game="verify" stats={stats} window={statsWindow} />
         <h1>Silver Eel League — Verification</h1>
         <p className="game-flavor">
           Before the long migration back to sea, a silver eel double-checks its bearings.
