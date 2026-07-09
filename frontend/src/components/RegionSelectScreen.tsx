@@ -4,6 +4,7 @@ import { fetchRegions } from '../api/regionApi'
 import type { Region, RegionMesh, User } from '../api/types'
 import { meshCentroid, normalizeMeshWinding } from '../geo'
 import { useContainerSize } from '../useContainerSize'
+import DailyQuestsMenuLink from './DailyQuestsMenuLink'
 import { LevelBadge } from './LevelBadge'
 import './RegionSelectScreen.css'
 
@@ -26,6 +27,7 @@ export default function RegionSelectScreen({
   onOpenAdmin,
   onOpenTeam,
   onOpenStats,
+  onOpenQuests,
   onLogout,
 }: {
   user: User
@@ -33,6 +35,7 @@ export default function RegionSelectScreen({
   onOpenAdmin: () => void
   onOpenTeam: () => void
   onOpenStats: () => void
+  onOpenQuests: () => void
   onLogout: () => void
 }) {
   const [regions, setRegions] = useState<Region[] | null>(null)
@@ -74,6 +77,7 @@ export default function RegionSelectScreen({
         <button type="button" className="back-link" onClick={onOpenStats}>
           My Stats
         </button>
+        <DailyQuestsMenuLink onClick={onOpenQuests} />
         <button type="button" className="back-link" onClick={onOpenTeam}>
           Team
         </button>

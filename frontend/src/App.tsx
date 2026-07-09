@@ -5,6 +5,7 @@ import AdminScreen from './components/AdminScreen'
 import AnnotateGame from './components/AnnotateGame'
 import OverlapGame from './components/OverlapGame'
 import VerifyGame from './components/VerifyGame'
+import DailyQuestsScreen from './components/DailyQuestsScreen'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
@@ -95,6 +96,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
             onOpenAdmin={() => navigate('/admin')}
             onOpenTeam={() => navigate('/team')}
             onOpenStats={() => navigate('/stats')}
+            onOpenQuests={() => navigate('/quests')}
             onLogout={handleLogout}
           />
         }
@@ -102,6 +104,10 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
       <Route path="/admin" element={<AdminScreen user={user} onBack={() => navigate('/')} />} />
       <Route path="/team" element={<TeamScreen onBack={() => navigate('/')} />} />
       <Route path="/stats" element={<MyStatsScreen user={user} onBack={() => navigate('/')} />} />
+      <Route
+        path="/quests"
+        element={<DailyQuestsScreen user={user} onBack={() => navigate('/')} onUserRefresh={refreshUser} />}
+      />
       <Route
         path="/region/:uuid"
         element={
@@ -118,6 +124,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
                 onOpenAdmin={() => navigate('/admin')}
                 onOpenTeam={() => navigate('/team')}
                 onOpenStats={() => navigate('/stats')}
+                onOpenQuests={() => navigate('/quests')}
                 onLogout={handleLogout}
               />
             )}

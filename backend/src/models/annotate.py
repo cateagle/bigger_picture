@@ -336,6 +336,39 @@ class MyStatsResponse(BaseModel):
     annotate: AnnotateStats = Field(description="Stage 2 (Annotating) statistics.")
     verify: VerifyStats = Field(description="Stage 3 (Verification) statistics.")
 
+
+class QuestResponse(BaseModel):
+    """A single daily quest with the caller's progress toward it.
+
+    Progress counts only *confirmed* (reviewed-and-approved) work done today, so
+    `completed`/`claimed` reflect confirmed contributions rather than raw submissions.
+    """
+
+    key: str = Field(description="Stable identifier of the quest, used to claim it.")
+    title: str = Field(description="Short display name of the quest.")
+    description: str = Field(description="Human-readable goal, e.g. 'Get 50 of your annotated points confirmed today.'")
+    metric: str = Field(description="Which confirmed-work counter this quest tracks.")
+    target: int = Field(description="Confirmed count required to complete the quest.")
+    progress: int = Field(description="The caller's confirmed count so far today, capped at target for display.")
+    completed: bool = Field(description="True once progress has reached target.")
+    claimed: bool = Field(description="True once the caller has claimed this quest's reward today.")
+    reward_exp: int = Field(description="XP granted when the quest is completed and claimed.")
+
+
+class DailyQuestsResponse(BaseModel):
+    """Today's quest set for the signed-in player."""
+
+    day_start_ms: int = Field(description="Local-midnight unix millis identifying the quest day.")
+    quests: list[QuestResponse] = Field(description="The day's quests, in the shared daily order.")
+
+
+class QuestClaimResponse(BaseModel):
+    """Result of claiming a completed quest's reward."""
+
+    quest: QuestResponse = Field(description="The quest after claiming (claimed = true).")
+    exp: int = Field(description="The caller's new total XP after the reward was granted.")
+    expert_level: int = Field(description="The caller's expert level after the reward, derived from exp.")
+
 class PointAnnotationReviewResponse(BaseModel):
     """A point annotation pending review, with full image details so the two images can be rendered."""
 
