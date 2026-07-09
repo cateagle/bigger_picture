@@ -56,7 +56,7 @@ function App() {
   return (
     <BrowserRouter>
       {content}
-      <Footer />
+      <Footer showTeamLink={!!user} />
     </BrowserRouter>
   )
 }
@@ -85,6 +85,12 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
     navigate(`/region/${region.uuid}`)
   }
 
+  // Shared account-bar handlers, threaded into every authenticated screen so the
+  // menu (identity, level, daily quests, burger menu) behaves identically everywhere.
+  const onOpenAdmin = () => navigate('/admin')
+  const onOpenStats = () => navigate('/stats')
+  const onOpenQuests = () => navigate('/quests')
+
   return (
     <Routes>
       <Route
@@ -93,20 +99,65 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
           <RegionSelectScreen
             user={user}
             onSelect={selectRegion}
-            onOpenAdmin={() => navigate('/admin')}
-            onOpenTeam={() => navigate('/team')}
-            onOpenStats={() => navigate('/stats')}
-            onOpenQuests={() => navigate('/quests')}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
             onLogout={handleLogout}
           />
         }
       />
-      <Route path="/admin" element={<AdminScreen user={user} onBack={() => navigate('/')} />} />
-      <Route path="/team" element={<TeamScreen onBack={() => navigate('/')} />} />
-      <Route path="/stats" element={<MyStatsScreen user={user} onBack={() => navigate('/')} />} />
+      <Route
+        path="/admin"
+        element={
+          <AdminScreen
+            user={user}
+            onBack={() => navigate('/')}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={handleLogout}
+          />
+        }
+      />
+      <Route
+        path="/team"
+        element={
+          <TeamScreen
+            user={user}
+            onBack={() => navigate('/')}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={handleLogout}
+          />
+        }
+      />
+      <Route
+        path="/stats"
+        element={
+          <MyStatsScreen
+            user={user}
+            onBack={() => navigate('/')}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={handleLogout}
+          />
+        }
+      />
       <Route
         path="/quests"
-        element={<DailyQuestsScreen user={user} onBack={() => navigate('/')} onUserRefresh={refreshUser} />}
+        element={
+          <DailyQuestsScreen
+            user={user}
+            onBack={() => navigate('/')}
+            onUserRefresh={refreshUser}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={handleLogout}
+          />
+        }
       />
       <Route
         path="/region/:uuid"
@@ -121,10 +172,9 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
                   setSelectedRegion(null)
                   navigate('/')
                 }}
-                onOpenAdmin={() => navigate('/admin')}
-                onOpenTeam={() => navigate('/team')}
-                onOpenStats={() => navigate('/stats')}
-                onOpenQuests={() => navigate('/quests')}
+                onOpenAdmin={onOpenAdmin}
+                onOpenStats={onOpenStats}
+                onOpenQuests={onOpenQuests}
                 onLogout={handleLogout}
               />
             )}
@@ -141,6 +191,10 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
                 user={user}
                 onUserRefresh={refreshUser}
                 onBack={() => navigate(`/region/${region.uuid}`)}
+                onOpenAdmin={onOpenAdmin}
+                onOpenStats={onOpenStats}
+                onOpenQuests={onOpenQuests}
+                onLogout={handleLogout}
               />
             )}
           </RegionGate>
@@ -197,12 +251,16 @@ interface GameRouteProps {
   user: User
   onUserRefresh: () => void
   onBack: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
 }
 
 /** Dispatches to the right game component based on the `:game` URL segment. */
-function GameRoute({ region, user, onUserRefresh, onBack }: GameRouteProps) {
+function GameRoute({ region, user, onUserRefresh, onBack, onOpenAdmin, onOpenStats, onOpenQuests, onLogout }: GameRouteProps) {
   const { game } = useParams()
-  const props = { region, user, onUserRefresh, onBack }
+  const props = { region, user, onUserRefresh, onBack, onOpenAdmin, onOpenStats, onOpenQuests, onLogout }
   if (game === 'overlap') return <OverlapGame {...props} />
   if (game === 'annotate') return <AnnotateGame {...props} />
   if (game === 'verify') return <VerifyGame {...props} />

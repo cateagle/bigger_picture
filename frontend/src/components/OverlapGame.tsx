@@ -6,7 +6,7 @@ import { GridOverlay } from './GridOverlay'
 import type { GridSize } from './gridSize'
 import { gridToggleLabel, nextGridSize } from './gridSize'
 import { GameStatsBar } from './GameStatsBar'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import { useGameStats } from './useGameStats'
 import { useFunFactTrigger } from './useFunFactTrigger'
 import FunFactModal from './FunFactModal'
@@ -16,11 +16,19 @@ export default function OverlapGame({
   user,
   onUserRefresh,
   onBack,
+  onOpenAdmin,
+  onOpenStats,
+  onOpenQuests,
+  onLogout,
 }: {
   region: Region
   user: User
   onUserRefresh: () => void
   onBack: () => void
+  onOpenAdmin: () => void
+  onOpenStats: () => void
+  onOpenQuests: () => void
+  onLogout: () => void
 }) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
   const [diveUuid, setDiveUuid] = useState<string | null | undefined>(undefined)
@@ -92,7 +100,13 @@ export default function OverlapGame({
           <button type="button" className="back-link" onClick={onBack}>
             ← Back to games
           </button>
-          <LevelBadge exp={user.exp} />
+          <AccountBar
+            user={user}
+            onOpenAdmin={onOpenAdmin}
+            onOpenStats={onOpenStats}
+            onOpenQuests={onOpenQuests}
+            onLogout={onLogout}
+          />
         </div>
         <GameStatsBar game="overlap" stats={stats} window={statsWindow} />
         <h1>Glass Eel League — Finding Overlap</h1>

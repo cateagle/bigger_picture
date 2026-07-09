@@ -4,8 +4,7 @@ import { fetchRegions } from '../api/regionApi'
 import type { Region, RegionMesh, User } from '../api/types'
 import { meshCentroid, normalizeMeshWinding } from '../geo'
 import { useContainerSize } from '../useContainerSize'
-import DailyQuestsMenuLink from './DailyQuestsMenuLink'
-import { LevelBadge } from './LevelBadge'
+import AccountBar from './AccountBar'
 import './RegionSelectScreen.css'
 
 const CAP_COLOR = 'rgba(42, 120, 214, 0.55)'
@@ -25,7 +24,6 @@ export default function RegionSelectScreen({
   user,
   onSelect,
   onOpenAdmin,
-  onOpenTeam,
   onOpenStats,
   onOpenQuests,
   onLogout,
@@ -33,7 +31,6 @@ export default function RegionSelectScreen({
   user: User
   onSelect: (region: Region) => void
   onOpenAdmin: () => void
-  onOpenTeam: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
   onLogout: () => void
@@ -64,27 +61,13 @@ export default function RegionSelectScreen({
 
   return (
     <div className="region-select-screen">
-      <div className="account-bar">
-        <span>
-          Signed in as <strong>{user.username}</strong>
-        </span>
-        <LevelBadge exp={user.exp} />
-        {user.role !== 'annotator' && (
-          <button type="button" className="back-link" onClick={onOpenAdmin}>
-            Admin
-          </button>
-        )}
-        <button type="button" className="back-link" onClick={onOpenStats}>
-          My Stats
-        </button>
-        <DailyQuestsMenuLink onClick={onOpenQuests} />
-        <button type="button" className="back-link" onClick={onOpenTeam}>
-          Team
-        </button>
-        <button type="button" className="back-link" onClick={onLogout}>
-          Log out
-        </button>
-      </div>
+      <AccountBar
+        user={user}
+        onOpenAdmin={onOpenAdmin}
+        onOpenStats={onOpenStats}
+        onOpenQuests={onOpenQuests}
+        onLogout={onLogout}
+      />
 
       <header className="region-select-header">
         <p className="region-select-eyebrow">Journey of the Eel</p>
