@@ -180,6 +180,14 @@ export default function AnnotateGame({
           zoom={4}
         />
       )}
+      {pending && (
+        <ZoomLens
+          imageRef={pending.side === 'A' ? imageARef : imageBRef}
+          point={pending.point}
+          zoom={4}
+          pinned
+        />
+      )}
       {showHints && <AnnotateHintsModal onDismiss={() => setShowHints(false)} />}
       <header className="game-header">
         <div className="game-header-top">
