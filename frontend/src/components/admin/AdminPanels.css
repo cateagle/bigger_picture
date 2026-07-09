@@ -21,6 +21,9 @@
   padding: 8px 10px;
   border-bottom: 1px solid var(--pane-border);
   font-size: 0.9rem;
+  /* Long unbroken strings (JSON, URLs) would otherwise force the table wider
+     than its flex box and spill visually over the form next to it. */
+  overflow-wrap: break-word;
 }
 
 .admin-row-active {

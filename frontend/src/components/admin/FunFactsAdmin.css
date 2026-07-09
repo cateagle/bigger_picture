@@ -6,3 +6,10 @@
   object-fit: contain;
   display: block;
 }
+
+/* Raw JSON (often containing long, unbreakable URLs) would otherwise force the
+   table wider than its flex box regardless of overflow-wrap, since auto table
+   layout sizes columns to fit content before it tries to wrap anything. */
+.fun-facts-admin-fact-cell {
+  max-width: 360px;
+}
