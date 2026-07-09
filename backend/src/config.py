@@ -35,11 +35,15 @@ CANDIDATE_ANNOTATION_REVIEW_EXP = int(os.environ.get("CANDIDATE_ANNOTATION_REVIE
 # create the first admin manually via `python -m src.bootstrap_admin`.
 SEED_ADMIN_USERNAME = os.environ.get("SEED_ADMIN_USERNAME", "")
 SEED_ADMIN_EXPERT_LEVEL = int(os.environ.get("SEED_ADMIN_EXPERT_LEVEL", "0"))
-# Optional password for the auto-seeded admin. Leave blank to seed the admin
-# without a password (they can only authenticate via a manually-set cookie
-# until an admin - themselves, once logged in some other way - sets one via
-# POST /api/v1/auth/password).
-SEED_ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD", "")
+# Password given to the seed admin the first time the password_auth database
+# is initialized (see bootstrap_admin.seed_admin_from_env) - falls back to a
+# fixed, publicly-known default if not overridden, so a fresh deployment (or
+# one that only activates password auth later, against a database that
+# already had an admin) never ends up with an admin nobody can log in as
+# without a manual CLI step. Change it immediately via POST
+# /api/v1/auth/password. Set to an explicit empty string to disable this
+# fallback entirely (the admin then has no password until one is set by hand).
+SEED_ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD", "change-me-please")
 
 COOKIE_NAME = os.environ.get("COOKIE_NAME", "session_uuid")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")

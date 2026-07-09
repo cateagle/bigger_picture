@@ -71,7 +71,13 @@ Roles are hierarchical: `admin` > `scientist` > `annotator`, stored in `users.ro
 
 ## Bootstrapping the first admin
 
-Self-signup always forces `role='annotator'`, so the very first admin must be created directly:
+Self-signup always forces `role='annotator'`, so the first admin can't be created through the API. Two ways to get one, no CLI step required for the first:
+
+**Automatic (recommended)**: set `SEED_ADMIN_USERNAME` (already done in `docker-compose.yml`) and the app seeds an admin with that username on first boot against an empty database (`src/bootstrap_admin.py`'s `seed_admin_from_env`, called from `main.py`'s lifespan on every startup). They also get a password from `SEED_ADMIN_PASSWORD` - which defaults to `change-me-please` if not overridden, so this is never left in a state where nobody can log in without a manual step. **Change it immediately** via `POST /api/v1/auth/password` after logging in, or set `SEED_ADMIN_PASSWORD` to your own value before first boot.
+
+This password-seeding half is independent of user creation and re-checked on every boot (not just when the database is empty): if you already had an admin from before password auth existed in this app (or before you configured `SEED_ADMIN_USERNAME`/`SEED_ADMIN_PASSWORD`), setting `SEED_ADMIN_USERNAME` to that admin's username and restarting gives them a password too - as long as the password_auth database has never been used by anyone yet. Once any scientist/admin has a stored password, this step never touches anything again, so it can't reset a password you've since changed.
+
+**Manual**, if you want to choose the username/uuid/password yourself instead:
 
 ```sh
 cd backend && devenv shell -- python -m src.bootstrap_admin --username admin --password <10-127 chars>
@@ -85,7 +91,9 @@ This prints the new admin's uuid. If `--password` was given, log in normally via
 | ---------------------- | ------------------- | -------------------------------------------- |
 | DATABASE_PATH          | backend/data/app.db | SQLite file location                         |
 | AUTH_DATABASE_PATH     | backend/data/auth.db | SQLite file for scientist/admin password hashes (`src/password_auth/`) |
-| SEED_ADMIN_PASSWORD    | (blank)             | Optional password for the admin auto-seeded via `SEED_ADMIN_USERNAME` |
+| SEED_ADMIN_USERNAME    | (blank)             | Username of an admin to auto-create on first boot against an empty database; blank disables auto-seeding |
+| SEED_ADMIN_EXPERT_LEVEL | 0                  | Initial expert_level for the auto-seeded admin |
+| SEED_ADMIN_PASSWORD    | change-me-please    | Password given to the seed admin the first time the password database is used - see "Bootstrapping the first admin"; set to an explicit empty string to disable |
 | CSRF_SECRET            | (random per process) | HMAC secret for scientist/admin CSRF tokens; set to persist across restarts/processes |
 | CSRF_COOKIE_NAME       | csrf_token          | CSRF cookie name (non-httponly, scientist/admin sessions only) |
 | ASSETS_DIR             | backend/assets      | Public static image directory                |

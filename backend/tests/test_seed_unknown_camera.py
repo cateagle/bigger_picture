@@ -47,7 +47,7 @@ def test_seed_unknown_camera_runs_after_env_admin_in_same_boot(tmp_path, monkeyp
     run_migrations(db_path)
     engine = make_engine(db_path)
 
-    admin = seed_admin_from_env(engine)
+    admin = seed_admin_from_env(engine, str(tmp_path / "auth.db"))
     camera = seed_unknown_camera(engine)
 
     assert camera is not None

@@ -19,11 +19,11 @@ from sqlalchemy.engine import Engine
 
 from src import config
 from src.constants import Role
-from src.db import make_engine
+from src.db import make_engine, make_session_factory
 from src.migrations.runner import run_migrations
 from src.password_auth.hashing import hash_password
-from src.password_auth.store import set_password_hash
-from src.schema.users import User, count_users, create_self_referencing_user
+from src.password_auth.store import has_any_password, set_password_hash
+from src.schema.users import User, count_users, create_self_referencing_user, lookup_user_by_username
 
 
 def bootstrap_admin(engine: Engine, username: str, expert_level: int = 0, password: str | None = None) -> User:
@@ -35,27 +35,49 @@ def bootstrap_admin(engine: Engine, username: str, expert_level: int = 0, passwo
     return user
 
 
-def seed_admin_from_env(engine: Engine) -> User | None:
-    """Create the seed admin configured via SEED_ADMIN_USERNAME, if any.
+def seed_admin_from_env(engine: Engine, auth_database_path: str) -> User | None:
+    """Create the seed admin configured via SEED_ADMIN_USERNAME, if any, and/or
+    give them a password the first time the password_auth database is used.
 
-    Called on startup once the schema exists. Idempotent and safe to run on
-    every boot: does nothing if no username is configured or if the users
-    table is already populated (so an existing database is never touched, and
-    the admin is not re-created after it has been renamed or deleted).
+    Called on startup once both schemas exist. Two independent, idempotent
+    behaviors, both safe to run on every boot:
+
+    - User creation: does nothing if no username is configured, or if the
+      users table is already populated (so an existing database is never
+      touched, and the admin is not re-created after being renamed/deleted).
+    - Password seeding: does nothing once the password_auth database already
+      has a stored credential for *anyone* - this is what makes it safe to
+      run unconditionally, and covers activating password auth later against
+      a database that already had an admin (no user creation needed, just a
+      password) without ever overwriting a password an admin has since
+      changed. SEED_ADMIN_PASSWORD has a non-blank default specifically so
+      this never leaves an admin without a way to log in that requires a
+      manual CLI step - set it to an explicit empty string to opt out.
     """
     username = config.SEED_ADMIN_USERNAME.strip()
     if not username:
         return None
-    if count_users(engine) > 0:
-        return None
 
-    user = create_self_referencing_user(
-        engine, username=username, role=Role.ADMIN, expert_level=config.SEED_ADMIN_EXPERT_LEVEL
-    )
+    user = None
+    if count_users(engine) == 0:
+        user = create_self_referencing_user(
+            engine, username=username, role=Role.ADMIN, expert_level=config.SEED_ADMIN_EXPERT_LEVEL
+        )
+        logging.getLogger(__name__).info("Seeded admin user %r (id=%s) from SEED_ADMIN_USERNAME", username, user.id)
+
     password = config.SEED_ADMIN_PASSWORD.strip()
-    if password:
-        set_password_hash(config.AUTH_DATABASE_PATH, user.uuid, hash_password(password))
-    logging.getLogger(__name__).info("Seeded admin user %r (id=%s) from SEED_ADMIN_USERNAME", username, user.id)
+    if password and not has_any_password(auth_database_path):
+        if user is None:
+            with make_session_factory(engine)() as session:
+                user = lookup_user_by_username(session, username)
+        if user is not None:
+            set_password_hash(auth_database_path, user.uuid, hash_password(password))
+            logging.getLogger(__name__).info(
+                "Seeded password for admin user %r from SEED_ADMIN_PASSWORD - change it via "
+                "POST /api/v1/auth/password if this used the default fallback value",
+                username,
+            )
+
     return user
 
 

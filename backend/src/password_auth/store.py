@@ -1,7 +1,7 @@
 import time
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
@@ -41,6 +41,16 @@ def get_password_hash(database_path: str, user_uuid: bytes) -> str | None:
 
 def has_password(database_path: str, user_uuid: bytes) -> bool:
     return get_password_hash(database_path, user_uuid) is not None
+
+
+def has_any_password(database_path: str) -> bool:
+    """Whether the password_auth database has ever had a credential stored,
+    for anyone. Used to detect "the auth database has never been touched" -
+    e.g. to decide whether it's still safe to seed a default admin password
+    without risking overwriting one an admin has since changed.
+    """
+    with _get_session_factory(database_path)() as session:
+        return session.execute(select(PasswordCredential.user_uuid).limit(1)).first() is not None
 
 
 def set_password_hash(database_path: str, user_uuid: bytes, password_hash: str) -> None:
