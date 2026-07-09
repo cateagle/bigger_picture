@@ -39,9 +39,10 @@ export default function ZipUploadAdmin() {
       <h3>Bulk import from zip</h3>
 
       <p className="zip-upload-description">
-        Upload a zip archive containing up to 7 optional, semicolon-delimited CSVs (labels.csv,
-        cameras.csv, regions.csv, dives.csv, images.csv, candidates.csv, pairs.csv) plus an
-        images/ folder, and import them in dependency order. Requires the scientist role.
+        Upload a zip archive containing up to 9 optional, semicolon-delimited CSVs (labels.csv,
+        cameras.csv, regions.csv, dives.csv, images.csv, candidates.csv, pairs.csv,
+        helper_images.csv, fun_facts.csv) plus images/ and helper_images/ folders, and import them
+        in dependency order. Requires the scientist role.
       </p>
       <p className="zip-upload-description">
         The whole import is all-or-nothing: any error aborts with nothing persisted and no asset
@@ -64,7 +65,8 @@ export default function ZipUploadAdmin() {
         <p className="game-status">
           Imported {result.labels} label(s), {result.cameras} camera(s), {result.regions} region(s),{' '}
           {result.dives} dive(s), {result.images} image(s), {result.candidate_pairs} candidate
-          pair(s), {result.image_pairs} image pair(s).
+          pair(s), {result.image_pairs} image pair(s), {result.helper_images} helper image(s),{' '}
+          {result.fun_facts} fun fact(s).
         </p>
       )}
 

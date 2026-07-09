@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchMyStats, formatAccuracy } from '../api/statsApi'
-import type { AccuracyStat, MyStats } from '../api/statsApi'
+import { fetchMyStats } from '../api/statsApi'
+import type { MyStats } from '../api/statsApi'
 import type { User } from '../api/types'
 import { LevelBadge } from './LevelBadge'
+import { AccuracyGauge, ProgressMeter, SplitBar } from './StatCharts'
 import './MyStatsScreen.css'
 
 function Stat({ label, value }: { label: string; value: number | string }) {
@@ -10,23 +11,6 @@ function Stat({ label, value }: { label: string; value: number | string }) {
     <div className="stat-cell">
       <span className="stat-value">{value}</span>
       <span className="stat-label">{label}</span>
-    </div>
-  )
-}
-
-function AccuracyRow({ window, allTime, windowed }: { window: number; allTime: AccuracyStat; windowed: AccuracyStat }) {
-  return (
-    <div className="stat-accuracy-row">
-      <div className="stat-cell">
-        <span className="stat-value">{formatAccuracy(allTime)}</span>
-        <span className="stat-label">Accuracy (all time)</span>
-        <span className="stat-sub">{allTime.correct}/{allTime.reviewed} reviewed</span>
-      </div>
-      <div className="stat-cell">
-        <span className="stat-value">{formatAccuracy(windowed)}</span>
-        <span className="stat-label">Accuracy (last {window})</span>
-        <span className="stat-sub">{windowed.correct}/{windowed.reviewed} reviewed</span>
-      </div>
     </div>
   )
 }
@@ -59,41 +43,70 @@ export default function MyStatsScreen({ user, onBack }: { user: User; onBack: ()
 
       {stats && (
         <>
-          <section className="stat-section">
+          <section className="stat-section" data-game="overlap">
             <h2>Finding Overlap</h2>
             <div className="stat-grid">
               <Stat label="Pairs marked" value={stats.overlap.pairs_marked} />
-              <Stat label="Overlaps found" value={stats.overlap.overlaps_found} />
               <Stat label="Overlapping pairs overall" value={stats.overlap.overall_pairs_with_overlap} />
             </div>
-            <AccuracyRow
-              window={stats.window}
-              allTime={stats.overlap.accuracy_all_time}
-              windowed={stats.overlap.accuracy_window}
-            />
+            <div className="stat-charts">
+              <AccuracyGauge caption="Accuracy (all time)" stat={stats.overlap.accuracy_all_time} />
+              <AccuracyGauge caption={`Accuracy (last ${stats.window})`} stat={stats.overlap.accuracy_window} />
+              <div className="stat-charts-wide">
+                <span className="stat-charts-title">Your calls</span>
+                <SplitBar
+                  segments={[
+                    { label: 'Overlaps found', value: stats.overlap.overlaps_found },
+                    {
+                      label: 'Different scene',
+                      value: stats.overlap.pairs_marked - stats.overlap.overlaps_found,
+                    },
+                  ]}
+                />
+              </div>
+            </div>
           </section>
 
-          <section className="stat-section">
+          <section className="stat-section" data-game="annotate">
             <h2>Annotating</h2>
             <div className="stat-grid">
               <Stat label="Annotations" value={stats.annotate.annotations} />
-              <Stat label="Annotations verified" value={stats.annotate.annotations_verified} />
               <Stat label="Pairs marked" value={stats.annotate.pairs_marked} />
-              <Stat label="Pairs verified" value={stats.annotate.pairs_verified} />
             </div>
-            <AccuracyRow
-              window={stats.window}
-              allTime={stats.annotate.accuracy_all_time}
-              windowed={stats.annotate.accuracy_window}
-            />
+            <div className="stat-charts">
+              <AccuracyGauge caption="Accuracy (all time)" stat={stats.annotate.accuracy_all_time} />
+              <AccuracyGauge caption={`Accuracy (last ${stats.window})`} stat={stats.annotate.accuracy_window} />
+              <div className="stat-charts-wide">
+                <span className="stat-charts-title">Reviewed so far</span>
+                <ProgressMeter
+                  label="Annotations verified"
+                  value={stats.annotate.annotations_verified}
+                  total={stats.annotate.annotations}
+                />
+                <ProgressMeter
+                  label="Pairs verified"
+                  value={stats.annotate.pairs_verified}
+                  total={stats.annotate.pairs_marked}
+                />
+              </div>
+            </div>
           </section>
 
-          <section className="stat-section">
+          <section className="stat-section" data-game="verify">
             <h2>Verification</h2>
             <div className="stat-grid">
               <Stat label="Reviews done" value={stats.verify.verified} />
-              <Stat label="Accepted" value={stats.verify.accepted} />
-              <Stat label="Faults found" value={stats.verify.faulty_found} />
+            </div>
+            <div className="stat-charts">
+              <div className="stat-charts-wide">
+                <span className="stat-charts-title">How you judged them</span>
+                <SplitBar
+                  segments={[
+                    { label: 'Faults found', value: stats.verify.faulty_found },
+                    { label: 'Accepted', value: stats.verify.accepted },
+                  ]}
+                />
+              </div>
             </div>
           </section>
         </>

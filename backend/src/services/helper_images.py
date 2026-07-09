@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from blake3 import blake3
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -11,7 +13,35 @@ from src.services.assets import (
     resolve_asset_path,
     write_temp_image,
 )
+from src.services.errors import ConflictError
 from src.util import new_uuid, now_ms
+
+
+def create_helper_image(
+    db: Session, *, uuid: UUID, filepath: str, filename: str, blake3_hash: bytes, creator_id: int,
+) -> HelperImage:
+    """Build, add, and flush a new `HelperImage` row. Does not commit.
+
+    Unlike `get_or_create_helper_image`, this always creates a new row and
+    never dedups by hash - for a bulk CSV import, each row is an explicit
+    request to create one row, and the caller (the zip importer) owns
+    staging the file and moving it into place only after the whole import
+    commits. Raises `ConflictError` if the uuid or filepath already exists.
+    """
+    helper_image = HelperImage(
+        uuid=uuid.bytes,
+        created_at=now_ms(),
+        created_by=creator_id,
+        filepath=filepath,
+        filename=filename,
+        blake3_hash=blake3_hash,
+    )
+    db.add(helper_image)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        raise ConflictError("Helper image already exists") from exc
+    return helper_image
 
 
 def get_or_create_helper_image(

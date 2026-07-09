@@ -1,3 +1,4 @@
+import teamPhoto from '../assets/team.jpg'
 import './TeamScreen.css'
 
 interface TeamMember {
@@ -11,21 +12,14 @@ interface TeamMember {
  */
 const TEAM: TeamMember[] = [
   { name: 'Sascha Mahmood', githubHandle: 'savenger' },
-  { name: 'paschoentag', githubHandle: 'paschoentag' },
-  { name: 'cateagle', githubHandle: 'cateagle' },
+  { name: 'Patricia Schöntag', githubHandle: 'paschoentag' },
+  { name: 'Julius ', githubHandle: 'cateagle' },
   { name: 'Paul C. Busch', githubHandle: 'chaosbit' },
   { name: 'Wiebke Engler', githubHandle: 'Wiebke-Engler' },
+  { name: 'Barbara Glemser', githubHandle: 'bglemser' },
+  { name: 'Meike Nienaber', githubHandle: 'Meike1711' },
+  { name: 'Raphaela Lopes', githubHandle: 'raoahela' },
 ]
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-}
 
 export default function TeamScreen({ onBack }: { onBack: () => void }) {
   return (
@@ -37,17 +31,10 @@ export default function TeamScreen({ onBack }: { onBack: () => void }) {
       <header className="team-header">
         <p className="team-eyebrow">Journey of the Eel</p>
         <h1>Team</h1>
-        <p>The people who built Bigger Picture.</p>
+        <p>The people who built Sea the Bigger Picture.</p>
       </header>
 
-      <div className="team-photo" aria-hidden="true">
-        {TEAM.map((member) => (
-          <div key={member.githubHandle} className="team-avatar">
-            {initials(member.name)}
-          </div>
-        ))}
-      </div>
-      <p className="team-photo-caption">No group photo yet — placeholder avatars shown above.</p>
+      <img src={teamPhoto} alt="The Sea the Bigger Picture team" className="team-photo" />
 
       <ul className="team-list">
         {TEAM.map((member) => (

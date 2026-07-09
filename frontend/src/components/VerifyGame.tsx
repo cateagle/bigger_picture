@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchDivesForRegion } from '../api/diveApi'
 import { fetchNextPendingVerification, submitPointVerification } from '../api/verifyApi'
 import type { PendingVerification, Region, User } from '../api/types'
@@ -8,6 +8,8 @@ import { gridToggleLabel, nextGridSize } from './gridSize'
 import { GameStatsBar } from './GameStatsBar'
 import { LevelBadge } from './LevelBadge'
 import { useGameStats } from './useGameStats'
+import { useFunFactTrigger } from './useFunFactTrigger'
+import FunFactModal from './FunFactModal'
 import { Marker } from './Marker'
 import { markerColor } from './markerColor'
 
@@ -35,6 +37,10 @@ export default function VerifyGame({
   const [reviewedCount, setReviewedCount] = useState(0)
   const [gridSize, setGridSize] = useState<GridSize>(0)
   const { stats, window: statsWindow, bump } = useGameStats('verify')
+  const { fact, recordCompletion, dismiss } = useFunFactTrigger(region.uuid)
+  // Guards the pair-completion trigger so it fires exactly once per pair, even
+  // if the effect below re-runs before the next pair has loaded.
+  const completedItemRef = useRef<PendingVerification | null>(null)
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -66,13 +72,21 @@ export default function VerifyGame({
     }
   }, [diveUuid, loadNext])
 
-  // Once every point in the current pair has a decision, move on to the next one.
+  // Once every point in the current pair has a decision, count the pair as a
+  // completed unit (this is the only moment a fun fact may be triggered in
+  // verification — never after a single point) and move on to the next pair.
   useEffect(() => {
     if (!item || !diveUuid) return
-    if (statuses.size > 0 && statuses.size === item.correspondences.length) {
+    if (
+      statuses.size > 0 &&
+      statuses.size === item.correspondences.length &&
+      completedItemRef.current !== item
+    ) {
+      completedItemRef.current = item
+      recordCompletion()
       loadNext(diveUuid)
     }
-  }, [statuses, item, diveUuid, loadNext])
+  }, [statuses, item, diveUuid, loadNext, recordCompletion])
 
   const handlePointDecision = (pointUuid: string, approved: boolean) => {
     if (!item || !diveUuid || submittingUuid) return
@@ -91,6 +105,7 @@ export default function VerifyGame({
 
   return (
     <div className="game-screen" data-game="verify">
+      {fact && <FunFactModal fact={fact} onDismiss={dismiss} />}
       <header className="game-header">
         <div className="game-header-top">
           <button type="button" className="back-link" onClick={onBack}>

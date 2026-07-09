@@ -6,6 +6,9 @@ import type { Region, User } from '../api/types'
 import { fetchNextPendingVerification } from '../api/verifyApi'
 import { LevelBadge } from './LevelBadge'
 import './HomeScreen.css'
+import glass_eel_2 from '../../images/glass_eel_2.png'
+import yellow_eel from '../../images/yellow_eel.png'
+import silver_eel_2 from '../../images/silver_eel_2.png'
 
 export type GameId = 'overlap' | 'annotate' | 'verify'
 
@@ -15,6 +18,7 @@ interface GameCard {
   title: string
   flavor: string
   description: string
+  image: string
   active: boolean
 }
 
@@ -24,6 +28,7 @@ const GAMES: GameCard[] = [
     league: 'Glass Eel League',
     title: 'Finding Overlap',
     flavor: 'A glass eel drifts in from the open ocean, scanning the coastline for familiar water.',
+    image: glass_eel_2,
     description: 'Look at two marine images and decide whether they show the same physical scene.',
     active: true,
   },
@@ -32,6 +37,7 @@ const GAMES: GameCard[] = [
     league: 'Yellow Eel League',
     title: 'Annotating',
     flavor: 'For years, a yellow eel learns every rock and reed of its river home by heart.',
+    image: yellow_eel,
     description: 'Click matching points between two overlapping images to build ground-truth correspondences.',
     active: true,
   },
@@ -39,6 +45,7 @@ const GAMES: GameCard[] = [
     id: 'verify',
     league: 'Silver Eel League',
     title: 'Verification',
+    image: silver_eel_2,
     flavor: 'Before the long migration back to sea, a silver eel double-checks its bearings.',
     description: "Review another player's annotation and flag it if it doesn't look right.",
     active: true,
@@ -137,7 +144,7 @@ export default function HomeScreen({
 
       <header className="home-header">
         <p className="home-eyebrow">Journey of the Eel</p>
-        <h1>Bigger Picture</h1>
+        <h1>Sea the Bigger Picture</h1>
         <p>
           Every year, European eels leave the rivers where they grew up and swim thousands of kilometres back to
           the Sargasso Sea to spawn — a route no one has ever fully mapped. Play through three leagues of the
@@ -160,6 +167,11 @@ export default function HomeScreen({
               <span className="game-card-league">{game.league}</span>
               <h2>{game.title}</h2>
               <p className="game-card-flavor">{game.flavor}</p>
+              <img
+                src={game.image}
+                alt={game.title}
+                className="game-card-image"
+              />
               <p>{game.description}</p>
               <button
                 type="button"

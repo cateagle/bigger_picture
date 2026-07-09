@@ -1,3 +1,4 @@
-image_a;image_b;status
-dd9c02f4-eef3-4806-a5fa-302e56676954;3d2d6a96-a537-4eb2-801c-babdaab57bc4;
-3d2d6a96-a537-4eb2-801c-babdaab57bc4;41f6aea3-cbf8-48f9-ac01-ec7afdbacb2b;finalized
+image_a;image_b;image_source_a;image_source_b;status
+dd9c02f4-eef3-4806-a5fa-302e56676954;3d2d6a96-a537-4eb2-801c-babdaab57bc4;;;
+3d2d6a96-a537-4eb2-801c-babdaab57bc4;41f6aea3-cbf8-48f9-ac01-ec7afdbacb2b;;;finalized
+;;dive-c/frame_0001.jpg;dive-c/frame_0002.jpg;

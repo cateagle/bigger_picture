@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload images and create image pairs against the Bigger Picture dataset API.
+"""Upload images and create image pairs against the Sea the Bigger Picture dataset API.
 
 Given a folder of images, a CSV mapping each filename to the uuid it should be
 assigned, and a CSV listing image pairs (by those uuids), this script:

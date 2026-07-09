@@ -8,6 +8,8 @@ import { gridToggleLabel, nextGridSize } from './gridSize'
 import { GameStatsBar } from './GameStatsBar'
 import { LevelBadge } from './LevelBadge'
 import { useGameStats } from './useGameStats'
+import { useFunFactTrigger } from './useFunFactTrigger'
+import FunFactModal from './FunFactModal'
 
 export default function OverlapGame({
   region,
@@ -30,6 +32,7 @@ export default function OverlapGame({
   const [reviewedCount, setReviewedCount] = useState(0)
   const [gridSize, setGridSize] = useState<GridSize>(0)
   const { stats, window: statsWindow, bump } = useGameStats('overlap')
+  const { fact, recordCompletion, dismiss } = useFunFactTrigger(region.uuid)
 
   useEffect(() => {
     setDiveUuid(undefined)
@@ -68,6 +71,7 @@ export default function OverlapGame({
       .then(() => {
         setReviewedCount((count) => count + 1)
         bump({ pairs_marked: 1, ...(overlaps ? { overlaps_found: 1 } : {}) })
+        recordCompletion()
         loadNextPair(diveUuid)
         onUserRefresh()
       })
@@ -82,6 +86,7 @@ export default function OverlapGame({
 
   return (
     <div className="game-screen" data-game="overlap">
+      {fact && <FunFactModal fact={fact} onDismiss={dismiss} />}
       <header className="game-header">
         <div className="game-header-top">
           <button type="button" className="back-link" onClick={onBack}>

@@ -161,7 +161,7 @@ export default function FunFactsAdmin() {
                     )}
                   </td>
                   <td>{fact.title}</td>
-                  <td>{JSON.stringify(fact.fact)}</td>
+                  <td className="fun-facts-admin-fact-cell">{JSON.stringify(fact.fact)}</td>
                   <td>{regionTitle(fact.region)}</td>
                   <td>
                     <button type="button" className="btn" onClick={() => startEdit(fact)}>

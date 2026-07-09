@@ -647,6 +647,8 @@ class DatasetImportCounts(BaseModel):
     images: int = Field(description="Number of images created.")
     candidate_pairs: int = Field(description="Number of candidate pairs created.")
     image_pairs: int = Field(description="Number of image pairs created.")
+    helper_images: int = Field(description="Number of helper images created.")
+    fun_facts: int = Field(description="Number of fun facts created.")
 
 
 class DatasetImportResponse(BaseModel):
