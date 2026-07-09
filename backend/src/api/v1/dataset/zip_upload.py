@@ -48,7 +48,7 @@ def _extract_zip_safely(zip_path: Path, dest_dir: Path) -> None:
     status_code=201,
     summary="Bulk Import Dataset From Zip",
     description="""
-Upload a zip archive containing up to 7 optional, semicolon-delimited CSVs (labels.csv, cameras.csv, regions.csv, dives.csv, images.csv, candidates.csv, pairs.csv) plus an images/ folder, and import them in dependency order. Requires the scientist role.
+Upload a zip archive containing up to 9 optional, semicolon-delimited CSVs (labels.csv, cameras.csv, regions.csv, dives.csv, images.csv, candidates.csv, pairs.csv, helper_images.csv, fun_facts.csv) plus images/ and helper_images/ folders, and import them in dependency order. Requires the scientist role.
 
 The whole import is all-or-nothing: any error aborts with nothing persisted and no asset files left behind. On success, returns per-entity created counts - newly minted uuids (from rows using uuid "new") are never echoed back, so reference such rows by title in later rows of the same import.
 
@@ -101,5 +101,7 @@ def zip_upload(request: Request, file: UploadFile = File(...), db: Session = Dep
             images=summary.images,
             candidate_pairs=summary.candidate_pairs,
             image_pairs=summary.image_pairs,
+            helper_images=summary.helper_images,
+            fun_facts=summary.fun_facts,
         )
     )

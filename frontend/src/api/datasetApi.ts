@@ -15,6 +15,8 @@ export interface DatasetImportCounts {
   images: number
   candidate_pairs: number
   image_pairs: number
+  helper_images: number
+  fun_facts: number
 }
 
 /** Scientist/admin only - counts of dives, images, and image pairs in the dataset. */
