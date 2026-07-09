@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.constants import Role
+from src.password_auth.hashing import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
 
 
 class UserSummary(BaseModel):
@@ -54,6 +55,24 @@ class UserCreateRequest(BaseModel):
         description="Ignored. expert_level is read-only and derived from exp; new users always start at 0.",
     )
 
+    password: str | None = Field(
+        default=None,
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=MAX_PASSWORD_LENGTH,
+        description=(
+            "Required when role is scientist or admin; must be omitted (or null) when "
+            "role is annotator, since annotator accounts never have a password."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_password_matches_role(self) -> "UserCreateRequest":
+        if self.role == Role.ANNOTATOR and self.password is not None:
+            raise ValueError("password must not be set for annotator accounts")
+        if self.role != Role.ANNOTATOR and self.password is None:
+            raise ValueError("password is required for scientist and admin accounts")
+        return self
+
 
 class UserUpdateRequest(BaseModel):
     """Request used to partially update an existing user.
@@ -62,6 +81,11 @@ class UserUpdateRequest(BaseModel):
     untouched. Sending an explicit null for username or role is also a no-op,
     since neither column is nullable. expert_level is read-only and derived
     from exp; any value supplied for it is ignored.
+
+    Supplying `password` sets/replaces the stored credential. It is rejected
+    if the account's resulting role (after this update) is annotator, and
+    required if the resulting role is scientist/admin and no credential
+    exists for the account yet (first-time promotion).
     """
 
     model_config = ConfigDict(
@@ -89,4 +113,14 @@ class UserUpdateRequest(BaseModel):
     expert_level: int | None = Field(
         default=None,
         description="Ignored. expert_level is read-only and derived from exp.",
+    )
+
+    password: str | None = Field(
+        default=None,
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=MAX_PASSWORD_LENGTH,
+        description=(
+            "Set a new password. Omit to leave the existing credential untouched. "
+            "Not allowed if the resulting role is annotator."
+        ),
     )
