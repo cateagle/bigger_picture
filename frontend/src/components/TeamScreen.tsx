@@ -29,6 +29,7 @@ export default function TeamScreen({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   user: User
@@ -36,6 +37,7 @@ export default function TeamScreen({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   return (
@@ -49,6 +51,7 @@ export default function TeamScreen({
           onOpenAdmin={onOpenAdmin}
           onOpenStats={onOpenStats}
           onOpenQuests={onOpenQuests}
+          onOpenLeaderboard={onOpenLeaderboard}
           onLogout={onLogout}
         />
       </div>

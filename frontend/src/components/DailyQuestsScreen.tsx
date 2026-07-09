@@ -18,6 +18,7 @@ export default function DailyQuestsScreen({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   user: User
@@ -26,6 +27,7 @@ export default function DailyQuestsScreen({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   const [quests, setQuests] = useState<Quest[] | null>(null)
@@ -68,6 +70,7 @@ export default function DailyQuestsScreen({
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={onLogout}
           />
         </div>

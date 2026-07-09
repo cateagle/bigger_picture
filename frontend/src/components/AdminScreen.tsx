@@ -38,6 +38,7 @@ export default function AdminScreen({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   user: User
@@ -45,6 +46,7 @@ export default function AdminScreen({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   const [tab, setTab] = useState<Tab>('regions')
@@ -62,6 +64,7 @@ export default function AdminScreen({
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={onLogout}
           />
         </div>

@@ -23,6 +23,7 @@ export default function VerifyGame({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   region: Region
@@ -32,6 +33,7 @@ export default function VerifyGame({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
@@ -160,6 +162,7 @@ export default function VerifyGame({
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={onLogout}
           />
         </div>

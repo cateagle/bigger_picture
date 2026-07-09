@@ -68,7 +68,7 @@ export default function RegionSelectScreen({
         onOpenAdmin={onOpenAdmin}
         onOpenStats={onOpenStats}
         onOpenQuests={onOpenQuests}
-        onOpenLeaderboard={{onOpenLeaderboard}}
+        onOpenLeaderboard={onOpenLeaderboard}
         onLogout={onLogout}
       />
 

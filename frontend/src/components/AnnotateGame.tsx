@@ -37,6 +37,7 @@ export default function AnnotateGame({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   region: Region
@@ -46,6 +47,7 @@ export default function AnnotateGame({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   // undefined = still resolving a dive for this region; null = region has no dives yet.
@@ -212,6 +214,7 @@ export default function AnnotateGame({
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={onLogout}
           />
         </div>

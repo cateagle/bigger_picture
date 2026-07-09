@@ -21,6 +21,7 @@ export default function MyStatsScreen({
   onOpenAdmin,
   onOpenStats,
   onOpenQuests,
+  onOpenLeaderboard,
   onLogout,
 }: {
   user: User
@@ -28,6 +29,7 @@ export default function MyStatsScreen({
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
   const [stats, setStats] = useState<MyStats | null>(null)
@@ -51,6 +53,7 @@ export default function MyStatsScreen({
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={onLogout}
           />
         </div>

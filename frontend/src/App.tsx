@@ -91,7 +91,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
   const onOpenAdmin = () => navigate('/admin')
   const onOpenStats = () => navigate('/stats')
   const onOpenQuests = () => navigate('/quests')
-  const onOpenLeaderboard = () => navidate('/leaderboard')
+  const onOpenLeaderboard = () => navigate('/leaderboard')
 
   return (
     <Routes>
@@ -104,6 +104,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={handleLogout}
           />
         }
@@ -117,6 +118,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={handleLogout}
           />
         }
@@ -130,6 +132,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={handleLogout}
           />
         }
@@ -158,7 +161,17 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
             onOpenAdmin={onOpenAdmin}
             onOpenStats={onOpenStats}
             onOpenQuests={onOpenQuests}
+            onOpenLeaderboard={onOpenLeaderboard}
             onLogout={handleLogout}
+          />
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <LeaderboardScreen
+            user={user}
+            onBack={() => navigate('/')}
           />
         }
       />
@@ -198,6 +211,7 @@ function AppRoutes({ user, selectedRegion, setSelectedRegion, refreshUser, onLog
                 onOpenAdmin={onOpenAdmin}
                 onOpenStats={onOpenStats}
                 onOpenQuests={onOpenQuests}
+                onOpenLeaderboard={onOpenLeaderboard}
                 onLogout={handleLogout}
               />
             )}
@@ -258,13 +272,14 @@ interface GameRouteProps {
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenQuests: () => void
+  onOpenLeaderboard: () => void
   onLogout: () => void
 }
 
 /** Dispatches to the right game component based on the `:game` URL segment. */
-function GameRoute({ region, user, onUserRefresh, onBack, onOpenAdmin, onOpenStats, onOpenQuests, onLogout }: GameRouteProps) {
+function GameRoute({ region, user, onUserRefresh, onBack, onOpenAdmin, onOpenStats, onOpenQuests, onOpenLeaderboard, onLogout }: GameRouteProps) {
   const { game } = useParams()
-  const props = { region, user, onUserRefresh, onBack, onOpenAdmin, onOpenStats, onOpenQuests, onLogout }
+  const props = { region, user, onUserRefresh, onBack, onOpenAdmin, onOpenStats, onOpenQuests, onOpenLeaderboard, onLogout }
   if (game === 'overlap') return <OverlapGame {...props} />
   if (game === 'annotate') return <AnnotateGame {...props} />
   if (game === 'verify') return <VerifyGame {...props} />
