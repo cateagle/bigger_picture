@@ -62,7 +62,7 @@ export default function UsersAdmin({ currentUserUuid }: { currentUserUuid: strin
     setSubmitting(true)
     const request = editing
       ? updateUser(editing.uuid, { username, role, expert_level, ...(password ? { password } : {}) })
-      : createUser({ username, role, expert_level, ...(role !== 'annotator' ? { password } : {}) })
+      : createUser({ username, role, expert_level, password })
     request
       .then(() => {
         load()
@@ -135,19 +135,17 @@ export default function UsersAdmin({ currentUserUuid }: { currentUserUuid: strin
             onChange={(e) => setExpertLevel(e.target.value)}
           />
         </label>
-        {role !== 'annotator' && (
-          <label className="admin-form-field">
-            {editing ? 'New password (leave blank to keep existing)' : 'Password'}
-            <input
-              type="password"
-              value={password}
-              required={!editing}
-              minLength={10}
-              maxLength={127}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-        )}
+        <label className="admin-form-field">
+          {editing ? 'New password (leave blank to keep existing)' : 'Password'}
+          <input
+            type="password"
+            value={password}
+            required={!editing}
+            minLength={10}
+            maxLength={127}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </label>
         {formError && <p className="game-status game-status-error">{formError}</p>}
         <div className="admin-form-actions">
           <button type="submit" className="btn btn-primary" disabled={submitting}>

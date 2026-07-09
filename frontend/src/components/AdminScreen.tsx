@@ -51,8 +51,9 @@ export default function AdminScreen({
   onOpenLeaderboard: () => void
   onLogout: () => void
 }) {
-  const [tab, setTab] = useState<Tab>('regions')
   const isAdmin = user.role === 'admin'
+  const isAnnotator = user.role === 'annotator'
+  const [tab, setTab] = useState<Tab>(isAnnotator ? 'password' : 'regions')
 
   return (
     <div className="game-screen">
@@ -71,38 +72,49 @@ export default function AdminScreen({
             onLogout={onLogout}
           />
         </div>
-        <h1>Admin</h1>
-        <p>Manage regions, labels, facts, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>
+        {isAnnotator ? (
+          <>
+            <h1>Password</h1>
+            <p>Set or change the password for your account.</p>
+          </>
+        ) : (
+          <>
+            <h1>Admin</h1>
+            <p>Manage regions, labels, facts, the dataset, and bulk imports{isAdmin ? ', and users' : ''}.</p>
+          </>
+        )}
       </header>
 
-      <div className="admin-tab-bar">
-        <button type="button" className={`btn${tab === 'regions' ? ' btn-primary' : ''}`} onClick={() => setTab('regions')}>
-          Regions
-        </button>
-        <button type="button" className={`btn${tab === 'labels' ? ' btn-primary' : ''}`} onClick={() => setTab('labels')}>
-          Labels
-        </button>
-        <button type="button" className={`btn${tab === 'facts' ? ' btn-primary' : ''}`} onClick={() => setTab('facts')}>
-          Facts
-        </button>
-        <button type="button" className={`btn${tab === 'dataset' ? ' btn-primary' : ''}`} onClick={() => setTab('dataset')}>
-          Dataset
-        </button>
-        <button type="button" className={`btn${tab === 'import' ? ' btn-primary' : ''}`} onClick={() => setTab('import')}>
-          Bulk Import
-        </button>
-        {isAdmin && (
-          <button type="button" className={`btn${tab === 'users' ? ' btn-primary' : ''}`} onClick={() => setTab('users')}>
-            Users
+      {!isAnnotator && (
+        <div className="admin-tab-bar">
+          <button type="button" className={`btn${tab === 'regions' ? ' btn-primary' : ''}`} onClick={() => setTab('regions')}>
+            Regions
           </button>
-        )}
-        <button type="button" className={`btn${tab === 'password' ? ' btn-primary' : ''}`} onClick={() => setTab('password')}>
-          Password
-        </button>
-      </div>
+          <button type="button" className={`btn${tab === 'labels' ? ' btn-primary' : ''}`} onClick={() => setTab('labels')}>
+            Labels
+          </button>
+          <button type="button" className={`btn${tab === 'facts' ? ' btn-primary' : ''}`} onClick={() => setTab('facts')}>
+            Facts
+          </button>
+          <button type="button" className={`btn${tab === 'dataset' ? ' btn-primary' : ''}`} onClick={() => setTab('dataset')}>
+            Dataset
+          </button>
+          <button type="button" className={`btn${tab === 'import' ? ' btn-primary' : ''}`} onClick={() => setTab('import')}>
+            Bulk Import
+          </button>
+          {isAdmin && (
+            <button type="button" className={`btn${tab === 'users' ? ' btn-primary' : ''}`} onClick={() => setTab('users')}>
+              Users
+            </button>
+          )}
+          <button type="button" className={`btn${tab === 'password' ? ' btn-primary' : ''}`} onClick={() => setTab('password')}>
+            Password
+          </button>
+        </div>
+      )}
 
-      {tab === 'regions' && <RegionsAdmin />}
-      {tab === 'labels' && (
+      {tab === 'regions' && !isAnnotator && <RegionsAdmin />}
+      {tab === 'labels' && !isAnnotator && (
         <SimpleEntityAdmin
           entityName="Labels"
           fields={LABEL_FIELDS}
@@ -111,9 +123,9 @@ export default function AdminScreen({
           update={updateLabelAdapter}
         />
       )}
-      {tab === 'facts' && <FunFactsAdmin />}
-      {tab === 'dataset' && <DatasetAdmin />}
-      {tab === 'import' && <ZipUploadAdmin />}
+      {tab === 'facts' && !isAnnotator && <FunFactsAdmin />}
+      {tab === 'dataset' && !isAnnotator && <DatasetAdmin />}
+      {tab === 'import' && !isAnnotator && <ZipUploadAdmin />}
       {tab === 'users' && isAdmin && <UsersAdmin currentUserUuid={user.uuid} />}
       {tab === 'password' && <PasswordSettings />}
     </div>

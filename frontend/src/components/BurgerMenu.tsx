@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 
 /** Account-bar overflow menu: Admin (if applicable), My Stats, Community Stats, Leaderboard, Log out. */
 export default function BurgerMenu({
-  showAdmin,
+  adminLabel,
   onOpenAdmin,
   onOpenStats,
   onOpenCommunityStats,
   onOpenLeaderboard,
   onLogout,
 }: {
-  showAdmin: boolean
+  adminLabel: string
   onOpenAdmin: () => void
   onOpenStats: () => void
   onOpenCommunityStats: () => void
@@ -51,11 +51,9 @@ export default function BurgerMenu({
       </button>
       {open && (
         <div className="burger-menu-dropdown" role="menu">
-          {showAdmin && (
-            <button type="button" role="menuitem" onClick={runAndClose(onOpenAdmin)}>
-              Admin
-            </button>
-          )}
+          <button type="button" role="menuitem" onClick={runAndClose(onOpenAdmin)}>
+            {adminLabel}
+          </button>
           <button type="button" role="menuitem" onClick={runAndClose(onOpenStats)}>
             My Stats
           </button>
